@@ -68,6 +68,59 @@ async function readLabelledRow(page: Page, label: string): Promise<{ text: strin
   return { text, href };
 }
 
+async function readEventSummary(page: Page): Promise<{ app_version: string; os_version: string; model: string; date: string }> {
+  return await page.evaluate(() => {
+    function getText(root: Document | ShadowRoot, selector: string): string {
+      const el = root.querySelector(selector);
+      if (el) return el.textContent?.trim() ?? '';
+      for (const node of Array.from(root.querySelectorAll('*'))) {
+        if ((node as Element).shadowRoot) {
+          const found = getText((node as Element).shadowRoot!, selector);
+          if (found) return found;
+        }
+      }
+      return '';
+    }
+
+    return {
+      app_version: getText(document, '.session-build-version .header-item-text'),
+      os_version:  getText(document, '.session-os .header-item-text'),
+      model:       getText(document, '.session-device .header-item-text'),
+      date:        getText(document, '.session-time .header-item-text'),
+    };
+  });
+}
+
+async function readDataLineItem(page: Page, labelText: string): Promise<{ text: string; href: string }> {
+  const result = await page.evaluate((label) => {
+    function search(root: Document | ShadowRoot): { text: string; href: string } | null {
+      const items = root.querySelectorAll('.data-line-item');
+      for (const item of Array.from(items)) {
+        const lbl = item.querySelector('label');
+        if (lbl?.textContent?.trim().replace(/:$/, '') === label) {
+          const span = item.querySelector('.data-value');
+          const anchor = item.querySelector('a');
+          return {
+            text: span?.textContent?.trim() ?? '',
+            href: anchor?.href ?? ''
+          };
+        }
+      }
+      // recurse into shadow roots
+      for (const el of Array.from(root.querySelectorAll('*'))) {
+        if ((el as Element).shadowRoot) {
+          const found = search((el as Element).shadowRoot!);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+    return search(document);
+  }, labelText);
+
+  return result ?? { text: '', href: '' };
+}
+
 /** Parse "Event summary" string into its components */
 function parseEventSummary(summary: string): {
   app_version: string;
@@ -120,44 +173,38 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   console.log('✅ Issue opened');
 
   // ── Step 3: Open Data tab ─────────────────────────────────────────────────
-  const dataTab = page.locator('a, button, [role="tab"]').filter({ hasText: /^Data$/i }).first();
-  await expect(dataTab).toBeVisible({ timeout: 10_000 });
-  await dataTab.click();
+  await page.getByRole('tab', { name: 'Data', exact: true }).click();
   await waitForStable(page);
   console.log('📂 Data tab opened');
 
   // Read ID row (with link)
-  const idRow = await readLabelledRow(page, 'ID');
-  const identification = idRow.text;
-  const identification_link = idRow.href
-    ? (idRow.href.startsWith('http') ? idRow.href : `https://console.firebase.google.com${idRow.href}`)
-    : '';
+  await page.waitForSelector('.data-line-item', { timeout: 5_000 });
+
+  const idRow = await readDataLineItem(page, 'ID');
+  const identification_link = idRow.text; // full URL
+  const identification_id = identification_link.split('/').pop() ?? identification_link;
+  console.log('Got ID:', identification_link);
 
   // Read Event summary row
-  const eventSummaryRow = await readLabelledRow(page, 'Event summary');
-  const rawSummary = eventSummaryRow.text;
-  const { app_version, os_version: rawOs, model, date } = parseEventSummary(rawSummary);
-
+  const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
   const os_version = cleanOsVersion(rawOs);
   const os_major_version = extractOsMajorVersion(os_version);
 
-  console.log(`   ID:          ${identification}`);
+  console.log(`   ID:          ${identification_link}`);
   console.log(`   App version: ${app_version}`);
   console.log(`   OS version:  ${os_version}`);
   console.log(`   Model:       ${model}`);
   console.log(`   Date:        ${date}`);
 
   // ── Step 4: Build session key and check if already processed ──────────────
-  const session_key = buildSessionKey(identification, date);
+  const session_key = buildSessionKey(identification_id, date);
   if (sessionExists(existingRecords, session_key)) {
     console.log(`⏭️  Session already processed (key: ${session_key}). Skipping.`);
     return;
   }
 
   // ── Step 5: Open Keys tab ─────────────────────────────────────────────────
-  const keysTab = page.locator('a, button, [role="tab"]').filter({ hasText: /^Keys$/i }).first();
-  await expect(keysTab).toBeVisible({ timeout: 10_000 });
-  await keysTab.click();
+  await page.getByRole('tab', { name: 'Keys', exact: true }).click();
   await waitForStable(page);
   console.log('🔑 Keys tab opened');
 
@@ -171,14 +218,12 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   console.log(`   STATUS: ${status}`);
 
   // ── Step 6: Download logs ─────────────────────────────────────────────────
-  const logsTab = page.locator('a, button, [role="tab"]').filter({ hasText: /Logs|Breadcrumbs/i }).first();
-  await expect(logsTab).toBeVisible({ timeout: 10_000 });
-  await logsTab.click();
+  await page.getByRole('tab', { name: 'Logs & Breadcrumbs', exact: true }).click();
   await waitForStable(page);
   console.log('📜 Logs & Breadcrumbs tab opened');
 
   // Build a safe filename: sanitise identification + date
-  const safeName = `${identification}_${date}`.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+  const safeName = `${identification_id}_${date}`.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
   const logFilename = `${safeName}.log`;
   const logFilePath = path.join(LOGS_DIR, logFilename);
 
@@ -201,7 +246,6 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   // ── Step 7: Build and save the record ─────────────────────────────────────
   const record: IssueRecord = {
     session_key,
-    identification,
     identification_link,
     app_version,
     os_version,
