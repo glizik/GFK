@@ -44,6 +44,7 @@ const QUERY_PARAMS = new URLSearchParams({
   types: process.env.ISSUE_TYPES ?? 'error',
   issuesQuery: process.env.ISSUE_QUERY ?? 'FaceKom',
 });
+const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? './data/Downloads';
 
 const FULL_URL = `${BASE_URL}?${QUERY_PARAMS.toString()}`;
 
@@ -51,21 +52,13 @@ const FULL_URL = `${BASE_URL}?${QUERY_PARAMS.toString()}`;
 
 /** Wait for navigation and basic page stability */
 async function waitForStable(page: Page) {
-  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
 }
 
-/** Read text from a labelled row in the Data or Keys tab */
-async function readLabelledRow(page: Page, label: string): Promise<{ text: string; href: string | null }> {
-  // Crashlytics uses a definition-list style: label in one cell, value in next
-  const labelEl = page.locator(`td, th, .metadata-key, [class*="label"]`).filter({ hasText: new RegExp(`^${label}$`, 'i') }).first();
-  await expect(labelEl).toBeVisible({ timeout: 15_000 });
-
-  // The value is typically the next sibling cell or a nearby element
-  const valueEl = labelEl.locator('..').locator('td, .metadata-value, [class*="value"]').last();
-  const text = (await valueEl.innerText()).trim();
-  const anchor = valueEl.locator('a').first();
-  const href = await anchor.getAttribute('href').catch(() => null);
-  return { text, href };
+async function readKeyValue(page: Page, keyName: string): Promise<string> {
+  const row = page.locator('tr').filter({ has: page.locator('td').filter({ hasText: new RegExp(`^\\s*${keyName}\\s*$`) }) });
+  const valueCell = row.locator('td').nth(1);
+  return (await valueCell.innerText({ timeout: 10_000 })).trim();
 }
 
 async function readEventSummary(page: Page): Promise<{ app_version: string; os_version: string; model: string; date: string }> {
@@ -139,6 +132,28 @@ function parseEventSummary(summary: string): {
   };
 }
 
+async function scrapeLogEntries(page: Page): Promise<string> {
+  return await page.evaluate(() => {
+    function scrape(root: Document | ShadowRoot): string[] {
+      const rows = Array.from(root.querySelectorAll('tr.data-row, tbody tr'));
+      if (rows.length > 0) {
+        return rows.map(row => {
+          const cells = Array.from(row.querySelectorAll('td'));
+          return cells.map(c => c.textContent?.trim() ?? '').join('\t');
+        }).filter(r => r.trim());
+      }
+      for (const el of Array.from(root.querySelectorAll('*'))) {
+        if ((el as Element).shadowRoot) {
+          const found = scrape((el as Element).shadowRoot!);
+          if (found.length > 0) return found;
+        }
+      }
+      return [];
+    }
+    return scrape(document).join('\n');
+  });
+}
+
 // ── Main test ─────────────────────────────────────────────────────────────────
 
 test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
@@ -205,43 +220,46 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
 
   // ── Step 5: Open Keys tab ─────────────────────────────────────────────────
   await page.getByRole('tab', { name: 'Keys', exact: true }).click();
+  await page.waitForTimeout(1000);
   await waitForStable(page);
   console.log('🔑 Keys tab opened');
 
-  const sourceRow = await readLabelledRow(page, 'SOURCE');
-  const source = sourceRow.text;
+  const source        = await readKeyValue(page, 'SOURCE');
+  const status        = await readKeyValue(page, 'STATUS');
+  const configuration = await readKeyValue(page, 'CONFIGURATION');
+  const nserrorCode   = await readKeyValue(page, 'nserror-code');
+  const nserrorDomain = await readKeyValue(page, 'nserror-domain');
 
-  const statusRow = await readLabelledRow(page, 'STATUS');
-  const status = statusRow.text;
-
-  console.log(`   SOURCE: ${source}`);
-  console.log(`   STATUS: ${status}`);
+  console.log(`   SOURCE:        ${source}`);
+  console.log(`   STATUS:        ${status}`);
+  console.log(`   CONFIGURATION: ${configuration}`);
+  console.log(`   nserror-code:  ${nserrorCode}`);
+  console.log(`   nserror-domain:${nserrorDomain}`);
 
   // ── Step 6: Download logs ─────────────────────────────────────────────────
   await page.getByRole('tab', { name: 'Logs & Breadcrumbs', exact: true }).click();
   await waitForStable(page);
   console.log('📜 Logs & Breadcrumbs tab opened');
 
-  // Build a safe filename: sanitise identification + date
-  const safeName = `${identification_id}_${date}`.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
-  const logFilename = `${safeName}.log`;
-  const logFilePath = path.join(LOGS_DIR, logFilename);
+  const client = await page.context().newCDPSession(page);
 
-  const downloadBtn = page.locator('button, a').filter({ hasText: /Download logs/i }).first();
-  const btnVisible = await downloadBtn.isVisible().catch(() => false);
+  // Enable fetch interception at CDP level
+  await client.send('Fetch.enable', {
+    patterns: [{ urlPattern: 'blob:*', requestStage: 'Request' }],
+  });
 
-  if (btnVisible) {
-    const [download] = await Promise.all([
-      context.waitForEvent('download'),
-      downloadBtn.click(),
-    ]);
-    await download.saveAs(logFilePath);
-    console.log(`💾 Log saved: ${logFilePath}`);
-  } else {
-    console.warn('⚠️  Download logs button not found – log_filename will be empty');
-    fs.writeFileSync(logFilePath, '(no log available)\n');
-    console.log(`📝 Placeholder log created: ${logFilePath}`);
-  }
+  client.on('Fetch.requestPaused', async (event) => {
+    console.log('🎯 Blob intercepted:', event.request.url);
+    await client.send('Fetch.continueRequest', { requestId: event.requestId });
+  });
+
+  await page.locator('button').filter({ hasText: /download logs/i }).first().click();
+  await page.waitForTimeout(5000);
+  const logContent = await scrapeLogEntries(page);
+  const logFilename = `${identification_id}_${date.replace(/[/:, ]/g, '_')}.log`;
+  fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+  fs.writeFileSync(`${DOWNLOADS_DIR}/${logFilename}`, logContent);
+  console.log(`📥 Log saved: ${logFilename}`);
 
   // ── Step 7: Build and save the record ─────────────────────────────────────
   const record: IssueRecord = {
