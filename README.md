@@ -60,6 +60,10 @@ Every run:
 
 ---
 
+### 3. Cleanup
+node utils/cleanup-unknown.js
+
+
 ## Session deduplication
 
 A **session** is identified by the composite key:
