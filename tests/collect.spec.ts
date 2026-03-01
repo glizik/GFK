@@ -281,7 +281,7 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
 
     // ── Navigate to next event or stop ─────────────────────────────────────
     const prevBtn = page.locator('button[aria-label="Previous event"]');
-    await prevBtn.waitFor({ timeout: 1_000 });
+    await prevBtn.waitFor({ timeout: 2_000 });
     const isDisabled = await prevBtn.getAttribute('disabled');
     if (isDisabled !== null) {
       console.log(`\n🏁 Reached last event after ${eventIndex} events. Done!`);
