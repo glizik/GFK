@@ -147,3 +147,15 @@ export function buildSessionKey(identification: string, date: string): string {
   // Use a simple hash-like combo; both fields together identify a unique session
   return `${identification}__${date}`;
 }
+
+export function writeCsv(filePath: string, records: IssueRecord[]): void {
+  if (records.length === 0) return;
+  const header = DEFAULT_HEADERS.join(',');
+  const rows = records.map(r =>
+    DEFAULT_HEADERS.map(h => {
+      const val = String(r[h] ?? '');
+      return val.includes(',') || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+    }).join(',')
+  );
+  fs.writeFileSync(filePath, [header, ...rows].join('\n') + '\n');
+}
