@@ -114,24 +114,6 @@ async function readDataLineItem(page: Page, labelText: string): Promise<{ text: 
   return result ?? { text: '', href: '' };
 }
 
-/** Parse "Event summary" string into its components */
-function parseEventSummary(summary: string): {
-  app_version: string;
-  os_version: string;
-  model: string;
-  date: string;
-} {
-  // Example: "3.6.1 (2662)  iosiOS 16.4.1  iPhone 14 Pro  Jan 15, 2024, 10:23:00 AM"
-  // Fields are separated by 2+ spaces or tab characters
-  const parts = summary.split(/\s{2,}|\t/).map(s => s.trim()).filter(Boolean);
-  return {
-    app_version: parts[0] ?? '',
-    os_version: parts[1] ?? '',
-    model: parts[2] ?? '',
-    date: parts.slice(3).join(' ') ?? '',
-  };
-}
-
 async function scrapeLogEntries(page: Page): Promise<string> {
   return await page.evaluate(() => {
     function scrape(root: Document | ShadowRoot): string[] {
@@ -211,6 +193,8 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   console.log(`   Model:       ${model}`);
   console.log(`   Date:        ${date}`);
 
+  const user_id = identification_link.split('/').pop() ?? ''
+
   // ── Step 4: Build session key and check if already processed ──────────────
   const session_key = buildSessionKey(identification_id, date);
   if (sessionExists(existingRecords, session_key)) {
@@ -241,8 +225,20 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   await waitForStable(page);
   console.log('📜 Logs & Breadcrumbs tab opened');
 
+  const messageCell = page.locator('td.mat-column-message div').filter({ hasText: /FaceKom finished with type:/ }).first();
+  const closeTypeText = await messageCell.innerText({ timeout: 10_000 });
+  const closeTypeMatch = closeTypeText.match(/FaceKom finished with type:\s*(\w+)/);
+  const close_type = closeTypeMatch ? closeTypeMatch[1] : 'unknown';
+  console.log(`   Close type: ${close_type}`);
+
   const client = await page.context().newCDPSession(page);
 
+  const reasonCell = page.locator('td.mat-column-message div').filter({ hasText: /reason\s*=/ }).first();
+  const reasonText = await reasonCell.innerText({ timeout: 10_000 }).catch(() => '');
+  const reasonMatch = reasonText.match(/reason\s*=\s*"([^"]+)"/);
+  const reason = reasonMatch ? reasonMatch[1] : '';
+  console.log(`   Reason: ${reason}`);
+  
   // Enable fetch interception at CDP level
   await client.send('Fetch.enable', {
     patterns: [{ urlPattern: 'blob:*', requestStage: 'Request' }],
@@ -265,6 +261,8 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   const record: IssueRecord = {
     session_key,
     identification_link,
+    user_id,
+    close_type,
     app_version,
     os_version,
     os_major_version,
@@ -272,10 +270,14 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
     date,
     source,
     status,
+    configuration,
+    nserrorCode,
+    nserrorDomain,
     log_filename: logFilename,
+    reason,
     issue_type: ISSUE_TYPE,
     collected_at: new Date().toISOString(),
-    is_error: true,
+    notes: "",
   };
 
   appendCsv(CSV_PATH, record);

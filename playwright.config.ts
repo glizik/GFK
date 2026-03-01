@@ -10,13 +10,11 @@ export default defineConfig({
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     headless: process.env.HEADLESS === 'true',
-    slowMo: Number(process.env.SLOW_MO ?? 5),
     storageState: 'auth/session.json',
     video: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    screenshot: 'on',
     viewport: { width: 1920, height: 1080 },
     acceptDownloads: true,
-    downloadsPath: './data/downloads',
   },
   projects: [
     {

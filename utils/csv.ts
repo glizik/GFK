@@ -6,31 +6,37 @@ export interface IssueRecord {
   session_key: string;
 
   // Data tab
-  identification: string;         // ID value (e.g. user/device id)
-  identification_link: string;    // Href from the ID link
+  identification_link: string;    // ID link
+  user_id: string;                // uuid
+  close_type: string;             // CloseType enum [approve, reject, close]
   app_version: string;
   os_version: string;             // Cleaned: "iOS 16.1" not "iosiOS 16.1"
-  model: string;
+  model: string;                  // iPhone
   date: string;                   // ISO-ish date string from crashlytics
 
   // Keys tab
   source: string;
   status: string;
+  configuration: string;
+  nserrorCode: string;
+  nserrorDomain: string;
 
   // Log file
   log_filename: string;           // Renamed log file path relative to logs dir
+  reason: string;                 // e.g. incomplete-hologram-video
 
   // Derived / visualisation helpers
   os_major_version: string;       // e.g. "16" from "iOS 16.1"
   issue_type: string;             // e.g. "FaceKom handleFlow(0)"
   collected_at: string;           // ISO timestamp when this row was collected
-  is_error: boolean;              // always true for error-type issues
+  notes: string;                  // notes
 }
 
 const DEFAULT_HEADERS: (keyof IssueRecord)[] = [
   'session_key',
-  'identification',
   'identification_link',
+  'user_id',
+  'close_type',
   'app_version',
   'os_version',
   'os_major_version',
@@ -38,10 +44,14 @@ const DEFAULT_HEADERS: (keyof IssueRecord)[] = [
   'date',
   'source',
   'status',
+  'configuration',
+  'nserrorCode',
+  'nserrorDomain',
   'log_filename',
+  'reason',
   'issue_type',
   'collected_at',
-  'is_error',
+  'notes',
 ];
 
 export function ensureDirExists(filePath: string) {

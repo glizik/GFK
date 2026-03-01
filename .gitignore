@@ -2,3 +2,5 @@ node_modules
 logs
 playwright-report
 session.json
+.last-run.json
+test-results
