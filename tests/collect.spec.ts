@@ -44,7 +44,7 @@ const QUERY_PARAMS = new URLSearchParams({
   types: process.env.ISSUE_TYPES ?? 'error',
   issuesQuery: process.env.ISSUE_QUERY ?? 'FaceKom',
 });
-const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? './data/Downloads';
+// const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? './data/Downloads'; // TODO, downloading is currently not working
 
 const FULL_URL = `${BASE_URL}?${QUERY_PARAMS.toString()}`;
 
@@ -52,13 +52,13 @@ const FULL_URL = `${BASE_URL}?${QUERY_PARAMS.toString()}`;
 
 /** Wait for navigation and basic page stability */
 async function waitForStable(page: Page) {
-  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
 }
 
 async function readKeyValue(page: Page, keyName: string): Promise<string> {
   const row = page.locator('tr').filter({ has: page.locator('td').filter({ hasText: new RegExp(`^\\s*${keyName}\\s*$`) }) });
   const valueCell = row.locator('td').nth(1);
-  return (await valueCell.innerText({ timeout: 10_000 })).trim();
+  return (await valueCell.innerText({ timeout: 5_000 })).trim();
 }
 
 async function readEventSummary(page: Page): Promise<{ app_version: string; os_version: string; model: string; date: string }> {
@@ -158,7 +158,7 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
 
   // ── Step 2: Find the matching issue row ───────────────────────────────────
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(3000); // give Angular time to render
+  await page.waitForTimeout(2000); // give Angular time to render
 
   console.log(`🔍 Looking for issue: "${ISSUE_TYPE}"`);
           
@@ -169,122 +169,126 @@ test('Collect Crashlytics FaceKom issues', async ({ page, context }) => {
   await waitForStable(page);
   console.log('✅ Issue opened');
 
-  // ── Step 3: Open Data tab ─────────────────────────────────────────────────
-  await page.getByRole('tab', { name: 'Data', exact: true }).click();
-  await waitForStable(page);
-  console.log('📂 Data tab opened');
+  const COLLECT_LIMIT = parseInt(process.env.COLLECT_LIMIT ?? '0');
 
-  // Read ID row (with link)
-  await page.waitForSelector('.data-line-item', { timeout: 5_000 });
+  let eventIndex = 0;
 
-  const idRow = await readDataLineItem(page, 'ID');
-  const identification_link = idRow.text; // full URL
-  const identification_id = identification_link.split('/').pop() ?? identification_link;
-  console.log('Got ID:', identification_link);
+  // ── Main loop: iterate through all events ─────────────────────────────────
+  while (true) {
+    eventIndex++;
+    console.log(`\n📄 Processing event #${eventIndex}`);
 
-  // Read Event summary row
-  const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
-  const os_version = cleanOsVersion(rawOs);
-  const os_major_version = extractOsMajorVersion(os_version);
+    // ── Step 3: Open Data tab ───────────────────────────────────────────────
+    await page.getByRole('tab', { name: 'Data', exact: true }).click();
+    await waitForStable(page);
+    await page.waitForSelector('.data-line-item', { timeout: 3_000 });
 
-  console.log(`   ID:          ${identification_link}`);
-  console.log(`   App version: ${app_version}`);
-  console.log(`   OS version:  ${os_version}`);
-  console.log(`   Model:       ${model}`);
-  console.log(`   Date:        ${date}`);
+    const idRow = await readDataLineItem(page, 'ID');
+    const identification_link = idRow.text;
+    const identification_id = identification_link.split('/').pop() ?? identification_link;
+    const user_id = identification_id;
 
-  const user_id = identification_link.split('/').pop() ?? ''
+    const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
+    const os_version = cleanOsVersion(rawOs);
+    const os_major_version = extractOsMajorVersion(os_version);
 
-  // ── Step 4: Build session key and check if already processed ──────────────
-  const session_key = buildSessionKey(identification_id, date);
-  if (sessionExists(existingRecords, session_key)) {
-    console.log(`⏭️  Session already processed (key: ${session_key}). Skipping.`);
-    return;
+    console.log(`   ID:          ${identification_link}`);
+    console.log(`   App version: ${app_version}`);
+    console.log(`   OS version:  ${os_version}`);
+    console.log(`   Model:       ${model}`);
+    console.log(`   Date:        ${date}`);
+
+    // ── Step 4: Check duplicate ─────────────────────────────────────────────
+    const session_key = buildSessionKey(identification_id, date);
+    if (sessionExists(existingRecords, session_key)) {
+      console.log(`⏭️  Already processed (key: ${session_key}). Skipping.`);
+    } else {
+
+      // ── Step 5: Keys tab ───────────────────────────────────────────────────
+      await page.getByRole('tab', { name: 'Keys', exact: true }).click();
+      await page.waitForTimeout(800);
+      await waitForStable(page);
+
+      const source        = await readKeyValue(page, 'SOURCE');
+      const status        = await readKeyValue(page, 'STATUS');
+      const configuration = await readKeyValue(page, 'CONFIGURATION');
+      const nserrorCode   = await readKeyValue(page, 'nserror-code');
+      const nserrorDomain = await readKeyValue(page, 'nserror-domain');
+
+      console.log(`   SOURCE: ${source}`);
+      console.log(`   STATUS: ${status}`);
+      console.log(`   CONFIGURATION: ${configuration}`);
+      console.log(`   nserror-code: ${nserrorCode}`);
+      console.log(`   nserror-domain: ${nserrorDomain}`);
+
+      // ── Step 6: Logs tab ───────────────────────────────────────────────────
+      await page.getByRole('tab', { name: 'Logs & Breadcrumbs', exact: true }).click();
+      await waitForStable(page);
+
+      const messageCell = page.locator('td.mat-column-message div').filter({ hasText: /FaceKom finished with type:/ }).first();
+      const closeTypeText = await messageCell.innerText({ timeout: 5_000 }).catch(() => '');
+      const closeTypeMatch = closeTypeText.match(/FaceKom finished with type:\s*(\w+)/);
+      const close_type = closeTypeMatch ? closeTypeMatch[1] : 'unknown';
+
+      const reasonCell = page.locator('td.mat-column-message div').filter({ hasText: /reason\s*=/ }).first();
+      const reasonText = await reasonCell.innerText({ timeout: 5_000 }).catch(() => '');
+      const reasonMatch = reasonText.match(/reason\s*=\s*"([^"]+)"/);
+      const reason = reasonMatch ? reasonMatch[1] : '';
+
+      console.log(`   Close type: ${close_type}`);
+      console.log(`   Reason: ${reason}`);
+
+      // Scrape visible log entries and save to file
+      const logContent = await scrapeLogEntries(page);
+      const logFilename = `${identification_id}_${date.replace(/[/:, ]/g, '_')}.log`;
+      fs.mkdirSync(LOGS_DIR, { recursive: true });
+      fs.writeFileSync(path.join(LOGS_DIR, logFilename), logContent);
+      console.log(`📥 Log saved: ${logFilename} (${logContent.split('\n').length} lines)`);
+
+      // ── Step 7: Save record ────────────────────────────────────────────────
+      const record: IssueRecord = {
+        session_key,
+        identification_link,
+        user_id,
+        close_type,
+        app_version,
+        os_version,
+        os_major_version,
+        model,
+        date,
+        source,
+        status,
+        configuration,
+        nserrorCode,
+        nserrorDomain,
+        log_filename: logFilename,
+        reason,
+        issue_type: ISSUE_TYPE,
+        collected_at: new Date().toISOString(),
+        notes: '',
+      };
+
+      appendCsv(CSV_PATH, record);
+      // Also add to in-memory list so we skip it if we somehow encounter it again
+      existingRecords.push(record);
+      console.log(`✅ Saved: ${session_key}`);
+
+      if (COLLECT_LIMIT > 0 && eventIndex >= COLLECT_LIMIT) {
+        console.log(`\n🛑 Limit of ${COLLECT_LIMIT} events reached. Stopping.`);
+        break;
+      }
+    }
+
+    // ── Navigate to next event or stop ─────────────────────────────────────
+    const prevBtn = page.locator('button[aria-label="Previous event"]');
+    await prevBtn.waitFor({ timeout: 1_000 });
+    const isDisabled = await prevBtn.getAttribute('disabled');
+    if (isDisabled !== null) {
+      console.log(`\n🏁 Reached last event after ${eventIndex} events. Done!`);
+      break;
+    }
+
+    await prevBtn.click();
+    await waitForStable(page);
   }
-
-  // ── Step 5: Open Keys tab ─────────────────────────────────────────────────
-  await page.getByRole('tab', { name: 'Keys', exact: true }).click();
-  await page.waitForTimeout(1000);
-  await waitForStable(page);
-  console.log('🔑 Keys tab opened');
-
-  const source        = await readKeyValue(page, 'SOURCE');
-  const status        = await readKeyValue(page, 'STATUS');
-  const configuration = await readKeyValue(page, 'CONFIGURATION');
-  const nserrorCode   = await readKeyValue(page, 'nserror-code');
-  const nserrorDomain = await readKeyValue(page, 'nserror-domain');
-
-  console.log(`   SOURCE:        ${source}`);
-  console.log(`   STATUS:        ${status}`);
-  console.log(`   CONFIGURATION: ${configuration}`);
-  console.log(`   nserror-code:  ${nserrorCode}`);
-  console.log(`   nserror-domain:${nserrorDomain}`);
-
-  // ── Step 6: Download logs ─────────────────────────────────────────────────
-  await page.getByRole('tab', { name: 'Logs & Breadcrumbs', exact: true }).click();
-  await waitForStable(page);
-  console.log('📜 Logs & Breadcrumbs tab opened');
-
-  const messageCell = page.locator('td.mat-column-message div').filter({ hasText: /FaceKom finished with type:/ }).first();
-  const closeTypeText = await messageCell.innerText({ timeout: 10_000 });
-  const closeTypeMatch = closeTypeText.match(/FaceKom finished with type:\s*(\w+)/);
-  const close_type = closeTypeMatch ? closeTypeMatch[1] : 'unknown';
-  console.log(`   Close type: ${close_type}`);
-
-  const client = await page.context().newCDPSession(page);
-
-  const reasonCell = page.locator('td.mat-column-message div').filter({ hasText: /reason\s*=/ }).first();
-  const reasonText = await reasonCell.innerText({ timeout: 10_000 }).catch(() => '');
-  const reasonMatch = reasonText.match(/reason\s*=\s*"([^"]+)"/);
-  const reason = reasonMatch ? reasonMatch[1] : '';
-  console.log(`   Reason: ${reason}`);
-  
-  // Enable fetch interception at CDP level
-  await client.send('Fetch.enable', {
-    patterns: [{ urlPattern: 'blob:*', requestStage: 'Request' }],
-  });
-
-  client.on('Fetch.requestPaused', async (event) => {
-    console.log('🎯 Blob intercepted:', event.request.url);
-    await client.send('Fetch.continueRequest', { requestId: event.requestId });
-  });
-
-  await page.locator('button').filter({ hasText: /download logs/i }).first().click();
-  await page.waitForTimeout(5000);
-  const logContent = await scrapeLogEntries(page);
-  const logFilename = `${identification_id}_${date.replace(/[/:, ]/g, '_')}.log`;
-  fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
-  fs.writeFileSync(`${DOWNLOADS_DIR}/${logFilename}`, logContent);
-  console.log(`📥 Log saved: ${logFilename}`);
-
-  // ── Step 7: Build and save the record ─────────────────────────────────────
-  const record: IssueRecord = {
-    session_key,
-    identification_link,
-    user_id,
-    close_type,
-    app_version,
-    os_version,
-    os_major_version,
-    model,
-    date,
-    source,
-    status,
-    configuration,
-    nserrorCode,
-    nserrorDomain,
-    log_filename: logFilename,
-    reason,
-    issue_type: ISSUE_TYPE,
-    collected_at: new Date().toISOString(),
-    notes: "",
-  };
-
-  appendCsv(CSV_PATH, record);
-  console.log(`✅ Record saved to CSV: ${CSV_PATH}`);
-  console.log(`   session_key: ${session_key}`);
 });
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

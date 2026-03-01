@@ -4,7 +4,7 @@ dotenv.config();
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 320_000,
+  timeout: 10 * 60 * 60 * 1000,
   retries: 0,
   workers: 1,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
