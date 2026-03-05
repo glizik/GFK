@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "GFK - Firebase Crashlytics issue collector and visualiser",
   "scripts": {
+    "setup": "npx ts-node --project tsconfig.json auth/setup.ts",
     "collect": "npx playwright test tests/collect.spec.ts",
     "collect:headless": "HEADLESS=true npx playwright test tests/collect.spec.ts",
     "test": "npx playwright test"
