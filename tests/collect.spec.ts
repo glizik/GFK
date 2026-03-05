@@ -56,9 +56,13 @@ async function waitForStable(page: Page) {
 }
 
 async function readKeyValue(page: Page, keyName: string): Promise<string> {
-  const row = page.locator('tr').filter({ has: page.locator('td').filter({ hasText: new RegExp(`^\\s*${keyName}\\s*$`) }) });
-  const valueCell = row.locator('td').nth(1);
-  return (await valueCell.innerText({ timeout: 5_000 })).trim();
+  try {
+    const row = page.locator('tr').filter({ has: page.locator('td').filter({ hasText: new RegExp(`^\\s*${keyName}\\s*$`) }) });
+    const valueCell = row.locator('td').nth(1);
+    return (await valueCell.innerText({ timeout: 5_000 })).trim();
+  } catch {
+    return 'unknown';
+  }
 }
 
 async function readEventSummary(page: Page): Promise<{ app_version: string; os_version: string; model: string; date: string }> {

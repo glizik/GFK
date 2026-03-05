@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaceKom Flow Analysis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #07070d;
+    --surface: #0f0f18;
+    --surface2: #171724;
+    --border: #252535;
+    --approve: #00c896;
+    --reject: #ff4d6d;
+    --unknown: #666680;
+    --warn: #ffb347;
+    --text: #e0e0f0;
+    --muted: #555570;
+    --accent: #00e5ff;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 20% 20%, rgba(0,229,255,0.03) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 80%, rgba(0,200,150,0.03) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  header {
+    padding: 1.5rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    position: relative; z-index: 1;
+  }
+
+  header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  header p { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); margin-top: 0.2rem; }
+
+  .stats-bar {
+    display: flex; gap: 1.5rem; padding: 1rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface); position: relative; z-index: 1;
+  }
+  .stat { font-family: var(--mono); font-size: 0.72rem; }
+  .stat span { font-size: 1.1rem; font-weight: 700; margin-right: 0.4rem; }
+  .stat .approve { color: var(--approve); }
+  .stat .reject  { color: var(--reject); }
+  .stat .unknown { color: var(--unknown); }
+  .stat .total   { color: var(--accent); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 0;
+    min-height: calc(100vh - 120px);
+    position: relative; z-index: 1;
+  }
+
+  /* ── Flow diagram ── */
+  .flow-panel {
+    padding: 2rem 2rem 2rem 2.5rem;
+    overflow: auto;
+  }
+
+  .flow-title {
+    font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .flow-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .flow-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    min-width: 500px;
+  }
+
+  /* Step node */
+  .step-node {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .node-box {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1.2rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .node-box::before {
+    content: '';
+    position: absolute; top: 0; left: 0; bottom: 0;
+    width: 3px;
+    background: var(--node-color, var(--border));
+  }
+
+  .node-box:hover {
+    border-color: var(--node-color, var(--accent));
+    box-shadow: 0 0 20px rgba(0,229,255,0.08);
+  }
+
+  .node-box.active {
+    border-color: var(--node-color, var(--accent));
+    background: var(--surface2);
+  }
+
+  .node-left .node-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .node-left .node-sub {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+  }
+
+  .node-right {
+    text-align: right;
+  }
+  .node-count {
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--node-color, var(--text));
+  }
+  .node-pct {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+  }
+
+  /* Progress bar inside node */
+  .node-bar {
+    position: absolute; bottom: 0; left: 3px; right: 0; height: 2px;
+    background: var(--border);
+  }
+  .node-bar-fill {
+    height: 100%;
+    background: var(--node-color, var(--accent));
+    opacity: 0.5;
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  /* Drop-off connector */
+  .connector {
+    display: flex;
+    width: 100%;
+    max-width: 520px;
+    align-items: stretch;
+    min-height: 32px;
+    position: relative;
+  }
+
+  .connector-line {
+    width: 3px;
+    background: linear-gradient(to bottom, var(--from-color, var(--border)), var(--to-color, var(--border)));
+    margin-left: calc(50% - 1.5px);
+    flex-shrink: 0;
+  }
+
+  .drop-off-badge {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,77,109,0.12);
+    border: 1px solid rgba(255,77,109,0.3);
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--reject);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .drop-off-badge:hover { background: rgba(255,77,109,0.2); }
+  .drop-off-badge .drop-count { font-size: 0.85rem; font-weight: 700; margin-right: 0.3rem; }
+
+  /* End nodes */
+  .end-row {
+    display: flex;
+    width: 100%;
+    max-width: 520px;
+    gap: 0.75rem;
+    margin-top: 0;
+  }
+
+  .end-node {
+    flex: 1;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid;
+    text-align: center;
+  }
+  .end-node.approve-node { border-color: var(--approve); background: rgba(0,200,150,0.06); }
+  .end-node.reject-node  { border-color: var(--reject);  background: rgba(255,77,109,0.06); }
+  .end-node.unknown-node { border-color: var(--unknown); background: rgba(102,102,128,0.06); }
+
+  .end-node .end-val { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+  .end-node .end-label { font-family: var(--mono); font-size: 0.65rem; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  .end-node.approve-node .end-val { color: var(--approve); }
+  .end-node.reject-node  .end-val { color: var(--reject); }
+  .end-node.unknown-node .end-val { color: var(--unknown); }
+
+  /* ── Right panel ── */
+  .info-panel {
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .panel-section-title {
+    font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem;
+  }
+
+  /* Step detail card */
+  .step-detail {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 1.2rem;
+    border: 1px solid var(--border);
+  }
+  .step-detail h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .step-detail .detail-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 0.72rem;
+  }
+  .step-detail .detail-row:last-child { border-bottom: none; }
+  .detail-key { color: var(--muted); }
+  .detail-val { color: var(--text); font-weight: 700; }
+
+  /* Failure breakdown */
+  .failure-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .failure-item {
+    padding: 0.75rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    border-left: 3px solid var(--reject);
+    font-family: var(--mono); font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .failure-item:hover { background: rgba(255,77,109,0.08); }
+  .failure-item .fi-reason { color: var(--reject); font-weight: 700; font-size: 0.75rem; }
+  .failure-item .fi-meta { color: var(--muted); margin-top: 0.25rem; font-size: 0.65rem; }
+  .failure-item .fi-bar { height: 3px; background: var(--border); border-radius: 999px; margin-top: 0.5rem; overflow: hidden; }
+  .failure-item .fi-bar-fill { height: 100%; background: var(--reject); border-radius: 999px; }
+
+  /* User flow heatmap note */
+  .insight-box {
+    background: var(--surface2);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+    padding: 0.9rem 1rem;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: #ccccdd;
+  }
+  .insight-box strong { color: var(--text); }
+  .insight-label { display: block; font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.3rem; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .tooltip {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text);
+    pointer-events: none;
+    z-index: 100;
+    max-width: 260px;
+    display: none;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .tooltip.show { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>FaceKom <span>Flow Analysis</span></h1>
+    <p>SESSION FUNNEL · STEP DROP-OFF · FAILURE DISTRIBUTION · v3.6.1 (2662)</p>
+  </div>
+  <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);text-align:right">
+    Click any step to inspect<br>
+    <span style="color:var(--accent)">975 sessions</span> analyzed
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat"><span class="total">975</span> total sessions</div>
+  <div class="stat"><span class="approve">797</span> approved (81.7%)</div>
+  <div class="stat"><span class="reject">68</span> rejected (7.0%)</div>
+  <div class="stat"><span class="unknown">110</span> unknown (11.3%)</div>
+  <div class="stat" style="margin-left:auto">
+    <span style="color:var(--warn)">69</span> users with multiple attempts
+  </div>
+</div>
+
+<div class="layout">
+  <div class="flow-panel">
+    <div class="flow-title">Process Flow &amp; Drop-off Analysis</div>
+    <div class="flow-container" id="flow-container"></div>
+  </div>
+
+  <div class="info-panel">
+    <div>
+      <div class="panel-section-title">Selected Step</div>
+      <div class="step-detail" id="step-detail">
+        <h3 style="color:var(--muted);font-size:0.8rem">Click a step to inspect</h3>
+        <p style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-top:0.5rem">
+          Select any node in the flow diagram to see detailed statistics and timing data.
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-section-title">Failure Breakdown <span style="color:var(--reject)">(68 rejects)</span></div>
+      <div class="failure-list" id="failure-list"></div>
+    </div>
+
+    <div>
+      <div class="panel-section-title">Key Insights</div>
+      <div style="display:flex;flex-direction:column;gap:0.75rem" id="insights-panel"></div>
+    </div>
+
+    <div>
+      <div class="panel-section-title">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--approve)"></div>Pass / approve</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--reject)"></div>Fail / reject</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Active step</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Warning / bottleneck</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--unknown)"></div>Unknown outcome</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+const TOTAL = 975;
+
+const STEPS = [
+  {
+    id: 'start',
+    name: 'Session Start',
+    sub: 'FaceKom started from: videoId',
+    count: 975,
+    color: '#00e5ff',
+    description: 'User opens the FaceKom flow. All 975 sessions in the dataset reach this point.',
+    avgDuration: null,
+    category: 'init'
+  },
+  {
+    id: 'voice-liveness-check',
+    name: 'Voice Liveness Check',
+    sub: 'custom(type: "voice-liveness-check") — WebRTC started',
+    count: 975,
+    color: '#7c3aed',
+    description: 'Real-time voice + face liveness detection via WebRTC. User must move head and speak. Takes ~15-30s on average.',
+    dropOff: { count: 1, reason: 'face-detection-error', label: '1 face detection error' },
+    category: 'biometric'
+  },
+  {
+    id: 'deepfake-detection',
+    name: 'Deepfake Detection',
+    sub: 'custom(type: "deepfake-detection") — face + card consent',
+    count: 974,
+    color: '#7c3aed',
+    description: 'Server-side deepfake analysis on the captured face. Runs face detection and card detection sequentially.',
+    dropOff: { count: 8, reason: 'face_mismatch', label: '8 face mismatch failures' },
+    category: 'biometric'
+  },
+  {
+    id: 'customerPortrait',
+    name: 'Customer Portrait',
+    sub: 'customerPortrait — selfie photo upload',
+    count: 966,
+    color: '#00c896',
+    description: 'User takes a selfie portrait photo. PhotoUploader sends the image to the backend for processing.',
+    dropOff: null,
+    category: 'photo'
+  },
+  {
+    id: 'idFront',
+    name: 'ID Front Photo',
+    sub: 'idFront — identity card or passport front',
+    count: 966,
+    color: '#00c896',
+    description: 'User photographs the front of their ID document. Supports identityCard and passport types.',
+    dropOff: { count: 50, reason: 'no-more-photo-candidate-allowed + identity-document-expired', label: '49 photo limit + 1 expired doc', severe: true },
+    category: 'photo'
+  },
+  {
+    id: 'idBack',
+    name: 'ID Back Photo',
+    sub: 'idBack — identity card back side',
+    count: 916,
+    color: '#00c896',
+    description: 'User photographs the back of their ID card. Only applicable for identity cards, not passports.',
+    dropOff: null,
+    category: 'photo'
+  },
+  {
+    id: 'hologram',
+    name: 'Hologram Video',
+    sub: 'hologram — WebRTC video, progress 0→1',
+    count: 916,
+    color: '#ffb347',
+    description: 'User records a hologram video via WebRTC. Progress events track 0.2→0.4→0.62→0.8→1.0. Takes ~30-90s.',
+    dropOff: { count: 9, reason: 'incomplete-hologram-video', label: '9 incomplete hologram videos', severe: true },
+    category: 'video'
+  },
+  {
+    id: 'id-back-video',
+    name: 'ID Back Video',
+    sub: 'custom(type: "id-back-video")',
+    count: 907,
+    color: '#ffb347',
+    description: 'Additional video capture of the ID back side for hologram verification.',
+    dropOff: null,
+    category: 'video'
+  },
+  {
+    id: 'twoFactor',
+    name: 'Two-Factor Auth',
+    sub: 'twoFactor — stopVideo triggered',
+    count: 907,
+    color: '#00e5ff',
+    description: 'Final 2FA step. Video stream is stopped. User completes authentication.',
+    dropOff: null,
+    category: 'auth'
+  },
+];
+
+const FAILURES = [
+  { reason: 'no-more-photo-candidate-allowed', count: 49, step: 'idFront', description: 'Backend rejected all submitted photo candidates. User ran out of retries for ID photo.' },
+  { reason: 'incomplete-hologram-video', count: 9, step: 'hologram', description: 'Hologram video recording was incomplete. Likely caused by network drop, camera issue, or user interruption.' },
+  { reason: 'face_mismatch', count: 8, step: 'deepfake-detection', description: 'Face in the selfie does not match the ID document photo. Backend biometric comparison failed.' },
+  { reason: 'face-detection-error', count: 1, step: 'voice-liveness-check', description: 'Face detection failed entirely during liveness check.' },
+  { reason: 'identity-document-expired', count: 1, step: 'idFront', description: 'The submitted identity document was expired.' },
+];
+
+const CATEGORY_COLORS = {
+  init: '#00e5ff',
+  biometric: '#7c3aed',
+  photo: '#00c896',
+  video: '#ffb347',
+  auth: '#00e5ff',
+};
+
+let activeStep = null;
+
+// ── Build flow diagram ────────────────────────────────────────────────────────
+function buildFlow() {
+  const container = document.getElementById('flow-container');
+  container.innerHTML = '';
+
+  STEPS.forEach((step, i) => {
+    const pct = ((step.count / TOTAL) * 100).toFixed(1);
+    const color = step.color;
+
+    // Node
+    const nodeDiv = document.createElement('div');
+    nodeDiv.className = 'step-node';
+    nodeDiv.innerHTML = `
+      <div class="node-box" id="node-${step.id}" style="--node-color:${color}" onclick="selectStep('${step.id}')">
+        <div class="node-left">
+          <div class="node-name">${step.name}</div>
+          <div class="node-sub">${step.sub}</div>
+        </div>
+        <div class="node-right">
+          <div class="node-count">${step.count.toLocaleString()}</div>
+          <div class="node-pct">${pct}% of total</div>
+        </div>
+        <div class="node-bar">
+          <div class="node-bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+    `;
+    container.appendChild(nodeDiv);
+
+    // Connector + drop-off badge
+    if (i < STEPS.length - 1) {
+      const nextStep = STEPS[i + 1];
+      const connDiv = document.createElement('div');
+      connDiv.className = 'connector';
+
+      const lineColor = step.dropOff?.severe ? 'var(--reject)' : color;
+      const toColor = nextStep.color;
+
+      let dropBadge = '';
+      if (step.dropOff) {
+        const d = step.dropOff;
+        dropBadge = `
+          <div class="drop-off-badge" onclick="selectStep('${step.id}')" 
+               onmouseenter="showTooltip(event, '${escHtml(d.reason)}: ${d.count} dropped here')"
+               onmouseleave="hideTooltip()">
+            <span class="drop-count">-${d.count}</span>${escHtml(d.label)}
+          </div>`;
+      }
+
+      connDiv.innerHTML = `
+        <div class="connector-line" style="--from-color:${lineColor};--to-color:${toColor}"></div>
+        ${dropBadge}
+      `;
+      container.appendChild(connDiv);
+    }
+  });
+
+  // End connector
+  const endConnDiv = document.createElement('div');
+  endConnDiv.className = 'connector';
+  endConnDiv.innerHTML = `<div class="connector-line" style="--from-color:var(--accent);--to-color:var(--approve)"></div>`;
+  container.appendChild(endConnDiv);
+
+  // End nodes
+  const endRow = document.createElement('div');
+  endRow.className = 'end-row';
+  endRow.innerHTML = `
+    <div class="end-node approve-node">
+      <div class="end-val">797</div>
+      <div class="end-label" style="color:var(--approve)">✓ Approved</div>
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-top:0.3rem">81.7% success</div>
+    </div>
+    <div class="end-node reject-node">
+      <div class="end-val">68</div>
+      <div class="end-label" style="color:var(--reject)">✗ Rejected</div>
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-top:0.3rem">7.0% failure</div>
+    </div>
+    <div class="end-node unknown-node">
+      <div class="end-val">110</div>
+      <div class="end-label" style="color:var(--unknown)">? Unknown</div>
+      <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-top:0.3rem">11.3% no data</div>
+    </div>
+  `;
+  container.appendChild(endRow);
+}
+
+// ── Step selection ────────────────────────────────────────────────────────────
+function selectStep(id) {
+  if (activeStep) {
+    document.getElementById('node-' + activeStep)?.classList.remove('active');
+  }
+  activeStep = id;
+  document.getElementById('node-' + id)?.classList.add('active');
+
+  const step = STEPS.find(s => s.id === id);
+  if (!step) return;
+
+  const pct = ((step.count / TOTAL) * 100).toFixed(1);
+  const dropPct = step.dropOff ? ((step.dropOff.count / step.count) * 100).toFixed(1) : null;
+
+  let rows = `
+    <div class="detail-row"><span class="detail-key">Step ID</span><span class="detail-val">${step.id}</span></div>
+    <div class="detail-row"><span class="detail-key">Category</span><span class="detail-val" style="color:${CATEGORY_COLORS[step.category]}">${step.category}</span></div>
+    <div class="detail-row"><span class="detail-key">Sessions reached</span><span class="detail-val">${step.count.toLocaleString()}</span></div>
+    <div class="detail-row"><span class="detail-key">% of total</span><span class="detail-val">${pct}%</span></div>
+  `;
+
+  if (step.dropOff) {
+    rows += `
+      <div class="detail-row"><span class="detail-key">Drop-off here</span><span class="detail-val" style="color:var(--reject)">-${step.dropOff.count} (${dropPct}%)</span></div>
+      <div class="detail-row"><span class="detail-key">Reason</span><span class="detail-val" style="color:var(--reject);font-size:0.65rem">${step.dropOff.reason}</span></div>
+    `;
+  }
+
+  document.getElementById('step-detail').innerHTML = `
+    <h3 style="color:${step.color};margin-bottom:0.75rem">${step.name}</h3>
+    <p style="font-size:0.78rem;color:#ccccdd;line-height:1.5;margin-bottom:0.75rem">${step.description}</p>
+    ${rows}
+  `;
+}
+
+// ── Failure list ──────────────────────────────────────────────────────────────
+function buildFailureList() {
+  const total_reject = 68;
+  document.getElementById('failure-list').innerHTML = FAILURES.map(f => {
+    const pct = ((f.count / total_reject) * 100).toFixed(0);
+    return `
+      <div class="failure-item" onclick="selectStep('${f.step}')">
+        <div class="fi-reason">${f.reason}</div>
+        <div class="fi-meta">at step: <span style="color:var(--text)">${f.step}</span> · ${f.count} events · ${pct}% of rejects</div>
+        <div style="font-size:0.65rem;color:#888;margin-top:0.25rem;line-height:1.4">${f.description}</div>
+        <div class="fi-bar"><div class="fi-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+function buildInsights() {
+  const insights = [
+    {
+      label: '🔴 Primary Bottleneck — Backend ticket',
+      text: '<strong>72% of all rejects</strong> happen at <strong>idFront</strong> with "no-more-photo-candidate-allowed". The backend is rejecting all photo candidates without giving the user another chance. Consider increasing the retry limit or improving candidate selection logic.',
+      color: 'var(--reject)'
+    },
+    {
+      label: '🟡 Hologram Video Reliability',
+      text: '<strong>9 sessions</strong> fail at the hologram step with "incomplete-hologram-video". This step requires sustained WebRTC video for 30-90s — network drops or camera interruptions will cause failure. Consider adding a resume/retry mechanism.',
+      color: 'var(--warn)'
+    },
+    {
+      label: '🔁 Retry Behaviour',
+      text: '<strong>69 users</strong> attempted the flow more than once (max 4 attempts). Users who eventually approve suggest the failures are <strong>transient</strong> — backend state, not fundamental user error. Session state may not be cleaned up properly between retries.',
+      color: 'var(--accent)'
+    },
+    {
+      label: '📋 Unknown Outcome (11.3%)',
+      text: '<strong>110 sessions</strong> have no close_type data. These likely closed prematurely (app crash, network loss, user abandonment) before the "FaceKom finished with type:" log line was emitted. Worth investigating if these overlap with error states.',
+      color: 'var(--unknown)'
+    }
+  ];
+
+  document.getElementById('insights-panel').innerHTML = insights.map(i => `
+    <div class="insight-box" style="border-left-color:${i.color}">
+      <span class="insight-label" style="color:${i.color}">${i.label}</span>
+      ${i.text}
+    </div>`).join('');
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+function showTooltip(e, text) {
+  const t = document.getElementById('tooltip');
+  t.textContent = text;
+  t.classList.add('show');
+  t.style.left = (e.clientX + 12) + 'px';
+  t.style.top  = (e.clientY - 10) + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+function escHtml(s) {
+  return String(s).replace(/'/g,"&#39;").replace(/"/g,"&quot;");
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildFlow();
+buildFailureList();
+buildInsights();
+</script>
+</body>
+</html>
