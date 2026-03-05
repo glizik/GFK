@@ -121,17 +121,26 @@ async function readDataLineItem(page: Page, labelText: string): Promise<{ text: 
  * Try to download the full log file via the Download button.
  * Falls back to scraping visible rows if the download times out.
  */
-async function downloadOrScrapeLog(page: Page, logFilePath: string): Promise<'download' | 'scraped'> {
+async function downloadOrScrapeLog(page: Page, logFilePath: string): Promise<'download' | 'scraped' | 'empty'> {
   fs.mkdirSync(path.dirname(logFilePath), { recursive: true });
 
+  // Check if download button exists before attempting
+  const downloadBtn = page.locator('button').filter({ hasText: /download logs/i }).first();
+  const btnExists = await downloadBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+
+  if (btnExists) {
+    try {
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 20_000 }),
+        downloadBtn.click(),
+      ]);
+      await download.saveAs(logFilePath);
+      return 'download';
+    } catch { /* fall through to scrape */ }
+  }
+
+  // Scrape visible rows
   try {
-    const downloadPromise = page.waitForEvent('download', { timeout: 15_000 });
-    await page.locator('button').filter({ hasText: /download logs/i }).first().click();
-    const download = await downloadPromise;
-    await download.saveAs(logFilePath);
-    return 'download';
-  } catch {
-    // Download button not found or timed out — scrape visible rows instead
     const scraped = await page.evaluate(() => {
       function scrape(root: Document | ShadowRoot): string[] {
         const rows = Array.from(root.querySelectorAll('tr.data-row, tbody tr'));
@@ -152,11 +161,15 @@ async function downloadOrScrapeLog(page: Page, logFilePath: string): Promise<'do
       }
       return scrape(document).join('\n');
     });
-    fs.writeFileSync(logFilePath, scraped);
-    return 'scraped';
-  }
-}
+    if (scraped.trim()) {
+      fs.writeFileSync(logFilePath, scraped);
+      return 'scraped';
+    }
+  } catch { /* fall through */ }
 
+  fs.writeFileSync(logFilePath, '');
+  return 'empty';
+}
 // ── Event loop for a single issue type ───────────────────────────────────────
 
 async function collectIssueType(
@@ -209,8 +222,10 @@ async function collectIssueType(
     await page.waitForSelector('.data-line-item', { timeout: 5_000 });
 
     const idRow = await readDataLineItem(page, 'ID');
-    const identification_link = idRow.text;
-    const identification_id = identification_link.split('/').pop() ?? identification_link;
+    const identification_link = idRow.text || 'not available';
+    const identification_id = identification_link === 'not available'
+      ? 'not available'
+      : identification_link.split('/').pop() ?? 'not available';
     const user_id = identification_id;
 
     const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
@@ -305,10 +320,26 @@ async function collectIssueType(
 
     // ── Pagination ──────────────────────────────────────────────────────────
     const prevBtn = page.locator('button[aria-label="Previous event"]');
-    await prevBtn.waitFor({ timeout: 3_000 }).catch(() => {});
-    const isDisabled = await prevBtn.getAttribute('disabled').catch(() => 'true');
 
-    if (isDisabled !== null) {
+    let isDisabled = true; // assume disabled until proven otherwise
+    try {
+      await prevBtn.waitFor({ timeout: 5_000 });
+      const attr = await prevBtn.getAttribute('disabled');
+      isDisabled = attr !== null;
+    } catch {
+      // Button not found at all — treat as end of list
+      isDisabled = true;
+    }
+
+    if (isDisabled) {
+      const screenshotPath = path.join(
+        './data/screenshots',
+        `pagination_end_${issueType.replace(/[^a-z0-9]/gi, '_')}_event${eventIndex}_${Date.now()}.png`
+      );
+      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      console.log(`📸 Pagination screenshot saved: ${screenshotPath}`);
+
       console.log(`\n🏁 Reached last event for "${issueType}" after ${eventIndex} events.`);
       reachedEnd = true;
       break;
