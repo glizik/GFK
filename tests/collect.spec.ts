@@ -321,7 +321,7 @@ async function collectIssueType(
     // ── Pagination ──────────────────────────────────────────────────────────
     const prevBtn = page.locator('button[aria-label="Previous event"]');
 
-    let isDisabled = true; // assume disabled until proven otherwise
+    let isDisabled = false; // assume disabled until proven otherwise
     try {
       await prevBtn.waitFor({ timeout: 5_000 });
       const attr = await prevBtn.getAttribute('disabled');
