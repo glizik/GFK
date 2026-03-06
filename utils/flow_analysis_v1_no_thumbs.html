@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FaceKom Flow Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=DM+Sans:wght@300;400;600;800&display=swap');
+:root{
+  --bg:#080810;--surf:#0d0d19;--surf2:#13131f;--surf3:#1a1a2a;
+  --border:#22223a;--border2:#2d2d4a;
+  --approve:#00e5a0;--reject:#ff3d6b;--warn:#ffb830;--accent:#4d9fff;--purple:#a78bfa;
+  --text:#dde0f5;--muted:#555578;--dimmed:#888899;
+  --font-mono:'IBM Plex Mono',monospace;--font-sans:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-sans);line-height:1.5;}
+body::before{content:'';position:fixed;inset:0;background:
+  radial-gradient(ellipse 800px 600px at 10% 10%,rgba(77,159,255,0.05),transparent),
+  radial-gradient(ellipse 600px 800px at 90% 90%,rgba(0,229,160,0.04),transparent),
+  repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(255,255,255,0.008) 40px,rgba(255,255,255,0.008) 41px);
+  pointer-events:none;z-index:0;}
+
+/* ─── Layout ─────────────────────────────────── */
+header{position:relative;z-index:1;padding:1.5rem 2.5rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;}
+.logo{display:flex;align-items:baseline;gap:0.75rem;}
+.logo h1{font-size:1.5rem;font-weight:800;letter-spacing:-0.03em;}
+.logo .badge{font-family:var(--font-mono);font-size:0.6rem;background:rgba(77,159,255,0.15);
+  border:1px solid rgba(77,159,255,0.3);color:var(--accent);padding:0.2rem 0.5rem;border-radius:4px;letter-spacing:0.1em;}
+.header-right{font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);text-align:right;line-height:1.8;}
+
+main{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:2rem 2.5rem;display:flex;flex-direction:column;gap:1.75rem;}
+
+.card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:1.5rem;}
+.card-title{font-family:var(--font-mono);font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:1.25rem;display:flex;align-items:center;gap:0.75rem;}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ─── File upload ─────────────────────────────── */
+.upload-zone{border:2px dashed var(--border2);border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:border-color 0.2s;}
+.upload-zone:hover{border-color:var(--accent);}
+.upload-zone p{font-family:var(--font-mono);font-size:0.72rem;color:var(--dimmed);}
+.upload-zone span{color:var(--accent);}
+#file-input{display:none;}
+
+/* ─── Outcome pills (toggleable) ─────────────── */
+.outcome-grid{display:flex;flex-wrap:wrap;gap:0.6rem;}
+.outcome-btn{
+  display:flex;flex-direction:column;padding:0.75rem 1.1rem;border-radius:8px;
+  border:1px solid;cursor:pointer;transition:all 0.15s;user-select:none;
+  font-family:var(--font-mono);
+}
+.outcome-btn .num{font-size:1.8rem;font-weight:700;line-height:1;}
+.outcome-btn .lbl{font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;margin-top:0.2rem;}
+.outcome-btn .pct{font-size:0.65rem;margin-top:0.1rem;opacity:0.7;}
+.outcome-btn.on{opacity:1;}
+.outcome-btn.off{opacity:0.3;filter:grayscale(0.8);}
+
+/* ─── Funnel ──────────────────────────────────── */
+.funnel-table{display:flex;flex-direction:column;gap:0;}
+.funnel-row{display:grid;grid-template-columns:160px 1fr 380px;gap:1.5rem;
+  align-items:center;padding:0.85rem 0;border-bottom:1px solid var(--border);}
+.funnel-row:last-child{border-bottom:none;}
+.step-name{}
+.step-name h3{font-size:0.85rem;font-weight:600;}
+.step-name code{font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);}
+.step-name .step-note{font-size:0.6rem;color:var(--warn);margin-top:0.2rem;}
+
+.bar-col{display:flex;flex-direction:column;gap:0.3rem;}
+.bar-track{height:22px;background:var(--surf3);border-radius:5px;overflow:hidden;position:relative;}
+.bar-fill{height:100%;border-radius:5px;transition:width 1.2s cubic-bezier(0.16,1,0.3,1);}
+.bar-meta{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.6rem;}
+.bar-count{color:var(--dimmed);}
+.drop-link{color:var(--reject);font-weight:700;cursor:pointer;text-decoration:underline dotted;}
+.drop-link:hover{color:#ff6b8a;}
+
+/* ─── Timing box ──────────────────────────────── */
+.timing-box{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.9rem;}
+.timing-legend{display:flex;gap:1rem;font-family:var(--font-mono);font-size:0.55rem;color:var(--muted);margin-bottom:0.5rem;}
+.timing-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:0.4rem;}
+.t-stat{text-align:center;}
+.t-val{font-family:var(--font-mono);font-size:0.82rem;font-weight:700;line-height:1;}
+.t-key{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.2rem;}
+.t-min{color:#a78bfa;}.t-p25{color:var(--approve);}.t-med{color:var(--accent);}.t-p75{color:var(--warn);}.t-max{color:var(--reject);}
+.timing-bar{margin-top:0.5rem;height:8px;background:var(--surf3);border-radius:4px;position:relative;overflow:hidden;}
+.tb-range{position:absolute;top:0;height:100%;background:linear-gradient(90deg,rgba(0,229,160,0.4),rgba(77,159,255,0.6),rgba(255,184,48,0.4));border-radius:4px;}
+.tb-median{position:absolute;top:0;width:3px;height:100%;background:var(--accent);border-radius:2px;}
+.no-data{font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);text-align:center;padding:0.75rem;}
+
+/* ─── Insight annotation ──────────────────────── */
+.insight-tag{display:inline-flex;align-items:center;gap:0.4rem;font-size:0.6rem;font-family:var(--font-mono);
+  padding:0.15rem 0.5rem;border-radius:3px;margin-left:0.5rem;vertical-align:middle;}
+.insight-warn{background:rgba(255,184,48,0.15);border:1px solid rgba(255,184,48,0.3);color:var(--warn);}
+.insight-bad{background:rgba(255,61,107,0.12);border:1px solid rgba(255,61,107,0.3);color:var(--reject);}
+.insight-ok{background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.25);color:var(--approve);}
+
+/* ─── Charts row ──────────────────────────────── */
+.charts-2col{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+.chart-h{position:relative;height:240px;}
+
+/* ─── Dist chart with outcome filter ─────────── */
+.dist-filter{display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;}
+.dist-btn{font-family:var(--font-mono);font-size:0.62rem;padding:0.25rem 0.7rem;border-radius:5px;
+  border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;letter-spacing:0.05em;}
+.dist-btn.on{border-color:var(--accent);color:var(--accent);background:rgba(77,159,255,0.08);}
+
+/* ─── Per-step dist ───────────────────────────── */
+.step-tabs{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.75rem;}
+.step-tab{font-family:var(--font-mono);font-size:0.62rem;padding:0.25rem 0.6rem;border-radius:5px;
+  border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;}
+.step-tab.on{border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.08);}
+
+/* ─── Retry / user analysis ──────────────────── */
+.retry-grid{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;}
+.retry-card{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1.1rem;
+  font-family:var(--font-mono);text-align:center;min-width:80px;}
+.retry-card .rn{font-size:1.6rem;font-weight:700;line-height:1;}
+.retry-card .rl{font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:0.2rem;}
+.retry-card .rp{font-size:0.62rem;color:var(--dimmed);margin-top:0.15rem;}
+
+/* ─── Session table ───────────────────────────── */
+.filter-row{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+.filter-lbl{font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;}
+select{background:var(--surf2);border:1px solid var(--border2);color:var(--text);
+  font-family:var(--font-mono);font-size:0.72rem;padding:0.35rem 0.65rem;border-radius:6px;outline:none;}
+select:focus{border-color:var(--accent);}
+.table-wrap{overflow:auto;max-height:340px;border-radius:8px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:0.68rem;}
+thead th{position:sticky;top:0;background:var(--surf3);padding:0.5rem 0.75rem;text-align:left;
+  color:var(--muted);font-weight:400;letter-spacing:0.08em;text-transform:uppercase;
+  border-bottom:1px solid var(--border2);white-space:nowrap;}
+tbody tr{border-bottom:1px solid #111120;transition:background 0.1s;}
+tbody tr:hover{background:var(--surf2);}
+td{padding:0.4rem 0.75rem;color:#9999bb;white-space:nowrap;}
+.sid{cursor:pointer;font-weight:500;color:var(--accent);}
+.sid:hover{text-decoration:underline;}
+.oc-approve{color:var(--approve);font-weight:700;}
+.oc-reject{color:var(--reject);font-weight:700;}
+.oc-unknown{color:var(--muted);}
+.oc-failed{color:var(--reject);}
+
+/* ─── Drop modal ──────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;
+  display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surf);border:1px solid var(--border2);border-radius:14px;
+  max-width:700px;width:90%;max-height:80vh;overflow:auto;padding:1.75rem;}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:0.5rem;}
+.modal-sub{font-family:var(--font-mono);font-size:0.65rem;color:var(--muted);margin-bottom:1rem;}
+.modal-close{float:right;background:none;border:1px solid var(--border2);color:var(--dimmed);
+  padding:0.3rem 0.7rem;border-radius:5px;cursor:pointer;font-family:var(--font-mono);font-size:0.65rem;}
+.modal-close:hover{color:var(--text);}
+.modal-list{display:flex;flex-direction:column;gap:0.5rem;}
+.modal-item{background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+  padding:0.75rem 1rem;font-family:var(--font-mono);font-size:0.7rem;}
+.modal-item .mi-id{color:var(--accent);font-weight:500;margin-bottom:0.3rem;}
+.modal-item .mi-meta{color:var(--muted);font-size:0.6rem;display:flex;gap:1.5rem;}
+
+/* ─── Legend ──────────────────────────────────── */
+.timing-explain{background:var(--surf2);border:1px solid var(--border);border-radius:8px;
+  padding:1rem 1.25rem;font-family:var(--font-mono);font-size:0.65rem;line-height:1.8;color:var(--dimmed);}
+.timing-explain strong{color:var(--text);}
+
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--surf);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <h1>FaceKom <span style="color:var(--accent)">Timing</span></h1>
+    <span class="badge">FLOW ANALYSIS</span>
+  </div>
+  <div class="header-right" id="hdr-stats">Load log files to begin</div>
+</header>
+
+<main>
+
+<!-- File Upload -->
+<div class="card">
+  <div class="card-title">Data Source</div>
+  <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+    <p>Drop <span>.log</span> files here, or click to select — or <span id="load-demo-link" style="cursor:pointer">load demo data</span></p>
+    <p style="margin-top:0.4rem;font-size:0.58rem">JSON-format Crashlytics log files from ./data/logs/</p>
+  </div>
+  <input type="file" id="file-input" multiple accept=".log,.json">
+  <div id="load-status" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--approve);margin-top:0.75rem;display:none;"></div>
+</div>
+
+<!-- Outcome Toggle -->
+<div class="card">
+  <div class="card-title">Outcomes <span style="color:var(--muted);font-size:0.55rem;margin-left:0.5rem">(click to filter all charts & table)</span></div>
+  <div class="outcome-grid" id="outcome-grid"></div>
+</div>
+
+<!-- Funnel + Timing -->
+<div class="card">
+  <div class="card-title">Step Funnel &amp; Timing</div>
+  <div class="timing-explain" style="margin-bottom:1.25rem">
+    <strong>How to read timing:</strong>
+    <span style="color:var(--purple)">▪ min</span> fastest ever ·
+    <span style="color:var(--approve)">▪ p25</span> 25% of users done faster ·
+    <span style="color:var(--accent)">▪ median</span> typical user ·
+    <span style="color:var(--warn)">▪ p75</span> slow users ·
+    <span style="color:var(--reject)">▪ max</span> slowest ever ·
+    The bar shows the p25→p75 range; the marker is the median. Steps with large max vs median gaps have occasional outlier users.
+  </div>
+  <div id="funnel-table"></div>
+</div>
+
+<!-- Charts -->
+<div class="charts-2col">
+  <div class="card">
+    <div class="card-title">Total Duration Distribution</div>
+    <div class="dist-filter" id="total-dist-filter"></div>
+    <div class="chart-h"><canvas id="chart-total"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Step Median vs P75 Comparison</div>
+    <div class="chart-h"><canvas id="chart-medians"></canvas></div>
+  </div>
+</div>
+
+<!-- Per-step dist -->
+<div class="card">
+  <div class="card-title">Per-Step Duration Distribution</div>
+  <div class="step-tabs" id="step-tabs"></div>
+  <div style="position:relative;height:190px;"><canvas id="chart-step-dist"></canvas></div>
+  <div id="step-dist-outliers" style="margin-top:0.75rem;"></div>
+</div>
+
+<!-- Retry / User analysis -->
+<div class="card">
+  <div class="card-title">Retry Analysis <span style="color:var(--muted);font-size:0.55rem;margin-left:0.5rem">(events grouped by user_id from identification link)</span></div>
+  <div id="retry-grid" class="retry-grid"></div>
+  <div style="position:relative;height:180px;"><canvas id="chart-retries"></canvas></div>
+</div>
+
+<!-- Session Table -->
+<div class="card">
+  <div class="card-title">All Sessions</div>
+  <div class="filter-row">
+    <span class="filter-lbl">Last step</span>
+    <select id="tbl-last-step" onchange="renderTable()"><option value="">All</option></select>
+    <span class="filter-lbl" style="margin-left:0.5rem">Reason</span>
+    <select id="tbl-reason" onchange="renderTable()"><option value="">All</option></select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Session ID (click to open file)</th><th>Outcome</th><th>Last Step</th>
+        <th>Total (s)</th><th>Voice (s)</th><th>Deepfake (s)</th><th>Portrait (s)</th>
+        <th>ID Front (s)</th><th>ID Back (s)</th><th>Hologram (s)</th><th>Reason</th>
+      </tr></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+
+<!-- Drop modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕ close</button>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="modal-list" id="modal-list"></div>
+  </div>
+</div>
+
+<script>
+const INIT_DATA = {"sessions": [{"session_id": "b870a2bd12fc4764aff4327e9e84c01f", "outcome": "approve", "reason": "", "last_step": "hologram", "steps_reached": ["start", "voice-liveness-check", "deepfake-detection", "customerPortrait", "idFront", "idBack", "hologram"], "durations": {"start->voice-liveness-check": 2816, "voice-liveness-check->deepfake-detection": 39, "deepfake-detection->customerPortrait": 12, "customerPortrait->idFront": 17, "idFront->idBack": 16, "idBack->hologram": 11}, "total": 2911, "filename": "b870a2bd...log"}, {"session_id": "ea26259bf2ad4435aa4327730f7ef0e4", "outcome": "failed", "reason": "no available customer", "last_step": "end", "steps_reached": ["start", "end"], "durations": {}, "total": 21, "filename": "not_available_Feb_25.log"}, {"session_id": "1b0761cf-b21f-469f-aed1-e6d85a551ef2", "outcome": "approve", "reason": "", "last_step": "end", "steps_reached": ["start", "voice-liveness-check", "deepfake-detection", "customerPortrait", "idFront", "idBack", "hologram", "id-back-video", "twoFactor", "end"], "durations": {"start->voice-liveness-check": 22, "voice-liveness-check->deepfake-detection": 12, "deepfake-detection->customerPortrait": 6, "customerPortrait->idFront": 8, "idFront->idBack": 12, "idBack->hologram": 9, "hologram->id-back-video": 39, "id-back-video->twoFactor": 16, "twoFactor->end": 21}, "total": 145, "filename": "facekom_PROD_happyPath.log"}], "stepOrder": ["start", "voice-liveness-check", "deepfake-detection", "customerPortrait", "idFront", "idBack", "hologram", "id-back-video", "twoFactor", "end"], "stepLabels": {"start": "Session Start", "voice-liveness-check": "Voice Liveness", "deepfake-detection": "Deepfake Detection", "customerPortrait": "Customer Portrait", "idFront": "ID Front Photo", "idBack": "ID Back Photo", "hologram": "Hologram Video", "id-back-video": "ID Back Video", "twoFactor": "Two-Factor Auth", "end": "End / Approved"}, "stepNotes": {"hologram": "\u26a0\ufe0f Includes ~20s instruction video playback \u2014 raw timing inflated", "start": "Time from session open to voice step begins (may include idle/loading)", "id-back-video": "Backend processing step \u2014 no direct user interaction"}};
+const STEP_ORDER = INIT_DATA.stepOrder;
+const STEP_LABELS = INIT_DATA.stepLabels;
+const STEP_NOTES = INIT_DATA.stepNotes;
+
+let allSessions = INIT_DATA.sessions || [];
+let activeOutcomes = new Set(['approve','reject','finished','unknown','failed','aborted','disconnected']);
+let stepDistChart = null, totalDistChart = null, mediansChart = null, retriesChart = null;
+
+// ─── Parse uploaded log files ────────────────────────────────────────────────
+function parseTs(tsStr) {
+  let m = tsStr.match(/\w+ (\w+ \d+ \d+ \d+:\d+:\d+)/);
+  if (m) { const d = new Date(m[1] + ' UTC'); if (!isNaN(d)) return d; }
+  m = tsStr.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+  if (m) return new Date(m[1] + 'Z');
+  return null;
+}
+
+function extractSession(data, fname) {
+  const logs = data.logs_and_breadcrumbs || [];
+  const times = {};
+  let outcome = 'unknown', reason = '';
+
+  for (const e of logs) {
+    const ts = parseTs(e.timestamp);
+    const msg = e.message || '';
+    if (!msg || !ts) continue;
+    if (msg.includes('FaceKom started from') && !times.start) times.start = ts;
+    if (msg.includes('FaceKom nextStep')) {
+      const cm = msg.match(/custom\(type: "([^"]+)"/);
+      if (cm && !times[cm[1]]) times[cm[1]] = ts;
+      const nm = msg.match(/nextStep.*?Step\.(\w+)\(/);
+      if (nm && !times[nm[1]]) times[nm[1]] = ts;
+      if (msg.includes('end(status:')) {
+        const sm = msg.match(/status: "(\w+)"/);
+        const rm = msg.match(/reason = "([^"]+)"/);
+        if (sm) outcome = sm[1];
+        if (rm) reason = rm[1];
+        if (!times.end) times.end = ts;
+      }
+    }
+    if (msg.includes('FaceKom finished with type')) {
+      const m2 = msg.match(/type: (\w+)/); if (m2) outcome = m2[1];
+    }
+    if (msg.includes('FaceKom failed') && !times.end) {
+      times.end = ts; if (outcome === 'unknown') outcome = 'failed';
+    }
+  }
+
+  // Try to extract user_id from identification link
+  let user_id = '';
+  for (const e of logs) {
+    const msg = e.message || '';
+    const um = msg.match(/identification\/([\w-]{36})/);
+    if (um) { user_id = um[1]; break; }
+  }
+
+  const durations = {};
+  for (let i = 0; i < STEP_ORDER.length - 1; i++) {
+    const s1 = STEP_ORDER[i], s2 = STEP_ORDER[i+1];
+    if (times[s1] && times[s2]) {
+      const diff = (times[s2] - times[s1]) / 1000;
+      if (diff >= 0 && diff <= 7200) durations[s1+'->'+s2] = Math.round(diff);
+    }
+  }
+
+  let lastStep = 'start';
+  for (const s of STEP_ORDER) { if (times[s]) lastStep = s; }
+  const stepsReached = STEP_ORDER.filter(s => times[s]);
+  const total = Object.values(durations).reduce((a,b)=>a+b,0);
+
+  return { session_id: data.session_id || fname, outcome, reason, last_step: lastStep,
+    steps_reached: stepsReached, durations, total, filename: fname, user_id };
+}
+
+// File input
+document.getElementById('file-input').addEventListener('change', async e => {
+  const files = Array.from(e.target.files);
+  const parsed = [];
+  for (const f of files) {
+    const text = await f.text();
+    try {
+      const data = JSON.parse(text.trim());
+      if (data.logs_and_breadcrumbs) parsed.push(extractSession(data, f.name));
+    } catch {}
+  }
+  if (parsed.length) {
+    allSessions = [...allSessions, ...parsed];
+    document.getElementById('load-status').style.display = 'block';
+    document.getElementById('load-status').textContent = `✅ Loaded ${parsed.length} sessions (${allSessions.length} total)`;
+    rebuildAll();
+  }
+});
+
+document.getElementById('load-demo-link').onclick = () => { rebuildAll(); };
+
+// ─── Filtered sessions ────────────────────────────────────────────────────────
+function filtered() {
+  return allSessions.filter(s => activeOutcomes.has(s.outcome));
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+function statOf(vals) {
+  if (!vals.length) return null;
+  const s = [...vals].sort((a,b)=>a-b);
+  const sum = s.reduce((a,b)=>a+b,0);
+  return {
+    min:s[0], max:s[s.length-1],
+    p25:s[Math.floor(s.length*0.25)],
+    median:s[Math.floor(s.length/2)],
+    p75:s[Math.floor(s.length*0.75)],
+    mean:Math.round(sum/s.length),
+    count:s.length
+  };
+}
+
+function fmt(s) {
+  if (s===undefined||s===null) return '—';
+  if (s < 60) return s+'s';
+  return Math.floor(s/60)+'m'+(s%60).toString().padStart(2,'0')+'s';
+}
+
+function speedColor(val, p25, p75) {
+  if (val <= p25) return 'var(--approve)';
+  if (val <= p75) return 'var(--accent)';
+  if (val <= p75*2) return 'var(--warn)';
+  return 'var(--reject)';
+}
+
+// ─── Outcome buttons ──────────────────────────────────────────────────────────
+function renderOutcomes() {
+  const sess = allSessions;
+  const counts = {};
+  for (const s of sess) counts[s.outcome] = (counts[s.outcome]||0)+1;
+  const total = sess.length;
+  const colors = {approve:'var(--approve)',finished:'var(--approve)',reject:'var(--reject)',
+    failed:'var(--reject)',unknown:'var(--muted)',aborted:'var(--warn)',disconnected:'var(--warn)'};
+
+  document.getElementById('outcome-grid').innerHTML = Object.entries(counts)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v]) => `<button class="outcome-btn on" data-outcome="${k}"
+        style="border-color:${colors[k]||'var(--border2)'};"
+        onclick="toggleOutcome('${k}',this)">
+      <span class="num" style="color:${colors[k]||'var(--text)'}">{${v}}</span>
+      <span class="lbl">${k}</span>
+      <span class="pct">${((v/total)*100).toFixed(1)}%</span>
+    </button>`).join('');
+}
+
+function toggleOutcome(k, el) {
+  if (activeOutcomes.has(k)) activeOutcomes.delete(k);
+  else activeOutcomes.add(k);
+  el.classList.toggle('on', activeOutcomes.has(k));
+  el.classList.toggle('off', !activeOutcomes.has(k));
+  rebuildCharts();
+  renderTable();
+}
+
+// ─── Funnel ───────────────────────────────────────────────────────────────────
+function renderFunnel() {
+  const sess = filtered();
+  const total = allSessions.length; // funnel always relative to ALL
+  const reach = {};
+  for (const s of STEP_ORDER) reach[s] = 0;
+  for (const s of sess) for (const step of s.steps_reached) reach[step]++;
+
+  // For "end" step, only count sessions that actually approved/finished
+  const endApproved = sess.filter(s => ['approve','finished'].includes(s.outcome) && s.steps_reached.includes('end')).length;
+
+  let html = '';
+  for (let i = 0; i < STEP_ORDER.length; i++) {
+    const step = STEP_ORDER[i];
+    const count = step === 'end' ? endApproved : (reach[step]||0);
+    const pct = total ? (count/total*100).toFixed(1) : 0;
+    const barColor = pct >= 80 ? 'var(--approve)' : pct >= 50 ? 'var(--accent)' : pct >= 20 ? 'var(--warn)' : 'var(--reject)';
+
+    // Drop from previous
+    const prevCount = i === 0 ? total : (STEP_ORDER[i-1] === 'end' ? endApproved : (reach[STEP_ORDER[i-1]]||0));
+    const drop = i > 0 ? prevCount - count : 0;
+
+    // Timing for this step -> next
+    let timingHtml = '<div class="no-data">no data</div>';
+    if (i < STEP_ORDER.length - 1) {
+      const key = step + '->' + STEP_ORDER[i+1];
+      const vals = sess.map(s=>s.durations[key]).filter(v=>v!==undefined);
+      const st = statOf(vals);
+      if (st) {
+        // Interpretation
+        let insight = '';
+        if (st.max > st.median * 5) insight = `<span class="insight-tag insight-warn">⚠ outliers</span>`;
+        if (step === 'hologram') insight += `<span class="insight-tag insight-warn">📹 +20s video</span>`;
+        if (step === 'start') insight += `<span class="insight-tag insight-warn">may include idle time</span>`;
+        if (st.count > 0 && st.p75 < 5) insight += `<span class="insight-tag insight-ok">⚡ fast</span>`;
+
+        const rangeW = st.max - st.min || 1;
+        const p25pct = ((st.p25-st.min)/rangeW*100).toFixed(1);
+        const medpct = ((st.median-st.min)/rangeW*100).toFixed(1);
+        const p75pct = ((st.p75-st.min)/rangeW*100).toFixed(1);
+
+        timingHtml = `<div class="timing-box">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.35rem;">
+            <span style="font-family:var(--font-mono);font-size:0.55rem;color:var(--muted)">n=${st.count} · avg=${fmt(st.mean)}</span>
+            ${insight}
+          </div>
+          <div class="timing-stats">
+            <div class="t-stat"><div class="t-val t-min">${fmt(st.min)}</div><div class="t-key">min</div></div>
+            <div class="t-stat"><div class="t-val t-p25">${fmt(st.p25)}</div><div class="t-key">p25</div></div>
+            <div class="t-stat"><div class="t-val t-med">${fmt(st.median)}</div><div class="t-key">median</div></div>
+            <div class="t-stat"><div class="t-val t-p75">${fmt(st.p75)}</div><div class="t-key">p75</div></div>
+            <div class="t-stat"><div class="t-val t-max">${fmt(st.max)}</div><div class="t-key">max</div></div>
+          </div>
+          <div class="timing-bar">
+            <div class="tb-range" style="left:${p25pct}%;width:${(p75pct-p25pct).toFixed(1)}%;"></div>
+            <div class="tb-median" style="left:${medpct}%;"></div>
+          </div>
+        </div>`;
+      }
+    }
+
+    const note = STEP_NOTES[step] ? `<div class="step-note">${STEP_NOTES[step]}</div>` : '';
+    const dropHtml = drop > 0
+      ? `<span class="drop-link" onclick="showDrop('${STEP_ORDER[i-1]}','${step}',${drop})">-${drop} dropped ↗</span>`
+      : '';
+
+    html += `<div class="funnel-row">
+      <div class="step-name">
+        <h3>${STEP_LABELS[step]}</h3>
+        <code>${step}</code>
+        ${note}
+      </div>
+      <div class="bar-col">
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        <div class="bar-meta"><span class="bar-count">${count} sessions (${pct}%)</span>${dropHtml}</div>
+      </div>
+      ${timingHtml}
+    </div>`;
+  }
+  document.getElementById('funnel-table').innerHTML = html;
+}
+
+// ─── Drop modal ───────────────────────────────────────────────────────────────
+function showDrop(fromStep, toStep, count) {
+  const sess = filtered().filter(s =>
+    s.steps_reached.includes(fromStep) && !s.steps_reached.includes(toStep)
+  );
+  document.getElementById('modal-title').textContent = `${count} sessions dropped at: ${STEP_LABELS[fromStep]} → ${STEP_LABELS[toStep]}`;
+  document.getElementById('modal-sub').textContent = `These sessions reached "${STEP_LABELS[fromStep]}" but never proceeded to "${STEP_LABELS[toStep]}"`;
+  document.getElementById('modal-list').innerHTML = sess.map(s => `
+    <div class="modal-item">
+      <div class="mi-id">${s.session_id}</div>
+      <div class="mi-meta">
+        <span>outcome: ${s.outcome}</span>
+        <span>reason: ${s.reason||'—'}</span>
+        <span>total: ${s.total}s</span>
+        <span>file: ${s.filename}</span>
+      </div>
+    </div>`).join('');
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+// ─── Total dist chart ─────────────────────────────────────────────────────────
+function renderTotalDist(outcomeFilter) {
+  const base = filtered();
+  const toShow = outcomeFilter ? base.filter(s=>s.outcome===outcomeFilter) : base;
+  const vals = toShow.map(s=>s.total).filter(v=>v>0&&v<7200);
+  if (!vals.length) return;
+
+  const BS = 30, buckets={};
+  for (const v of vals) { const b=Math.floor(v/BS)*BS; buckets[b]=(buckets[b]||0)+1; }
+  const keys = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+
+  if (totalDistChart) totalDistChart.destroy();
+  totalDistChart = new Chart(document.getElementById('chart-total'), {
+    type:'bar',
+    data:{
+      labels:keys.map(k=>k+'s'),
+      datasets:[{ data:keys.map(k=>buckets[k]),
+        backgroundColor:keys.map(k=>{
+          const mid=k+BS/2;
+          if(mid<120) return 'rgba(0,229,160,0.7)';
+          if(mid<300) return 'rgba(77,159,255,0.7)';
+          if(mid<600) return 'rgba(255,184,48,0.65)';
+          return 'rgba(255,61,107,0.65)';
+        }),
+        borderWidth:0,borderRadius:3
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:i=>`${i.raw} session${i.raw!==1?'s':''}`
+      }}},
+      scales:{
+        x:{ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:9},maxRotation:45},grid:{color:'#141424'}},
+        y:{ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#141424'}}
+      }
+    }
+  });
+}
+
+function buildDistFilter() {
+  const outcomes = [...new Set(allSessions.map(s=>s.outcome))];
+  const colors={approve:'var(--approve)',reject:'var(--reject)',failed:'var(--reject)',unknown:'var(--muted)',finished:'var(--approve)'};
+  const btns = [{k:'',l:'All'},...outcomes.map(o=>{return{k:o,l:o};})];
+  document.getElementById('total-dist-filter').innerHTML = btns.map(b=>
+    `<button class="dist-btn ${b.k===''?'on':''}" onclick="selectDistFilter('${b.k}',this)" style="${b.k&&colors[b.k]?'color:'+colors[b.k]:''}">
+      ${b.l}
+    </button>`).join('');
+  renderTotalDist('');
+}
+
+function selectDistFilter(k, el) {
+  document.querySelectorAll('.dist-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderTotalDist(k);
+}
+
+// ─── Medians chart ────────────────────────────────────────────────────────────
+function renderMedians() {
+  const sess = filtered();
+  const labels=[], meds=[], p75s=[];
+  for (let i=0;i<STEP_ORDER.length-1;i++) {
+    const key = STEP_ORDER[i]+'->'+STEP_ORDER[i+1];
+    const vals = sess.map(s=>s.durations[key]).filter(v=>v!==undefined);
+    const st = statOf(vals);
+    if (st) { labels.push(STEP_LABELS[STEP_ORDER[i]]); meds.push(st.median); p75s.push(st.p75); }
+  }
+  if (mediansChart) mediansChart.destroy();
+  mediansChart = new Chart(document.getElementById('chart-medians'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Median',data:meds,backgroundColor:'rgba(77,159,255,0.7)',borderRadius:3},
+        {label:'P75',data:p75s.map((p,i)=>Math.max(0,p-meds[i])),backgroundColor:'rgba(255,184,48,0.5)',borderRadius:3},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#888899',font:{family:'IBM Plex Mono',size:10}}}},
+      scales:{
+        x:{stacked:true,ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:9},maxRotation:45},grid:{color:'#141424'}},
+        y:{stacked:true,ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#141424'},title:{display:true,text:'seconds',color:'#555578',font:{family:'IBM Plex Mono',size:10}}}
+      }
+    }
+  });
+}
+
+// ─── Per-step dist ────────────────────────────────────────────────────────────
+let activeStepKey = null;
+function buildStepTabs() {
+  const sess = filtered();
+  let html='', first=true;
+  for (let i=0;i<STEP_ORDER.length-1;i++) {
+    const key=STEP_ORDER[i]+'->'+STEP_ORDER[i+1];
+    const vals=sess.map(s=>s.durations[key]).filter(v=>v!==undefined);
+    if (!vals.length) continue;
+    if (first) { activeStepKey=key; first=false; }
+    html+=`<button class="step-tab ${key===activeStepKey?'on':''}" onclick="selectStepTab('${key}',this)">${STEP_LABELS[STEP_ORDER[i]]}</button>`;
+  }
+  document.getElementById('step-tabs').innerHTML = html;
+  if (activeStepKey) renderStepDist(activeStepKey);
+}
+
+function selectStepTab(key, el) {
+  activeStepKey=key;
+  document.querySelectorAll('.step-tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderStepDist(key);
+}
+
+function renderStepDist(key) {
+  const sess = filtered();
+  const vals = sess.map(s=>s.durations[key]).filter(v=>v!==undefined&&v<7200);
+  if (!vals.length) return;
+  const st = statOf(vals);
+  const BS = Math.max(5, Math.ceil((st.max-st.min)/30));
+  const buckets={};
+  for (const v of vals) { const b=Math.floor(v/BS)*BS; buckets[b]=(buckets[b]||0)+1; }
+  const keys=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+
+  if (stepDistChart) stepDistChart.destroy();
+  stepDistChart = new Chart(document.getElementById('chart-step-dist'), {
+    type:'bar',
+    data:{
+      labels:keys.map(k=>k+'s'),
+      datasets:[{
+        data:keys.map(k=>buckets[k]),
+        backgroundColor:keys.map(k=>{
+          const mid=k+BS/2;
+          if(mid<=st.p25) return 'rgba(0,229,160,0.7)';
+          if(mid<=st.p75) return 'rgba(77,159,255,0.7)';
+          if(mid<=st.p75*1.5) return 'rgba(255,184,48,0.65)';
+          return 'rgba(255,61,107,0.65)';
+        }),
+        borderWidth:0,borderRadius:3
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:i=>`${i[0].label}–${parseInt(i[0].label)+BS}s`,
+        label:i=>`${i.raw} session${i.raw!==1?'s':''}`
+      }}},
+      scales:{
+        x:{ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#141424'}},
+        y:{ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#141424'}}
+      }
+    }
+  });
+
+  // Show outliers (> p75 * 2)
+  const threshold = st.p75 * 2;
+  const outliers = sess.filter(s => s.durations[key] > threshold);
+  document.getElementById('step-dist-outliers').innerHTML = outliers.length
+    ? `<div style="font-family:var(--font-mono);font-size:0.62rem;color:var(--warn)">
+        ⚠ ${outliers.length} slow session${outliers.length!==1?'s':''} (>${fmt(threshold)}) — click to inspect:<br>
+        ${outliers.map(s=>`<span class="sid" onclick="openSessionFile('${s.filename}')" style="margin-right:0.75rem">${s.session_id.substring(0,16)}... (${s.durations[key]}s)</span>`).join('')}
+       </div>` : '';
+}
+
+// ─── Retry analysis ────────────────────────────────────────────────────────────
+function renderRetries() {
+  const sess = allSessions;
+  // Group by user_id (extracted from identification link)
+  const byUser = {};
+  for (const s of sess) {
+    const uid = s.user_id || s.session_id;
+    if (!byUser[uid]) byUser[uid] = [];
+    byUser[uid].push(s);
+  }
+  const counts = Object.values(byUser).map(g=>g.length);
+  const retryDist = {};
+  for (const c of counts) retryDist[c]=(retryDist[c]||0)+1;
+
+  document.getElementById('retry-grid').innerHTML = Object.entries(retryDist).sort(([a],[b])=>a-b)
+    .map(([n,c]) => `<div class="retry-card">
+      <div class="rn" style="color:${n==='1'?'var(--approve)':n==='2'?'var(--accent)':n==='3'?'var(--warn)':'var(--reject)'}">${c}</div>
+      <div class="rl">${n}× user${c!==1?'s':''}</div>
+      <div class="rp">${((c/Object.keys(byUser).length)*100).toFixed(0)}% of users</div>
+    </div>`).join('');
+
+  if (retriesChart) retriesChart.destroy();
+  const rkeys = Object.keys(retryDist).map(Number).sort((a,b)=>a-b);
+  retriesChart = new Chart(document.getElementById('chart-retries'), {
+    type:'bar',
+    data:{
+      labels:rkeys.map(k=>`${k} attempt${k!==1?'s':''}`),
+      datasets:[{
+        data:rkeys.map(k=>retryDist[k]),
+        backgroundColor:rkeys.map(k=>k===1?'rgba(0,229,160,0.7)':k===2?'rgba(77,159,255,0.7)':k===3?'rgba(255,184,48,0.65)':'rgba(255,61,107,0.65)'),
+        borderWidth:0,borderRadius:4
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#141424'}},
+        y:{ticks:{color:'#555578',font:{family:'IBM Plex Mono',size:10}},grid:{color:'#141424'}}
+      }
+    }
+  });
+}
+
+// ─── Table ────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const lstFilter = document.getElementById('tbl-last-step').value;
+  const reasonFilter = document.getElementById('tbl-reason').value;
+
+  // Populate filter options
+  const lstSel = document.getElementById('tbl-last-step');
+  if (lstSel.options.length <= 1) {
+    [...new Set(allSessions.map(s=>s.last_step))].sort().forEach(s => {
+      const o=document.createElement('option'); o.value=s; o.textContent=STEP_LABELS[s]||s;
+      lstSel.appendChild(o);
+    });
+  }
+  const rSel = document.getElementById('tbl-reason');
+  if (rSel.options.length <= 1) {
+    [...new Set(allSessions.map(s=>s.reason).filter(Boolean))].sort().forEach(r => {
+      const o=document.createElement('option'); o.value=r; o.textContent=r;
+      rSel.appendChild(o);
+    });
+  }
+
+  const DK=['start->voice-liveness-check','voice-liveness-check->deepfake-detection',
+    'deepfake-detection->customerPortrait','customerPortrait->idFront','idFront->idBack','idBack->hologram'];
+
+  const rows = filtered()
+    .filter(s => (!lstFilter||s.last_step===lstFilter) && (!reasonFilter||s.reason===reasonFilter))
+    .sort((a,b)=>b.total-a.total);
+
+  document.getElementById('tbl-body').innerHTML = rows.map(s => {
+    const oc = s.outcome==='approve'||s.outcome==='finished'?'oc-approve':s.outcome==='reject'?'oc-reject':'oc-unknown';
+    return `<tr>
+      <td class="sid" onclick="openSessionFile('${s.filename}')" title="${s.session_id}">${s.session_id}</td>
+      <td class="${oc}">${s.outcome}</td>
+      <td>${STEP_LABELS[s.last_step]||s.last_step}</td>
+      <td>${s.total||'—'}</td>
+      ${DK.map(k=>`<td>${s.durations[k]??'—'}</td>`).join('')}
+      <td style="color:var(--reject);font-size:0.62rem">${s.reason||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openSessionFile(filename) {
+  navigator.clipboard?.writeText(filename);
+  alert(`Filename copied to clipboard:\n${filename}\n\nOpen it from your ./data/logs/ folder.`);
+}
+
+// ─── Rebuild ──────────────────────────────────────────────────────────────────
+function rebuildCharts() {
+  renderFunnel();
+  renderMedians();
+  buildStepTabs();
+  renderRetries();
+}
+
+function rebuildAll() {
+  renderOutcomes();
+  rebuildCharts();
+  buildDistFilter();
+  renderTable();
+  document.getElementById('hdr-stats').innerHTML =
+    `<span style="color:var(--accent)">${allSessions.length} sessions loaded</span><br>
+     ${[...new Set(allSessions.map(s=>s.outcome))].join(' · ')}`; 
+}
+
+rebuildAll();
+</script>
+</body>
+</html>
