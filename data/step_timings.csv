@@ -488,7 +488,7 @@ a7b51df6e98640f690b892bdaad65a29_DNE_0_v2,51837021-25c8-40b9-b358-5a1aa4385a4d_F
 06ce05563115466c901601b8affb28d8_DNE_5_v2,5185d72a-0756-407c-b455-559a3a6f9b2d_Feb_17__2026__1_04_21_PM.log,3.6.1,aborted,,end,3,23,23,,,,,,,,
 ab52a68b71f948f8aec7c6caa09c1d2c_DNE_0_v2,519758f2-8d44-453f-af11-22a62eb3c6a6_Feb_27__2026__11_16_36_AM.log,3.6.1,aborted,,end,4,47,25,22,,,,,,,
 ab52a68b71f948f8aec7c6caa09c1d2c_DNE_1_v2,519758f2-8d44-453f-af11-22a62eb3c6a6_Feb_27__2026__11_20_07_AM.log,3.6.1,approve,,end,10,308,25,22,130,28,32,15,42,14,
-e49aa3afbcbb4156b922a8ba7297f1c6_DNE_4_v2,51986294-6178-4cff-af0d-c6aeddff54d8_Feb_25__2026__1_41_25_PM.log,3.6.1,failed,,end,6,128,47,21,23,37,,,,,
+e49aa3afbcbb4156b922a8ba7297f1c6_DNE_4_v2,51986294-6178-4cff-af0d-c6aeddff54d8_Feb_25__2026__1_41_25_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,6,128,47,21,23,37,,,,,
 e49aa3afbcbb4156b922a8ba7297f1c6_DNE_5_v2,51986294-6178-4cff-af0d-c6aeddff54d8_Feb_25__2026__1_44_51_PM.log,3.6.1,aborted,,end,8,467,47,21,23,37,321,18,,,
 e49aa3afbcbb4156b922a8ba7297f1c6_DNE_6_v2,51986294-6178-4cff-af0d-c6aeddff54d8_Feb_25__2026__1_52_03_PM.log,3.6.1,approve,,end,10,876,47,21,23,37,321,18,396,13,
 02c53e56f8274e92b41f936212965d6d_DNE_0_v2,51c59fb8-715d-4d60-bad2-efae534ae24e_Feb_25__2026__11_18_44_AM.log,3.6.1,approve,,end,10,383,22,25,22,62,33,18,71,47,83
@@ -1038,9 +1038,9 @@ d7b8b711550345bfa0edcc2ee9649e16_DNE_0_v2,b51b950e-e404-4778-aa65-e4a8ec5ac6b8_F
 7243ab606ad44830a6081cce580ced8a_DNE_0_v2,b556826a-c204-42d8-9a9e-6c51935b4d04-1771319352_Feb_17__2026__10_52_42_AM.log,3.6.1,approve,,end,10,228,7,79,10,25,14,10,47,13,23
 d0a0cf1f274b47338f46547370c74b15_DNE_0_v2,b5b3765a-e2c9-492b-b28b-d4afdbbb06c7_Feb_16__2026__3_54_45_PM.log,3.6.1,approve,,end,10,215,40,23,14,15,16,11,59,14,23
 eecb8829145942de9cc97752cdcdb05d_DNE_0_v2,b6836323-92b3-4973-aef4-5fd4c95e9197-1771925815_Feb_24__2026__10_43_46_AM.log,3.6.1,approve,,end,10,254,22,10,18,25,31,29,56,13,50
-7d179058c586465d97f13c59d851e873_DNE_0_v2,b7acc5c1-7b98-4a0e-8467-26f09464d41d_Feb_25__2026__12_54_03_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-7d179058c586465d97f13c59d851e873_DNE_1_v2,b7acc5c1-7b98-4a0e-8467-26f09464d41d_Feb_25__2026__12_55_17_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-c988133c977147e382f3e5c450469dc8_DNE_2_v2,b7acc5c1-7b98-4a0e-8467-26f09464d41d_Feb_25__2026__12_57_37_PM.log,3.6.1,failed,,end,3,191,191,,,,,,,,
+7d179058c586465d97f13c59d851e873_DNE_0_v2,b7acc5c1-7b98-4a0e-8467-26f09464d41d_Feb_25__2026__12_54_03_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+7d179058c586465d97f13c59d851e873_DNE_1_v2,b7acc5c1-7b98-4a0e-8467-26f09464d41d_Feb_25__2026__12_55_17_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+c988133c977147e382f3e5c450469dc8_DNE_2_v2,b7acc5c1-7b98-4a0e-8467-26f09464d41d_Feb_25__2026__12_57_37_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,3,191,191,,,,,,,,
 2909fd059c1142e5b83687e18112861e_DNE_0_v2,b7f6ce08-c941-4779-b1bb-7852a87634e1_Feb_27__2026__2_56_06_PM.log,3.6.1,approve,,end,10,343,19,119,10,61,36,17,62,13,6
 6d5066b5bd2149e38de1cbdeb44bef9b_DNE_0_v2,b8184fe4-945b-42eb-91d5-ccbe8707e849_Feb_22__2026__9_09_23_AM.log,3.6.1,approve,,end,10,222,11,16,14,20,64,26,44,14,13
 d41760ce437b423d89e38760b7d6deb2_DNE_0_v2,b82e34e2-7451-4126-ad90-5ed24d70b68e_Feb_18__2026__9_40_10_AM.log,3.6.1,approve,,end,10,215,33,18,14,21,29,18,41,14,27
@@ -1374,15 +1374,15 @@ e0c213568ec74ce8b503d83ebbc23126_DNE_1_v2,ff4ef4db-52f8-408a-9e7b-8f0f81f65d3e-1
 9ff0664f55ed4ea9b88f4f06af5c656c_DNE_0_v2,ff4ef4db-52f8-408a-9e7b-8f0f81f65d3e-1771315720_Feb_17__2026__8_39_24_PM.log,3.6.1,aborted,,end,4,51,34,17,,,,,,,
 9ff0664f55ed4ea9b88f4f06af5c656c_DNE_1_v2,ff4ef4db-52f8-408a-9e7b-8f0f81f65d3e-1771315720_Feb_17__2026__8_43_50_PM.log,3.6.1,approve,,end,10,308,34,17,89,29,47,22,57,13,
 5b471831eeba4d09852eb6adab3ed88d_DNE_0_v2,ff83c3e6-3452-46dd-adda-4c9e02ae8959_Feb_14__2026__3_09_52_PM.log,3.6.1,approve,,end,10,228,37,27,9,18,36,30,40,13,18
-a021ac9ebf074dc1ad84e18654cd700a_DNE_0_v2,not available_Feb_10__2026__12_35_12_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-53de74d9f7f9472aae988a4700bbd592_DNE_0_v2,not available_Feb_12__2026__12_10_22_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-f560ea16c5994529a31bc8b77194efb5_DNE_0_v2,not available_Feb_18__2026__2_09_38_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-d03aed8e4cb84f06964c489df8032e51_DNE_0_v2,not available_Feb_20__2026__6_47_16_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-ae144f303e4d428aab461ceef3d21770_DNE_1_v2,not available_Feb_23__2026__10_51_57_AM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-43334f97aefb4a558afc7f023bbdc0ae_DNE_0_v2,not available_Feb_25__2026__12_57_03_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-ea26259bf2ad4435aa4327730f7ef0e4_DNE_0_v2,not available_Feb_25__2026__1_02_29_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-53ef956f9e1c4a82a1bd5b8b18ba16e3_DNE_0_v2,not available_Feb_26__2026__1_54_03_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-de6483ceb5244e4d8f033f7d8bad6a61_DNE_0_v2,not available_Feb_26__2026__5_54_36_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-de6483ceb5244e4d8f033f7d8bad6a61_DNE_1_v2,not available_Feb_26__2026__5_54_46_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-06f8c468119c4160b8a153a127abde96_DNE_0_v2,not available_Feb_26__2026__5_56_28_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
-257c307942524201bd13a954603c6182_DNE_0_v2,not available_Mar_2__2026__10_40_51_PM.log,3.6.1,failed,,end,2,0,,,,,,,,,
+a021ac9ebf074dc1ad84e18654cd700a_DNE_0_v2,not available_Feb_10__2026__12_35_12_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+53de74d9f7f9472aae988a4700bbd592_DNE_0_v2,not available_Feb_12__2026__12_10_22_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+f560ea16c5994529a31bc8b77194efb5_DNE_0_v2,not available_Feb_18__2026__2_09_38_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+d03aed8e4cb84f06964c489df8032e51_DNE_0_v2,not available_Feb_20__2026__6_47_16_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+ae144f303e4d428aab461ceef3d21770_DNE_1_v2,not available_Feb_23__2026__10_51_57_AM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+43334f97aefb4a558afc7f023bbdc0ae_DNE_0_v2,not available_Feb_25__2026__12_57_03_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+ea26259bf2ad4435aa4327730f7ef0e4_DNE_0_v2,not available_Feb_25__2026__1_02_29_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+53ef956f9e1c4a82a1bd5b8b18ba16e3_DNE_0_v2,not available_Feb_26__2026__1_54_03_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+de6483ceb5244e4d8f033f7d8bad6a61_DNE_0_v2,not available_Feb_26__2026__5_54_36_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+de6483ceb5244e4d8f033f7d8bad6a61_DNE_1_v2,not available_Feb_26__2026__5_54_46_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+06f8c468119c4160b8a153a127abde96_DNE_0_v2,not available_Feb_26__2026__5_56_28_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,
+257c307942524201bd13a954603c6182_DNE_0_v2,not available_Mar_2__2026__10_40_51_PM.log,3.6.1,no-customer,no-available-customer (user re-scanned QR after completion),end,2,0,,,,,,,,,

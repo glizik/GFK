@@ -107,6 +107,15 @@ function extractSession(data, filename) {
   // 'FaceKom finished with type' was logged. Treat it as 'approve'.
   if (outcome === 'finished') outcome = 'approve';
 
+  // === SPECIAL CASE: "failed no available customer" (user re-scanned QR after finishing) ===
+  // These are NOT bugs — just user doubt/retry. We separate them so they don't count in stats.
+  if (outcome === 'failed' ||
+      filename.toLowerCase().includes('not available') ||
+      (reason && reason.toLowerCase().includes('no available customer'))) {
+    outcome = 'no-customer';
+    reason = 'no-available-customer (user re-scanned QR after completion)';
+  }
+
   // Durations between consecutive steps
   const durations = {};
   for (let i = 0; i < STEP_ORDER.length - 1; i++) {
@@ -472,9 +481,21 @@ let totalDistChart = null;
 let stepMedianChart = null;
 
 // ── Outcome filter state ───────────────────────────────────────────────────────
-const OUTCOME_COLORS = { approve:'var(--approve)', finished:'var(--approve)', reject:'var(--reject)', unknown:'var(--muted)', failed:'var(--reject)', aborted:'var(--warn)' };
+const OUTCOME_COLORS = { 
+  approve:'var(--approve)', 
+  reject:'var(--reject)', 
+  unknown:'var(--muted)', 
+  aborted:'var(--warn)', 
+  failed:'var(--reject)',
+  'no-customer':'#ff9f1c'
+};
+
+// NEW: stats always ignore no-customer cases
+function getFilteredSessions() {
+  return allSessions.filter(s => s.outcome !== 'no-customer' && activeOutcomes.has(s.outcome));
+}
 const allOutcomes = Object.keys(allStepStats.outcomes);
-let activeOutcomes = new Set(allOutcomes); // all enabled by default
+let activeOutcomes = new Set(allOutcomes.filter(o => o !== 'no-customer')); // default: exclude from stats
 
 function getFilteredSessions() {
   return allSessions.filter(s => activeOutcomes.has(s.outcome));
@@ -541,27 +562,60 @@ function renderOutcomes() {
   const total = allStepStats.total;
   const container = document.getElementById('outcome-pills');
   container.innerHTML = '';
-  Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([k,v]) => {
-    const color = OUTCOME_COLORS[k] || 'var(--border)';
-    const pill = document.createElement('div');
-    pill.className = 'outcome-pill' + (activeOutcomes.has(k) ? '' : ' disabled');
-    pill.style.borderColor = color;
-    pill.dataset.outcome = k;
-    pill.innerHTML = \`<span class="val" style="color:\${color}" id="pill-val-\${k}">\${v}</span><span id="pill-label-\${k}">\${k} · \${((v/total)*100).toFixed(1)}%</span><span class="toggle-hint">click to toggle</span>\`;
-    pill.onclick = () => {
-      if (activeOutcomes.has(k)) {
-        if (activeOutcomes.size === 1) return; // keep at least one
-        activeOutcomes.delete(k);
-        pill.classList.add('disabled');
-      } else {
-        activeOutcomes.add(k);
-        pill.classList.remove('disabled');
-      }
-      applyFilters();
-    };
-    container.appendChild(pill);
-  });
-  document.getElementById('header-stats').innerHTML = \`<span style="color:var(--accent)">\${total} sessions parsed</span><br>from log files\`;
+
+  Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([k, v]) => {
+      const color = OUTCOME_COLORS[k] || 'var(--border)';
+
+      // Build HTML safely with concatenation (no template literal risk)
+      const pill = document.createElement('div');
+      pill.className = 'outcome-pill' + (activeOutcomes.has(k) ? '' : ' disabled');
+      pill.style.borderColor = color;
+      pill.dataset.outcome = k;
+
+      pill.innerHTML =
+        '<span class="val" style="color:' + color + '" id="pill-val-' + k + '">' + v + '</span>' +
+        '<span id="pill-label-' + k + '">' + k + ' · ' + ((v / total) * 100).toFixed(1) + '%</span>' +
+        '<span class="toggle-hint">click to toggle</span>';
+
+      pill.onclick = () => {
+        if (activeOutcomes.has(k)) {
+          if (activeOutcomes.size === 1) return; // keep at least one
+          activeOutcomes.delete(k);
+          pill.classList.add('disabled');
+        } else {
+          activeOutcomes.add(k);
+          pill.classList.remove('disabled');
+        }
+        applyFilters();
+      };
+
+      container.appendChild(pill);
+    });
+
+  // ── Add explanation note about no-customer cases ───────────────────────────
+  const noCustomerCount = allSessions.filter(s => s.outcome === 'no-customer').length;
+  const validTotal = allStepStats.total - noCustomerCount;
+
+  const note = document.createElement('div');
+  note.style.marginTop = '12px';
+  note.style.padding = '10px 14px';
+  note.style.background = 'rgba(255, 159, 28, 0.08)';
+  note.style.border = '1px solid #ff9f1c33';
+  note.style.borderRadius = '8px';
+  note.style.fontSize = '0.68rem';
+  note.style.color = '#ccaa88';
+  note.innerHTML =
+    '<strong>100% = ' + validTotal + ' valid sessions</strong><br>' +
+    allStepStats.total + ' total parsed sessions − ' +
+    '<strong>' + noCustomerCount + ' "no available customer" re-scans</strong><br>' +
+    '(users who scanned QR again after finishing — not counted in stats)';
+
+  container.parentElement.appendChild(note);
+
+  document.getElementById('header-stats').innerHTML =
+    '<span style="color:var(--accent)">' + total + ' sessions parsed</span><br>from log files';
 }
 
 function updateOutcomePillCounts() {
