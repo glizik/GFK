@@ -270,6 +270,7 @@ function generateHtml(sessions, stepStats) {
   const dataJson = JSON.stringify({
     sessions: sessions.map(s => ({
       session_id: s.session_id,
+      filename: s.filename,
       outcome: s.outcome,
       reason: s.reason,
       last_step: s.last_step,
@@ -446,7 +447,7 @@ function generateHtml(sessions, stepStats) {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Session ID</th><th>Outcome</th><th>Last Step</th><th>Total (s)</th>
+          <th>Session ID</th><th>Filename</th><th>Outcome</th><th>Last Step</th><th>Total (s)</th>
           <th>Voice (s)</th><th>Deepfake (s)</th><th>Portrait (s)</th>
           <th>ID Front (s)</th><th>ID Back (s)</th><th>Hologram (s)</th>
           <th>Reason</th>
@@ -799,6 +800,7 @@ function renderTable() {
       const oc = s.outcome==='approve'||s.outcome==='finished'?'outcome-approve':s.outcome==='reject'?'outcome-reject':'outcome-unknown';
       return \`<tr>
         <td style="font-size:0.62rem"><span class="session-id-cell" title="Click to copy" onclick="copySessionId(this, '\${s.session_id}')">\${s.session_id}</span></td>
+        <td style="font-size:0.62rem"><span class="session-id-cell" title="Click to copy filename" onclick="copySessionId(this, '\${s.filename}')">\${s.filename}</span></td>
         <td class="\${oc}">\${s.outcome}</td>
         <td>\${stepLabels[s.last_step]||s.last_step}</td>
         <td>\${s.total||'—'}</td>
