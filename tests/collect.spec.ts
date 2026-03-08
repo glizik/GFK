@@ -27,7 +27,6 @@ import {
   IssueRecord,
   ensureDirExists,
 } from '../utils/csv';
-import { calcTimeWindow, markCompleted } from '../utils/state';
 
 dotenv.config();
 
@@ -175,15 +174,21 @@ async function downloadOrScrapeLog(page: Page, logFilePath: string): Promise<'do
 async function collectIssueType(
   page: Page,
   issueType: string,
-  existingRecords: IssueRecord[],
-  timeWindow: string,
+  existingRecords: IssueRecord[]
 ): Promise<{ reachedEnd: boolean; oldestEventDate: string }> {
 
+  const start        = process.env.ISSUE_TIME_FROM;
+  const end          = process.env.ISSUE_TIME_TO;
+  const timeParam = `${start}:${end}`;
+  // const params = new URLSearchParams({ ...BASE_QUERY, time: timeParam});
+  const timeWindow = ISSUE_TIME_DEFAULT;
+
   const params = new URLSearchParams({ ...BASE_QUERY, time: timeWindow });
+
   const url = `${FIREBASE_BASE}?${params.toString()}`;
 
   console.log(`\n${'═'.repeat(60)}`);
-  console.log(`🎯 Issue type: "${issueType}"  window: ${timeWindow}`);
+  console.log(`🎯 Issue type: "${issueType}"  time: ${timeParam}`);
   console.log(`🌐 ${url}`);
 
   await page.goto(url);
@@ -321,26 +326,48 @@ async function collectIssueType(
     // ── Pagination ──────────────────────────────────────────────────────────
     const prevBtn = page.locator('button[aria-label="Previous event"]');
 
-    let isDisabled = false; // assume disabled until proven otherwise
-    try {
-      await prevBtn.waitFor({ timeout: 5_000 });
-      const attr = await prevBtn.getAttribute('disabled');
-      isDisabled = attr !== null;
-    } catch {
-      // Button not found at all — treat as end of list
-      isDisabled = true;
+    const MAX_WAIT_MS = 10_000;           // total time we're willing to wait for button to enable
+    const POLL_INTERVAL_MS = 800;         // how often to check
+    const startTime = Date.now();
+
+    let navigated = false;
+
+    while (Date.now() - startTime < MAX_WAIT_MS) {
+      // First ensure the button is attached/visible at all
+      const isVisible = await prevBtn.isVisible().catch(() => false);
+      if (!isVisible) {
+        console.log(`Previous button not visible yet, waiting...`);
+        await page.waitForTimeout(POLL_INTERVAL_MS);
+        continue;
+      }
+
+      const isDisabledNow = await prevBtn.isDisabled().catch(() => true);
+
+      if (!isDisabledNow) {
+        console.log(`Previous button is now enabled → clicking to go to previous event`);
+        await prevBtn.click();
+        await waitForStable(page);
+        await page.waitForTimeout(600);     // small buffer after click
+        navigated = true;
+        break;
+      }
+
+      console.log(`Previous button still disabled... waiting ${POLL_INTERVAL_MS}ms`);
+      await page.waitForTimeout(POLL_INTERVAL_MS);
     }
 
-    if (isDisabled) {
+    if (!navigated) {
+      // Timed out waiting for enabled state → assume end of list
+      console.log(`\nGave up waiting for "Previous" button to become enabled after ~${MAX_WAIT_MS/1000}s → end of list reached.`);
+
       const screenshotPath = path.join(
         './data/screenshots',
         `pagination_end_${issueType.replace(/[^a-z0-9]/gi, '_')}_event${eventIndex}_${Date.now()}.png`
       );
       fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
       await page.screenshot({ path: screenshotPath, fullPage: true });
-      console.log(`📸 Pagination screenshot saved: ${screenshotPath}`);
+      console.log(`📸 Saved end-of-list screenshot: ${screenshotPath}`);
 
-      console.log(`\n🏁 Reached last event for "${issueType}" after ${eventIndex} events.`);
       reachedEnd = true;
       break;
     }
@@ -377,22 +404,11 @@ test('Collect Crashlytics FaceKom issues', async ({ page }) => {
 
   // ── Loop over all configured issue types ─────────────────────────────────
   for (const issueType of ISSUE_TYPES_LIST) {
-    const timeWindow = calcTimeWindow(STATE_FILE, issueType, ISSUE_TIME_DEFAULT);
-
     const { reachedEnd, oldestEventDate } = await collectIssueType(
       page,
       issueType,
-      existingRecords,
-      timeWindow,
+      existingRecords
     );
-
-    if (reachedEnd) {
-      // Only narrow the window after a full successful run
-      markCompleted(STATE_FILE, issueType, oldestEventDate);
-      console.log(`✅ "${issueType}" fully collected. Window will narrow on next run.`);
-    } else {
-      console.log(`⚠️  "${issueType}" did not finish (limit hit). Window unchanged.`);
-    }
   }
 
   console.log('\n🎉 All issue types processed.');
