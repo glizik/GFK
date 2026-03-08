@@ -352,8 +352,19 @@ function generateHtml(sessions, stepStats) {
 
   /* Outcome summary */
   .outcome-pills{display:flex;gap:1rem;flex-wrap:wrap;}
-  .outcome-pill{padding:0.6rem 1.2rem;border-radius:8px;border:1px solid;font-family:var(--mono);font-size:0.75rem;font-weight:700;}
+  .outcome-pill{padding:0.6rem 1.2rem;border-radius:8px;border:1px solid;font-family:var(--mono);font-size:0.75rem;font-weight:700;cursor:pointer;transition:opacity 0.2s,transform 0.15s,box-shadow 0.2s;user-select:none;background:transparent;}
+  .outcome-pill:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.3);}
+  .outcome-pill.disabled{opacity:0.25;filter:grayscale(0.6);}
   .outcome-pill .val{font-size:1.6rem;font-weight:800;display:block;line-height:1;}
+  .outcome-pill .toggle-hint{font-size:0.55rem;color:inherit;opacity:0.6;letter-spacing:0.08em;display:block;margin-top:0.2rem;}
+
+  /* Session ID copy */
+  .session-id-cell{cursor:pointer;font-family:var(--mono);font-size:0.6rem;color:#aaaacc;border-bottom:1px dashed var(--border);transition:color 0.15s;word-break:break-all;white-space:normal;max-width:220px;display:inline-block;}
+  .session-id-cell:hover{color:var(--accent);}
+  .session-id-cell.copied{color:var(--approve)!important;}
+
+  .copy-toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--surface2);border:1px solid var(--approve);color:var(--approve);font-family:var(--mono);font-size:0.7rem;padding:0.5rem 1rem;border-radius:8px;z-index:9999;opacity:0;transform:translateY(8px);transition:opacity 0.2s,transform 0.2s;pointer-events:none;}
+  .copy-toast.show{opacity:1;transform:translateY(0);}
 
   /* Session table */
   .table-wrap{overflow-x:auto;max-height:360px;overflow-y:auto;}
@@ -377,6 +388,7 @@ function generateHtml(sessions, stepStats) {
 </style>
 </head>
 <body>
+<div class="copy-toast" id="copy-toast">✓ Copied to clipboard</div>
 <header>
   <div>
     <h1>FaceKom <span>Flow Timing</span></h1>
@@ -389,7 +401,7 @@ function generateHtml(sessions, stepStats) {
 
   <!-- Outcome summary -->
   <div class="card">
-    <div class="card-title">Outcome Summary</div>
+    <div class="card-title">Outcome Summary <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.05em;text-transform:none;font-family:var(--mono)"> — click to filter all charts &amp; table</span></div>
     <div class="outcome-pills" id="outcome-pills"></div>
   </div>
 
@@ -426,16 +438,7 @@ function generateHtml(sessions, stepStats) {
   <div class="card">
     <div class="card-title">All Sessions</div>
     <div class="filter-row">
-      <span class="filter-label">Outcome</span>
-      <select id="filter-outcome" onchange="renderTable()">
-        <option value="">All</option>
-        <option value="approve">Approve</option>
-        <option value="reject">Reject</option>
-        <option value="finished">Finished</option>
-        <option value="unknown">Unknown</option>
-        <option value="failed">Failed</option>
-      </select>
-      <span class="filter-label" style="margin-left:1rem">Last step</span>
+      <span class="filter-label" style="margin-left:0">Last step</span>
       <select id="filter-last-step" onchange="renderTable()">
         <option value="">All</option>
       </select>
@@ -457,21 +460,114 @@ function generateHtml(sessions, stepStats) {
 
 <script>
 const DATA = ${dataJson};
-const { sessions, stepStats, stepOrder, stepLabels } = DATA;
+const { sessions: allSessions, stepStats: allStepStats, stepOrder, stepLabels } = DATA;
 let distChart = null;
+let totalDistChart = null;
+let stepMedianChart = null;
+
+// ── Outcome filter state ───────────────────────────────────────────────────────
+const OUTCOME_COLORS = { approve:'var(--approve)', finished:'var(--approve)', reject:'var(--reject)', unknown:'var(--muted)', failed:'var(--reject)', aborted:'var(--warn)' };
+const allOutcomes = Object.keys(allStepStats.outcomes);
+let activeOutcomes = new Set(allOutcomes); // all enabled by default
+
+function getFilteredSessions() {
+  return allSessions.filter(s => activeOutcomes.has(s.outcome));
+}
+
+function recomputeStepStats(filteredSessions) {
+  const reachCounts = {};
+  for (const s of stepOrder) reachCounts[s] = 0;
+  for (const s of filteredSessions) for (const step of s.steps_reached) reachCounts[step]++;
+
+  const transitions = {};
+  for (let i = 0; i < stepOrder.length - 1; i++) {
+    const s1 = stepOrder[i], s2 = stepOrder[i+1];
+    const key = \`\${s1}->\${s2}\`;
+    const vals = filteredSessions.map(s=>s.durations[key]).filter(v=>v!==undefined);
+    const statsObj = vals.length ? (() => {
+      const sorted = [...vals].sort((a,b)=>a-b);
+      const sum = sorted.reduce((a,b)=>a+b,0);
+      return { mean:Math.round(sum/sorted.length), median:sorted[Math.floor(sorted.length/2)],
+        p25:sorted[Math.floor(sorted.length*0.25)], p75:sorted[Math.floor(sorted.length*0.75)],
+        min:sorted[0], max:sorted[sorted.length-1], count:sorted.length };
+    })() : null;
+    transitions[key] = { from:s1, to:s2, fromLabel:stepLabels[s1], toLabel:stepLabels[s2],
+      reachedFrom:reachCounts[s1], reachedTo:reachCounts[s2],
+      dropOff:reachCounts[s1]-reachCounts[s2], stats:statsObj };
+  }
+  const outcomes = {};
+  for (const s of filteredSessions) outcomes[s.outcome] = (outcomes[s.outcome]||0)+1;
+  const dropReasons = {};
+  for (const s of filteredSessions) if (s.reason) dropReasons[s.reason] = (dropReasons[s.reason]||0)+1;
+  return { transitions, reachCounts, outcomes, dropReasons, total: filteredSessions.length };
+}
+
+// derived vars used by render functions (will be refreshed on filter change)
+let sessions = allSessions;
+let stepStats = allStepStats;
+
+function applyFilters() {
+  sessions = getFilteredSessions();
+  stepStats = recomputeStepStats(sessions);
+  renderStepsGrid();
+  renderTotalDist();
+  renderStepMedian();
+  buildStepSelector();
+  renderTable();
+  updateOutcomePillCounts();
+}
+
+// ── Copy session ID ────────────────────────────────────────────────────────────
+function copySessionId(el, id) {
+  navigator.clipboard.writeText(id).then(() => {
+    el.classList.add('copied');
+    setTimeout(() => el.classList.remove('copied'), 1500);
+    const toast = document.getElementById('copy-toast');
+    toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.remove('show'), 1800);
+  });
+}
 
 // ── Outcome summary ────────────────────────────────────────────────────────────
 function renderOutcomes() {
-  const counts = stepStats.outcomes;
-  const total = stepStats.total;
-  const colors = { approve:'var(--approve)', finished:'var(--approve)', reject:'var(--reject)', unknown:'var(--muted)', failed:'var(--reject)', aborted:'var(--warn)' };
-  document.getElementById('outcome-pills').innerHTML = Object.entries(counts)
-    .sort((a,b)=>b[1]-a[1])
-    .map(([k,v])=>\`<div class="outcome-pill" style="border-color:\${colors[k]||'var(--border)'}">
-      <span class="val" style="color:\${colors[k]||'var(--text)'}">\${v}</span>
-      \${k} · \${((v/total)*100).toFixed(1)}%
-    </div>\`).join('');
+  const counts = allStepStats.outcomes;
+  const total = allStepStats.total;
+  const container = document.getElementById('outcome-pills');
+  container.innerHTML = '';
+  Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([k,v]) => {
+    const color = OUTCOME_COLORS[k] || 'var(--border)';
+    const pill = document.createElement('div');
+    pill.className = 'outcome-pill' + (activeOutcomes.has(k) ? '' : ' disabled');
+    pill.style.borderColor = color;
+    pill.dataset.outcome = k;
+    pill.innerHTML = \`<span class="val" style="color:\${color}" id="pill-val-\${k}">\${v}</span><span id="pill-label-\${k}">\${k} · \${((v/total)*100).toFixed(1)}%</span><span class="toggle-hint">click to toggle</span>\`;
+    pill.onclick = () => {
+      if (activeOutcomes.has(k)) {
+        if (activeOutcomes.size === 1) return; // keep at least one
+        activeOutcomes.delete(k);
+        pill.classList.add('disabled');
+      } else {
+        activeOutcomes.add(k);
+        pill.classList.remove('disabled');
+      }
+      applyFilters();
+    };
+    container.appendChild(pill);
+  });
   document.getElementById('header-stats').innerHTML = \`<span style="color:var(--accent)">\${total} sessions parsed</span><br>from log files\`;
+}
+
+function updateOutcomePillCounts() {
+  const filtered = sessions;
+  const total = allStepStats.total;
+  for (const k of allOutcomes) {
+    const count = filtered.filter(s=>s.outcome===k).length;
+    const valEl = document.getElementById(\`pill-val-\${k}\`);
+    const lblEl = document.getElementById(\`pill-label-\${k}\`);
+    if (valEl) valEl.textContent = count;
+    if (lblEl) lblEl.textContent = \`\${k} · \${((allStepStats.outcomes[k]/total)*100).toFixed(1)}%\`;
+  }
 }
 
 // ── Steps grid ─────────────────────────────────────────────────────────────────
@@ -544,7 +640,8 @@ function renderTotalDist() {
   }
   const keys = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
 
-  new Chart(document.getElementById('chart-total-dist'), {
+  if (totalDistChart) { totalDistChart.destroy(); totalDistChart = null; }
+  totalDistChart = new Chart(document.getElementById('chart-total-dist'), {
     type: 'bar',
     data: {
       labels: keys.map(k=>\`\${k}-\${k+bucketSize}s\`),
@@ -586,7 +683,8 @@ function renderStepMedian() {
     }
   }
 
-  new Chart(document.getElementById('chart-step-median'), {
+  if (stepMedianChart) { stepMedianChart.destroy(); stepMedianChart = null; }
+  stepMedianChart = new Chart(document.getElementById('chart-step-median'), {
     type: 'bar',
     data: {
       labels,
@@ -611,6 +709,7 @@ function renderStepMedian() {
 function buildStepSelector() {
   const trans = stepStats.transitions;
   const sel = document.getElementById('step-selector');
+  sel.innerHTML = '';
   let first = true;
   for (let i=0;i<stepOrder.length-1;i++) {
     const key = \`\${stepOrder[i]}->\${stepOrder[i+1]}\`;
@@ -667,22 +766,21 @@ function renderStepDist(key) {
 
 // ── Session table ──────────────────────────────────────────────────────────────
 function renderTable() {
-  const outcomeFilter = document.getElementById('filter-outcome').value;
   const lastStepFilter = document.getElementById('filter-last-step').value;
 
-  // Populate last step filter
+  // Always rebuild last step filter to reflect currently filtered sessions
   const lastStepSel = document.getElementById('filter-last-step');
-  if (lastStepSel.options.length <= 1) {
-    const steps = [...new Set(sessions.map(s=>s.last_step))].sort();
-    steps.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s; opt.textContent = stepLabels[s]||s;
-      lastStepSel.appendChild(opt);
-    });
-  }
+  const currentVal = lastStepSel.value;
+  lastStepSel.innerHTML = '<option value="">All</option>';
+  const steps = [...new Set(sessions.map(s=>s.last_step))].sort();
+  steps.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = stepLabels[s]||s;
+    if (s === currentVal) opt.selected = true;
+    lastStepSel.appendChild(opt);
+  });
 
   const filtered = sessions.filter(s =>
-    (!outcomeFilter || s.outcome === outcomeFilter) &&
     (!lastStepFilter || s.last_step === lastStepFilter)
   );
 
@@ -700,7 +798,7 @@ function renderTable() {
     .map(s => {
       const oc = s.outcome==='approve'||s.outcome==='finished'?'outcome-approve':s.outcome==='reject'?'outcome-reject':'outcome-unknown';
       return \`<tr>
-        <td style="font-size:0.62rem">\${s.session_id.substring(0,24)}...</td>
+        <td style="font-size:0.62rem"><span class="session-id-cell" title="Click to copy" onclick="copySessionId(this, '\${s.session_id}')">\${s.session_id}</span></td>
         <td class="\${oc}">\${s.outcome}</td>
         <td>\${stepLabels[s.last_step]||s.last_step}</td>
         <td>\${s.total||'—'}</td>
