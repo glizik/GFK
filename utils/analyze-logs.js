@@ -102,6 +102,11 @@ function extractSession(data, filename) {
     }
   }
 
+  // 'finished' is an internal flow status from end(status:"finished"), not a business outcome.
+  // It means the flow completed successfully but the window was closed before
+  // 'FaceKom finished with type' was logged. Treat it as 'approve'.
+  if (outcome === 'finished') outcome = 'approve';
+
   // Durations between consecutive steps
   const durations = {};
   for (let i = 0; i < STEP_ORDER.length - 1; i++) {
