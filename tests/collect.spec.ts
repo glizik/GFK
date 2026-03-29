@@ -224,7 +224,7 @@ async function collectIssueType(
     // ── Data tab ────────────────────────────────────────────────────────────
     await page.getByRole('tab', { name: 'Data', exact: true }).click();
     await waitForStable(page);
-    await page.waitForSelector('.data-line-item', { timeout: 5_000 });
+    // await page.waitForSelector('.data-line-item', { timeout: 5_000 });
 
     const idRow = await readDataLineItem(page, 'ID');
     const identification_link = idRow.text || 'not available';
