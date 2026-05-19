@@ -4,3 +4,5 @@ playwright-report
 session.json
 .last-run.json
 test-results
+.DS_Store
+venv
