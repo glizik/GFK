@@ -44,27 +44,30 @@ Two stages, kept separate:
   per session**. Going forward, GFK targets this version. ~10 days of data
   sit in Crashlytics waiting to be collected.
 
-### iOS source — what each Crashlytics record means
+### Crashlytics record types in 3.7.0 (verified against iOS source)
 
-Gabor shared `SelfServicePresenter.swift` (the controller that owns the
-flow). Mapping the Swift code to the Crashlytics issue types we see:
-
-| Swift call | Crashlytics issue type (observed in CSV / expected) |
+| Swift call | Crashlytics issue (observed / expected) |
 |---|---|
-| `record(error: NSError(domain: "FaceKom handleFlow", code: 0))` in `handleFlow(closeType:)` | `FaceKom handleFlow (0)` — fires after every flow that completes (approve / reject). |
-| `record(error: NSError(domain: "FaceKom stopAndClear", code: 0))` in `stopAndClear()` | `FaceKom stopAndClear (0)` — user closed mid-video step. |
-| `record(error: SelfServiceRuntimeError.sessionBackgrounded(isVideoStep, currentStep))` in `didEnterBackground()` | **New in 3.7.0** — fires every time the app goes to background mid-flow. **This is the source of "multiple reports per session".** |
-| `record(error: SelfServiceRuntimeError.sessionDisconnected(reason))` in `disconnectSelfService` | `FaceKom disconnected (0)` (current name). |
-| `record(error: SelfServiceRuntimeError.sessionFinished(state))` in `reportAndShowFinish` | Fires at every finish (`finished` / `aborted` / `expired` / `failed`) regardless of `handleFlow` (which only fires when the user dismisses the finish screen). |
-| `setCustomValue(status, forKey: "STATUS")` | The `STATUS` Key on the event (`finished` / `aborted` / `expired` / `failed`). |
-| `setUserID(flowHandler.url?.absoluteString)` | The Crashlytics user ID = **full QR scan URL**, e.g. `https://videoid-mobile.e-szigno.hu/identification/<uuid>[-<extended>]`. |
+| `NSError(domain: "FaceKom handleFlow", code: 0)` in `handleFlow(closeType:)` | `FaceKom handleFlow (0)` — flow dismissed by user (after finish screen). |
+| `NSError(domain: "FaceKom stopAndClear", code: 0)` in `stopAndClear()` | `FaceKom stopAndClear (0)` — user closed mid-video step. |
+| `SelfServiceRuntimeError.sessionBackgrounded(...)` in `didEnterBackground()` | **`hu.microsec.eszigno.mobile.SelfServiceRuntimeError`** — fires every time the app goes to background mid-flow. Source of the "multiple reports per session" behaviour. |
+| `SelfServiceRuntimeError.sessionDisconnected(reason)` | Same Swift type, different `code`. |
+| `SelfServiceRuntimeError.sessionFinished(state)` in `reportAndShowFinish` | Same Swift type, code **`30803`** (verified from real event). Fires at every finish regardless of `handleFlow`. |
+| `setCustomValue(status, forKey: "STATUS")` | The Keys-tab `STATUS` value (was present in 3.6.1; 3.7.0 may have replaced it with `NSLocalizedDescription`). |
+| `setUserID(flowHandler.url?.absoluteString)` | Crashlytics user ID = **full QR URL** `https://videoid-mobile.e-szigno.hu/identification/<uuid>[-<extended>]`. |
 
-### SDK step names (from `MicrosecStep` + `FKSelfService.Step`)
+The big difference vs. 3.6.1: errors are recorded as **Swift typed errors**,
+not `NSError` with a `"FaceKom <name>"` domain string. So the issue list
+groups by `hu.microsec.eszigno.mobile.SelfServiceRuntimeError` + an integer
+code (e.g. `30803` = `sessionFinished`). One Swift type can produce
+multiple issue rows, one per case.
 
-| MicrosecStep rawValue | Swift case name | Logged as in Crashlytics |
+### SDK step names (3.6.1 and 3.7.0 — same)
+
+| MicrosecStep rawValue | Swift case | Logged as in Crashlytics |
 |---|---|---|
-| `voice-liveness-check` | `voiceLivenessCheck` | `nextStep: custom(type: "voice-liveness-check", …)` |
-| `deepfake-detection` | `deepFake` | `nextStep: custom(type: "deepfake-detection", …)` |
+| `voice-liveness-check` | `voiceLivenessCheck` | `currentStep: voiceLivenessCheck`, or `nextStep: custom(type: "voice-liveness-check", …)` |
+| `deepfake-detection` | `deepFake` | `currentStep: deepFake`, or `nextStep: custom(type: "deepfake-detection", …)` |
 | `customer-portrait` | `customerPortrait` | `nextStep: customerPortrait(…)` |
 | `id-front` | `idFront` | `nextStep: idFront(…)` |
 | `id-back` | `idBack` | `nextStep: idBack(…)` |
@@ -73,83 +76,235 @@ flow). Mapping the Swift code to the Crashlytics issue types we see:
 | `2-factor` | `secondFactor` | `nextStep: twoFactor(…)` |
 | `end` | `end` | `nextStep: end(status: "<finished/…>", …)` |
 
-This matches the analyzer's current `STEP_ORDER`. **3.7.0 likely keeps the
-same names** since the SDK enum hasn't changed, but we'll confirm from a real
-3.7.0 log before assuming.
+**Confirmed in 3.7.0 from a real log** (`data/fixtures/sample_3.7.0_…json`):
+`currentStep: voiceLivenessCheck` appears verbatim — analyzer's existing
+`STEP_ORDER` is reusable.
 
 ### Re-entry / resume rules
 - Voice-liveness-check, deepfake-detection, customer-portrait, id-back-video,
   hologram → **video steps**. Backgrounding aborts. User must rescan QR.
 - id-front, id-back, twoFactor, end → **non-video steps**. Backgrounding
   doesn't necessarily kill the session.
-- `isValidEntryStep` (resume entry points): `voiceLivenessCheck`, `idFront`,
-  `idBack`, `hologram`, `idBackVideo`, `secondFactor`, `end`. So after the
-  first video step is complete, the user can resume from `idFront` onward.
+- Resume entry points: `voiceLivenessCheck`, `idFront`, `idBack`, `hologram`,
+  `idBackVideo`, `secondFactor`, `end`. After first video step the user can
+  resume from `idFront` onward.
 
 ---
 
-## 3. The right way to think about the data
+## 3. Firebase Crashlytics URL conventions (from real 3.7.0 page sources)
 
-The crucial reframe (after analysing the 2,420 3.6.1 rows AND reading the
-Swift source):
+### Issue list (all events for a version)
+```
+https://console.firebase.google.com/u/<u>/project/<project>/crashlytics/app/<app>/issues
+   ?time=90d
+   &state=open
+   &tag=all
+   &sort=eventCount
+   &versions=<version> (<build>)
+   &types=error
+   &issuesQuery=<query>
+```
+
+### Single issue (one error type / domain+code)
+```
+.../crashlytics/app/<app>/issues/<issue_id>
+   ?time=90d
+   &versions=<version> (<build>)
+   &types=error
+   &sessionEventKey=<session_id_base>_<event_id>
+```
+
+### Key fields decoded
+- **`issue_id`** (e.g. `1782c2128a0148281dace39bf8664159`) — Firebase's
+  hash for the (domain, code, app) tuple. Stable across events of the
+  same issue type.
+- **`sessionEventKey`** — two parts joined by `_`:
+  - `session_id_base` (32-char hex) — same across all reports of one
+    Firebase Analytics session.
+  - `event_id` (numeric, ~19 digits) — unique per Crashlytics non-fatal
+    event. **This is the dedup key we want.**
+- **`time`** — `Nd` (relative, e.g. `90d`) **or** `<startMs>:<endMs>`.
+
+### Inside the downloaded JSON
+```
+{
+  "title":      "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform":   "apple",
+  "display_version": "3.7.0",
+  "build_version":   "2753",
+  "issue_id":   "...",
+  "session_id": "<session_id_base>_DNE_<N>_v2",
+  "event_timestamp": "Tue May 19 2026 09:15:21 GMT+0200 (...)",
+  "logs_and_breadcrumbs": [ ... ]   // the gold
+}
+```
+
+The `_DNE_<N>_v2` suffix is the **report index within the session** —
+this is how 3.7.0 ships multiple reports for one session.
+
+### Event counts on the page
+- Firebase rounds **above 1,000** to `1K`, `2K`, etc.
+- Below that we get the exact number. From the sample run:
+  - 3.7.0 total non-fatals: **977**.
+  - Single issue `SelfServiceRuntimeError (30803)`: **583** events.
+  - "Users": **255** — Gabor confirmed this is Firebase Installation IDs
+    (≈ distinct device installs), not unique humans.
+
+---
+
+## 4. What one 3.7.0 event actually looks like (sample fixture)
+
+Saved at `data/fixtures/sample_3.7.0_sessionFinished_aborted_30803.json`.
+
+- Issue: `hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)` →
+  `sessionFinished(state:)` in the Swift code.
+- App version: `3.7.0 (2753)`, iPhone XR, iOS 18.7.9, 242 MB RAM free.
+- Event timestamp: `2026-05-19 09:15:21 +0200`.
+- User ID (Crashlytics): full QR URL,
+  `https://videoid-mobile.e-szigno.hu/identification/5b66dedc-c3b7-4ad8-abf7-c0c790f3ac73`.
+- Keys: `CONFIGURATION=PROD Release`, `SOURCE=videoId`, `nserror-code=30803`,
+  `nserror-domain=hu.microsec.eszigno.mobile.SelfServiceRuntimeError`,
+  `NSLocalizedDescription=Facekom finished with state: aborted(message: nil)`.
+
+### What the user actually did (reconstructed from 23 breadcrumbs)
+| t (s) | event |
+|---|---|
+| 0 | screen: EULAScreen |
+| 18 | screen: LoginStartScreen |
+| 78 | screen: LoginQrReaderScreen *(user scanned the QR)* |
+| 83 | screen: VideoUserAgreementsScreen |
+| 85 | screen: VideoAssistanceScreen |
+| 88 | `FaceKom started from: videoId` / `started with assistance: false` |
+| 88 | screen: VideoIntroScreen |
+| 110 | `FaceKom ID Verified` |
+| 111 | screen: IdVerificationScreen |
+| 113 | `FaceKom SelfService started` |
+| 114 | screen: SelfServiceViewController |
+| 115 | `FaceKom getSettings success` → `status: connecting` |
+| 118 | `status: disconnected` → `connect socket error: timeOut` |
+| 119 | screen: UIAlertController *(error popup)* |
+| 121 | `error: timeOut happened, stop and show abort` → retry `connecting` → `failed to stop with error: networkError from SelfService error, currentStep: voiceLivenessCheck. Aborted.` → `Facekom finished with state: aborted(message: nil)` |
+| 121 | screen: FinishViewController *(user shown the abort screen)* |
+
+### What this tells us
+1. **This particular abort is not user behaviour, it's backend.** Socket
+   timed out before the first video step started. The user did everything
+   right; the FaceKom server didn't respond.
+2. **`currentStep: voiceLivenessCheck`** is in the message body — proves the
+   3.7.0 SDK still emits step names like 3.6.1.
+3. **No `FaceKom nextStep:` messages here at all.** This session never got
+   past the socket-handshake. So the analyzer's funnel for this session
+   would be `start → end (aborted, reason=networkError)` with zero step
+   transitions — exactly the kind of "user reached zero steps" case the
+   cohort report should call out separately from real drop-offs.
+4. **`Facekom finished with state: <X>(message: <Y>)`** is the canonical
+   outcome line (`X ∈ {finished, aborted, expired, failed}`). The new
+   `NSLocalizedDescription` Key exposes this same string in the Keys tab,
+   so the collector can read outcome without parsing breadcrumbs.
+
+---
+
+## 5. The right way to think about the data
 
 > **One Crashlytics event ≠ one user.**
 > The hierarchy is **user → attempt → session → report.**
 
 | Level | Identifier | Notes |
 |---|---|---|
-| **User** | `user_id_base` (first 36 chars of `user_id`) | The physical person. **Variants** of the QR for the same person (extended UUID `<base>-<unix_ts>`) all belong here. We preserve every variant seen — see §4. |
-| **Attempt** | `user_id` (`base_uuid` or `base_uuid-<unix_ts>`) | One QR scan / one issued identification link. The `-<unix_ts>` suffix marks a "modified" QR. |
-| **Session** | log JSON `session_id` with `_DNE_N_v2` suffix stripped | The Firebase Analytics session inside the iOS app. |
-| **Report** | full `session_id` (with `_DNE_N_v2`) | A single Crashlytics non-fatal report = one row in `issues.csv`. 3.7.0 emits multiple per session (every `didEnterBackground` fires one). |
+| **User** | `user_id_base` (first 36 chars of user_id) | Physical person. **Variants** of the QR for the same person (extended UUID `<base>-<unix_ts>`) all belong here. Per-user record keeps an array of every variant seen — `user_id_variants[]`, `identification_links[]`. |
+| **Attempt** | `user_id` — `base_uuid` or `base_uuid-<unix_ts>` | One QR scan / one identification link. |
+| **Session** | `session_id_base` (from log JSON OR `sessionEventKey` URL param) | The Firebase Analytics session inside the iOS app. |
+| **Report** | full `session_id` with `_DNE_<N>_v2` suffix; or full `sessionEventKey` (`base_eventId`) for unique per-event identity | A single Crashlytics non-fatal report = one row in `issues.csv`. 3.7.0 emits multiple per session (every `didEnterBackground` fires one). |
 
 ### Why this matters
-
 - **User-centric success** is what we care about. In 3.6.1 data: 1,278 users
   with real IDs ran 1,877 attempts; 1,193 (93 %) eventually got approved.
-- "Abandoned" is **not** a session timeout. It's a property of a session
+- "Abandoned" is **not** a session timeout — it's a property of a session
   (the user backgrounded mid-flow). Same user can have several abandoned
-  sessions and still end up a successful user. Interesting questions:
-  - Of users who abandoned at least once, how many ever succeeded?
-  - At which step do they typically abandon?
-  - Which step is the "point of no return" — once a user abandons after
-    that step, they almost never succeed?
+  sessions and still end up a successful user.
+- Aborts caused by **backend network failures** (like the sample event)
+  must be cleanly separated from user-driven aborts — we can read this off
+  the breadcrumbs (`networkError`, `timeOut`, `disconnected`).
 
 ---
 
-## 4. Data-model clarifications (per Gabor 2026-05-19)
+## 6. Data-model clarifications (per Gabor 2026-05-19)
 
-1. **Don't lose UUID variant info when canonicalising.**
-   When we merge `<uuid>` and `<uuid>-<unix_ts>` rows into one user, the
-   user-level record keeps an **array of all variants observed** — including
-   the full identification_link URLs — so we can still trace which QR scan
-   produced which event. Implementation: per-user record has fields
-   `user_id_variants: string[]` and `identification_links: string[]`.
-
-2. **`user_id = "not available"` is NOT an anomaly.**
-   Those are users who declined analytics. They still produce Crashlytics
-   events (with `not available` as the User ID), we just don't get per-event
-   identity. They are legitimate distinct events, not duplicates. The dedup
-   key uses second-precision timestamps so they don't collide in practice.
-   - The **real** anomaly is the (≈1) event with **no ID at all** — neither
-     "not available" nor a UUID. Worth handling explicitly.
-
-3. **Crashlytics event-count display.**
-   Firebase rounds the page count to `1K`, `2K`, etc. above 1,000, so we
-   can't expect an exact match. The sanity check counts up to 1,000 exactly
-   and warns if our count is meaningfully below the displayed number.
-
-4. **CSV strategy.**
-   Clear `data/issues.csv` on `development` (3.6.1 stays on `main`). Add a
-   `app_version` column (already present) so future versions can append to
-   the same file and we can filter by version.
+1. **Don't lose UUID variant info when canonicalising users.** Per-user
+   record carries `user_id_variants[]` and `identification_links[]`.
+2. **`user_id = "not available"` is NOT an anomaly.** Users who declined
+   analytics. They produce legitimate distinct events. The real anomaly is
+   the (≈1) event with **no ID at all**.
+3. **Crashlytics event-count display rounds above 1,000.** Below 1K we
+   get the exact number. The sanity check uses the displayed total as a
+   floor — if we collected less, warn.
+4. **CSV strategy.** Clear `data/issues.csv` on `development`. Add an
+   `app_version` column (already present) for future versions to append
+   to the same file.
 
 ---
 
-## 5. Dataset snapshot — 3.6.1 (frozen, for reference)
+## 7. Per-event fields we want in the CSV (3.7.0)
 
-Analysed on 2026-05-19, source `data/issues.csv` (2,420 rows) — kept on
-`main` for reference comparison.
+Based on what Gabor listed plus what the JSON exposes:
+
+### Identity & dedup
+- `event_url` — deep link to the event (built from `issue_id` +
+  `sessionEventKey`). **Primary dedup key.**
+- `issue_id`, `session_event_key` (raw, for traceability).
+- `session_id_full` (e.g. `..._DNE_0_v2`).
+- `session_id_base` (suffix stripped).
+- `report_index` (int from `_DNE_<N>_v2`).
+- `event_id` (numeric, second half of `sessionEventKey`).
+- `user_id_base` (first 36 chars of `user_id`).
+- `user_id_suffix` (the `-<unix_ts>` part, or empty).
+- `identification_link` (full QR URL from Crashlytics setUserID).
+
+### Event summary
+- `app_version` (e.g. `3.7.0 (2753)`).
+- `os_version` (cleaned: `iOS 18.7.9`).
+- `os_major_version`.
+- `model` (e.g. `iPhone XR`).
+- `date` (event timestamp as ISO).
+
+### Keys tab
+- `crash_kind` (`sessionFinished` / `sessionBackgrounded` / `handleFlow` /
+  `stopAndClear` / `sessionDisconnected` / …) — **derived** from
+  `nserror_domain` + `nserror_code` mapping.
+- `nserror_code` (int, e.g. 30803).
+- `nserror_domain` (string).
+- `source` (`videoId`, …).
+- `status` (3.6.1 only; may be absent in 3.7.0).
+- `configuration` (`PROD Release`).
+- `nslocalized_description` (3.7.0 — has outcome embedded).
+
+### Device / OS / crash context
+- `orientation_device`, `ram_free_mib`, `jailbroken`, `orientation_os` —
+  Gabor explicitly asked for these.
+
+### Derived from breadcrumbs (the gold)
+- `outcome` (`approve` / `reject` / `aborted` / `expired` / `failed` /
+  `no-customer`) — parsed from "Facekom finished with state: X" and the
+  `handleFlow` close type.
+- `reason` (free text, e.g. `networkError`, `no-available-customer`,
+  `consent timer expired`) — parsed from breadcrumbs.
+- `last_step` (the highest MicrosecStep reached in breadcrumbs).
+- `steps_reached[]` (which of the canonical steps appeared).
+- `screen_views[]` — the ordered list of `firebase_screen_class` values.
+- `n_status_changes` — how many `status changed:` messages (high counts
+  mean reconnect loops).
+- `first_breadcrumb_ts`, `last_breadcrumb_ts`, `session_elapsed_s`.
+
+The **whole `logs_and_breadcrumbs` array** also lives in the per-event
+JSON file under `data/logs/`, so the CSV doesn't need to contain it
+verbatim — but every column above can be derived from it.
+
+---
+
+## 8. Dataset snapshot — 3.6.1 (frozen, reference baseline)
+
+Analysed on 2026-05-19, source `data/issues.csv` (2,420 rows on `main`).
 
 | Slice | Count |
 |---|---|
@@ -159,32 +314,25 @@ Analysed on 2026-05-19, source `data/issues.csv` (2,420 rows) — kept on
 | Unique `user_id` strings | 1,278 |
 | Unique `base_uuid` (canonicalised) | 1,095 |
 | Users seen with both base and extended UUID variants | 129 |
-| Date range collected | 2026-02-05 → 2026-03-29 (collector paused after that) |
+| Date range collected | 2026-02-05 → 2026-03-29 |
 
 ### Per-user retry distribution (canonical base_uuid)
 ```
-1 attempt   681 users
-2           236
-3            90
-4            47
+1 attempt   681 users      6           4
+2           236            7           6
+3            90            8           4
+4            47            9–14       (long tail to 14)
 5            22
-6             4
-7             6
-8             4
-9             2
-10            1
-12            1
-14            1   ← top retrier
 ```
 
-### Per-user outcomes (close_type / status union)
+### Per-user outcomes
 ```
 ever_approved     1,193   (93.3 %)
 ever_rejected        12   ( 0.9 %)
 never_succeeded      73   ( 5.7 %)
 ```
 
-### Success rate by attempt count (raw user_id, pre-canonicalisation)
+### Success rate by attempt count (raw user_id)
 ```
 1 attempt   883/911   (97 %)
 2 attempts  212/239   (89 %)
@@ -192,115 +340,84 @@ never_succeeded      73   ( 5.7 %)
 4–5          31/ 48   (65 %)
 6–10          5/ 11   (45 %)
 ```
-The more attempts, the worse the eventual outcome. This is exactly the
-"5 tries to get to the finish line" cohort Gabor wants surfaced.
-
-### Issue-type / outcome counts
-```
-issue_type:  handleFlow (0) 1358  stopAndClear (0) 723  disconnected (0) 223  failed no available customer (0) 116
-close_type:  unknown 1367  approve 981  reject 72
-status:      finished 1817  aborted 447  unknown 111  failed 45
-```
 
 ---
 
-## 6. Known limitations of the current collector (to fix on `development`)
+## 9. Known limitations of the current collector (to fix on `development`)
 
-1. **Step names hardcoded** to the 3.6.1 SDK shape. Likely the same in 3.7.0,
-   but we'll verify from a real 3.7.0 log before assuming.
-2. **No time-window state.** `utils/state.ts` was defined but never wired in.
-   Per Gabor: delete it and write a new module that understands Firebase's
-   URL time-param convention (`?time=Nd` and `?time=<startMs>:<endMs>`).
-   `utils/state.ts` is now a deprecation stub; see §10.
-3. **No event-count verification.** Gabor flagged anomalies; we can at least
-   sanity-check up to 1K against the issue-page total.
+1. **Dedup key is `user_id + date`.** Unsafe for 3.7.0 multi-report (same
+   session, same date string). Switch to `event_url` built from
+   `(issue_id, sessionEventKey)`.
+2. **`utils/state.ts` is deprecated.** Replaced by a Firebase-URL-aware
+   time module (§3 above).
+3. **No event-count verification.** Read the issue page's "Events" total,
+   compare to collected rows.
 4. **No "incremental" mode.** Every run does a full 90-day pull.
-5. **Pagination ends after a 10 s wait.** Could miss the last events if the
-   UI is slow.
-6. **Dedup key is `user_id + date`.** Fine for "not available" (different
-   seconds), but unsafe for 3.7.0 multi-report (same session, same date
-   string). Switch to log-payload `session_id` + Crashlytics event URL.
+5. **Pagination ends after a 10 s wait.** Can miss tail events.
+6. **Step names** in 3.6.1's analyzer are reusable for 3.7.0 (confirmed
+   from real log).
 
 ---
 
-## 7. Plan summary (lives in `roadmap.md` in detail)
+## 10. Plan summary (lives in `roadmap.md` in detail)
 
 **Stage 1 — Collection (3.7.0):**
-- Two modes: `collect:backfill` (90 days, clamped to "since 2026-05-09") and
-  `collect:incremental` (yesterday + small overlap, for daily runs).
-- Replace `state.ts` with a new module that uses Firebase URL conventions.
-- New dedup key: Crashlytics event URL + full `session_id_full`.
-- Add an event-count sanity check vs the issue-page total (up to 1K).
-- Preserve all UUID variants per user when canonicalising.
+- Two modes: `collect:backfill` (90 days, clamped to "since 2026-05-09")
+  and `collect:incremental` (yesterday + small overlap).
+- New dedup key: `event_url` (built from `issue_id` + `sessionEventKey`).
+- New issue-types list: `SelfServiceRuntimeError` cases by `nserror_code`
+  (e.g. `30803 = sessionFinished`), `handleFlow (0)`, `stopAndClear (0)`,
+  plus whichever other Swift typed errors appear.
+- Event-count sanity check vs the issue-page total (up to 1K).
+- Preserve all UUID variants per user.
 
 **Stage 2 — Analysis (3.7.0):**
-- Group reports → sessions → attempts → users.
+- Group reports → sessions (strip `_DNE_<N>_v2`) → attempts → users.
 - Per-user dashboard: # attempts, eventual outcome, step they kept
   abandoning at, time between attempts.
-- Cohort tables: never-abandoned, persistent (abandoned + eventually
-  succeeded), lost (abandoned + never succeeded).
+- Cohort tables: never-abandoned (one-shot success/fail), persistent
+  (abandoned + eventually succeeded), lost.
+- Separate **user-driven aborts** from **backend errors** (read
+  `networkError` / `timeOut` from breadcrumbs).
 - "Point of no return" view: P(success | last abandonment was at step X).
-- Re-derive step names + labels from a real 3.7.0 log; move them into a
-  small JSON config so future SDK changes don't require code edits.
 
 ---
 
-## 8. Environment / dev setup
+## 11. Environment / dev setup
 
-- `.env` IS tracked in git (Gabor confirmed). Currently set to
-  `ISSUE_VERSIONS=3.7.0 (2753)`.
-- `.gitignore` updated to add `.DS_Store` and `venv`.
-- `auth/session.json` holds the Google login (run `npx ts-node auth/setup.ts`
-  to refresh).
-- `gfktest()` helper in `~/.zshrc` activates venv, ensures node deps, runs
-  `npm run collect`, tees the log into `logs/log_YYYYMMDD_HHMMSS.log`.
+- `.env` IS tracked in git. Currently set to `ISSUE_VERSIONS=3.7.0 (2753)`.
+- `.gitignore` adds `.DS_Store` and `venv`.
+- `auth/session.json` holds the Google login.
+- `gfktest()` helper in `~/.zshrc` for one-shot runs.
 
 ---
 
-## 9. Firebase Crashlytics URL conventions (notes for the new time-state module)
-
-What we know from `tests/collect.spec.ts`:
-- Base: `https://console.firebase.google.com/project/<project>/crashlytics/app/<app>/issues`
-- Query params used:
-  - `state=open` `tag=all` `sort=eventCount`
-  - `versions=<version> (<build>)`
-  - `types=error`
-  - `issuesQuery=<text>`
-  - `time=<window>` — either `Nd` (last N days) OR `<startMs>:<endMs>`
-- For 3.7.0 we want both forms:
-  - Backfill: `time=90d` (Crashlytics clamps to data availability anyway)
-  - Incremental: `time=<startMs>:<endMs>` covering last ~36 h
-
-We'll research Firebase's documented URL format before writing the new
-state module, to handle edge cases (DST, ms vs s precision, the inclusive
-vs exclusive nature of the endpoints).
-
----
-
-## 10. Progress log
+## 12. Progress log
 
 ### 2026-05-19 — Session 1
 - Connected the GFK folder. Read codebase end-to-end.
-- Created and Gabor renamed working branch → **`development`**.
+- Gabor renamed working branch → **`development`**.
 - Updated `.env` → `ISSUE_VERSIONS=3.7.0 (2753)`.
-- Analysed `data/issues.csv` (2,420 rows) — see §5. Key insight: the
-  user→attempt→session→report hierarchy is real and grounded in numbers
-  (1,095 unique users, 93 % eventual success, multi-attempt retriers up to
-  14 events).
-- Read Gabor's iOS source for `SelfServicePresenter` — see §2 for the
-  mapping of Swift `record(error:)` calls to Crashlytics issue types.
-  Key finding: the new "multi-report" behaviour comes from
-  `didEnterBackground` recording `sessionBackgrounded` every time.
-- Corrections from Gabor logged:
-  - "not available" rows are analytics opt-outs, not anomalies.
-  - Don't lose UUID variant info when canonicalising — keep an array.
-  - `.env` should be tracked.
-  - Delete `utils/state.ts`; write a new Firebase-URL-aware state module.
-  - Firebase rounds event counts above 1K, so anomaly check is approximate.
-- Housekeeping: added `.DS_Store` + `venv` to `.gitignore`; replaced
-  `utils/state.ts` with a deprecation stub (sandbox can't `rm` inside the
-  repo, so leftover removal needs `git rm utils/state.ts` from Gabor's
-  terminal); cleared the stale `.DS_Store` files.
-- **Next:** Gabor will share one real 3.7.0 log. Then Stage 1.1 — confirm
-  step names and Crashlytics issue-type names for 3.7.0, then start writing
-  the new state module + collection modes.
+- Analysed `data/issues.csv` (2,420 rows) — see §8.
+- Read Gabor's iOS source for `SelfServicePresenter`.
+- Updated `.gitignore` (`.DS_Store`, `venv`); deprecated `utils/state.ts`.
+
+### 2026-05-19 — Session 2
+- Gabor shared a real 3.7.0 Crashlytics export (`SelfServiceRuntimeError
+  30803`, 583 events on that issue, 977 events total on the version).
+- Saved as `data/fixtures/sample_3.7.0_sessionFinished_aborted_30803.json`
+  — first reusable analyzer test fixture.
+- Decoded the Firebase URL conventions (§3): `sessionEventKey` is
+  `<session_id_base>_<event_id>` and is the right primary dedup key.
+- Decoded the new issue-grouping behaviour: Swift typed errors produce
+  `<full-type-name>` issues with integer codes per case
+  (`30803 = sessionFinished`).
+- Confirmed SDK step names unchanged in 3.7.0 — `currentStep:
+  voiceLivenessCheck` verbatim in the breadcrumb stream.
+- Walked the 23-breadcrumb sample (§4) — shows that this particular abort
+  was a backend socket timeout, not user-driven. Argues for parsing
+  breadcrumbs into `outcome + reason` columns.
+- Compiled the full list of per-event CSV fields (§7), including the
+  device/OS extras Gabor asked for plus breadcrumb-derived fields.
+- **Next:** propose the additional fields back to Gabor; once approved,
+  draft the new `IssueRecord` shape and the Firebase-URL state module.
