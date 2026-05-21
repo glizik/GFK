@@ -1,12 +1,13 @@
 rank,issue_name,nserror_domain,nserror_code,issue_id,events_total,users_total,processed_events,analysed_events,last_scraped
-1,SelfServiceRuntimeError (30803) — Facekom finished,hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,690,281,0,0,
-2,FaceKom handleFlow (0),FaceKom handleFlow,0,,327,263,0,0,
-3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,99,69,0,0,
-4,UndefinedUIError.openMessage (30302),hu.microsec.eszigno.mobile.UndefinedUIError.openMessage,30302,,21,20,0,0,
-5,FaceKomSDK.FaceKomError (46),FaceKomSDK.FaceKomError,46,1554cddf903511ee1651c3806c818d82,10,9,10,0,2026-05-20
-6,UndefinedDataError.downloadCertificates (21807),hu.microsec.eszigno.mobile.UndefinedDataError.downloadCertificates,21807,,7,3,0,0,
-7,FaceKomSDK.FaceKomError (3),FaceKomSDK.FaceKomError,3,,6,5,0,0,
-8,UndefinedDataError.automaticLogin (21802),hu.microsec.eszigno.mobile.UndefinedDataError.automaticLogin,21802,,6,4,0,0,
-9,UndefinedDataError (21801),hu.microsec.eszigno.mobile.UndefinedDataError,21801,,6,3,0,0,
-10,UndefinedDataError.setAccount (21805),hu.microsec.eszigno.mobile.UndefinedDataError.setAccount,21805,,2,1,0,0,
-11,FaceKomSDK.FaceKomError (43),FaceKomSDK.FaceKomError,43,,2,1,0,0,
+1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,9,786,0,0,2026-05-21T15:23:13.475Z
+2,FaceKom handleFlow (0),FaceKom handleFlow,0,,2,360,0,0,2026-05-21T15:23:13.475Z
+3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,112,75,0,0,2026-05-21T15:23:13.475Z
+4,FaceKomSDK.FaceKomError (46),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,46,,12,10,10,0,2026-05-21T15:23:13.475Z
+5,FaceKomSDK.FaceKomError (3),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,3,,6,5,0,0,2026-05-21T15:23:13.475Z
+6,FaceKomSDK.FaceKomError (43),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,43,,2,1,0,0,2026-05-21T15:23:13.475Z
+,SelfServiceRuntimeError (30803) — Facekom finished,hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,690,281,0,0,
+,UndefinedUIError.openMessage (30302),hu.microsec.eszigno.mobile.UndefinedUIError.openMessage,30302,,21,20,0,0,
+,UndefinedDataError.downloadCertificates (21807),hu.microsec.eszigno.mobile.UndefinedDataError.downloadCertificates,21807,,7,3,0,0,
+,UndefinedDataError.automaticLogin (21802),hu.microsec.eszigno.mobile.UndefinedDataError.automaticLogin,21802,,6,4,0,0,
+,UndefinedDataError (21801),hu.microsec.eszigno.mobile.UndefinedDataError,21801,,6,3,0,0,
+,UndefinedDataError.setAccount (21805),hu.microsec.eszigno.mobile.UndefinedDataError.setAccount,21805,,2,1,0,0,
