@@ -5,6 +5,8 @@
   "scripts": {
     "analyze": "node utils/analyze-logs.js",
     "setup": "npx ts-node --project tsconfig.json auth/setup.ts",
+    "discover": "npx playwright test tests/discover-issues.spec.ts",
+    "discover:headless": "HEADLESS=true npx playwright test tests/discover-issues.spec.ts",
     "collect": "npx playwright test tests/collect.spec.ts",
     "collect:headless": "HEADLESS=true npx playwright test tests/collect.spec.ts",
     "test": "npx playwright test"
