@@ -53,8 +53,8 @@ Two stages, kept separate:
 | `SelfServiceRuntimeError.sessionBackgrounded(...)` in `didEnterBackground()` | **`hu.microsec.eszigno.mobile.SelfServiceRuntimeError`** — fires every time the app goes to background mid-flow. Source of the "multiple reports per session" behaviour. |
 | `SelfServiceRuntimeError.sessionDisconnected(reason)` | Same Swift type, different `code`. |
 | `SelfServiceRuntimeError.sessionFinished(state)` in `reportAndShowFinish` | Same Swift type, code **`30803`** (verified from real event). Fires at every finish regardless of `handleFlow`. |
-| `setCustomValue(status, forKey: "STATUS")` | The Keys-tab `STATUS` value (was present in 3.6.1; 3.7.0 may have replaced it with `NSLocalizedDescription`). |
-| `setUserID(flowHandler.url?.absoluteString)` | Crashlytics user ID = **full QR URL** `https://videoid-mobile.e-szigno.hu/identification/<uuid>[-<extended>]`. |
+| `setCustomValue(status, forKey: "STATUS")` | The Keys-tab `STATUS` value. Confirmed present in 3.7.0 for `FaceKomSDK.FaceKomError (46)` (Status.finished / .aborted / .failed). `NSLocalizedDescription` does **not** replace it — the two appear on different issue types depending on the Swift error path. The canonical discriminator across issue types is `nserror-domain`. |
+| `setUserID(flowHandler.url?.absoluteString)` | Crashlytics user ID = **full QR URL** `https://videoid-mobile.e-szigno.hu/identification/<uuid>[-<extended>]`. **Shown on the Data tab → User → ID, NOT on the Keys tab.** |
 
 The big difference vs. 3.6.1: errors are recorded as **Swift typed errors**,
 not `NSError` with a `"FaceKom <name>"` domain string. So the issue list
@@ -229,7 +229,7 @@ Saved at `data/fixtures/sample_3.7.0_sessionFinished_aborted_30803.json`.
 
 ---
 
-## 6. Data-model clarifications (per Gabor 2026-05-19)
+## 6. Data-model clarifications (per Gabor 2026-05-19, updated 2026-05-20)
 
 1. **Don't lose UUID variant info when canonicalising users.** Per-user
    record carries `user_id_variants[]` and `identification_links[]`.
@@ -239,9 +239,25 @@ Saved at `data/fixtures/sample_3.7.0_sessionFinished_aborted_30803.json`.
 3. **Crashlytics event-count display rounds above 1,000.** Below 1K we
    get the exact number. The sanity check uses the displayed total as a
    floor — if we collected less, warn.
-4. **CSV strategy.** Clear `data/issues.csv` on `development`. Add an
-   `app_version` column (already present) for future versions to append
-   to the same file.
+4. **CSV strategy (revised 2026-05-20).** Two files on `development`:
+   - `data/events_3.7.0.csv` — one row per non-fatal event (the §7 schema).
+   - `data/issues_3.7.0.csv` — one row per Crashlytics issue type, sorted
+     by `events_total` desc, with `processed_events` / `analysed_events`
+     counters tracking collector / analyzer progress.
+   The legacy single `data/issues.csv` collector output is superseded by
+   `events_3.7.0.csv` going forward.
+5. **`SOURCE` is kept as the literal string, never normalised.** We've
+   seen `"videoId"` and `"Logged in videoId"` on events of the same
+   issue type. The flow can be entered from multiple places and the
+   exact wording matters — every word has meaning.
+6. **Breadcrumb presence is per-event, not per-issue.** Within a single
+   issue, some events have a full breadcrumb stream and others have
+   none. The `events_*.csv` records `breadcrumbs_status` (`not_available`
+   / `downloaded`), and downloaded events get a corresponding
+   `data/logs/<event_id>.log`.
+7. **RAM-free on the Data tab is not useful.** All scraped events show
+   `"0 B"` regardless of device. Do not analyse — the `ram_free_mib`
+   column is still emitted for completeness but should be ignored.
 
 ---
 
@@ -401,6 +417,27 @@ never_succeeded      73   ( 5.7 %)
 - Analysed `data/issues.csv` (2,420 rows) — see §8.
 - Read Gabor's iOS source for `SelfServicePresenter`.
 - Updated `.gitignore` (`.DS_Store`, `venv`); deprecated `utils/state.ts`.
+
+### 2026-05-20 — Session 3 (conversational scrape via Claude in Chrome)
+- First non-Playwright scrape: drove Chrome via the extension, using the
+  existing Firebase login. No CI artifact; the working selectors and
+  page mechanics live in `tests/discover.txt` so this can be ported.
+- Scraped all 9 events of `FaceKomSDK.FaceKomError (46)` end-to-end;
+  wrote `data/events_3.7.0.csv` (renamed from `data/issues_3.7.0.csv`)
+  with the §7 schema + new `breadcrumbs_status` column.
+- Created `data/issues_3.7.0.csv` discovery table: one row per
+  Crashlytics issue, sorted by `events_total` desc, with
+  `processed_events` / `analysed_events` counters.
+- Live findings on the page model:
+  - `SOURCE` has variants (`videoId` vs `Logged in videoId`) — kept literal.
+  - User ID (the `setUserID` QR URL) lives on the **Data tab**, not Keys.
+  - For `FaceKomError (46)`: STATUS is the outcome source, NSLocalizedDescription
+    is absent — confirming the per-issue-type variation.
+  - Multi-report-per-session is real: 2 of the 9 events shared `session_id_base`.
+  - RAM-free shows `"0 B"` everywhere — dropped from analysis interest.
+- Documented Chrome-extension safety filter quirks (blocks hex/URL
+  returns from JS) in `tests/discover.txt §5`; workaround is
+  programmatic `a.click()` + `tabs_context_mcp` for URL reads.
 
 ### 2026-05-19 — Session 2
 - Gabor shared a real 3.7.0 Crashlytics export (`SelfServiceRuntimeError

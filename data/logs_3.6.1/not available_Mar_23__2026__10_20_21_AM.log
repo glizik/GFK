@@ -1,0 +1,62 @@
+{
+  "title": "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform": "apple",
+  "display_version": "3.6.1",
+  "build_version": "2662",
+  "issue_id": "948ddfd40e59d4292b33af05432b4f35",
+  "session_id": "511cfcb8e9884e94a799495a8b947269_DNE_0_v2",
+  "event_timestamp": "Mon Mar 23 2026 10:20:21 GMT+0100 (Central European Standard Time)",
+  "logs_and_breadcrumbs": [
+    {
+      "timestamp": "Mon Mar 23 2026 10:19:11 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "EULAScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Mar 23 2026 10:19:15 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Mar 23 2026 10:19:56 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Mar 23 2026 10:19:59 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Mar 23 2026 10:20:01 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom started from: videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Mar 23 2026 10:20:01 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Mar 23 2026 10:20:21 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom failed no available customer",
+      "source": "crashlytics"
+    }
+  ]
+}

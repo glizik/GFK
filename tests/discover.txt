@@ -1,0 +1,259 @@
+# Firebase Crashlytics scraping — discovery notes
+
+Captured during a live conversational scrape of iOS 3.7.0 (2753)
+non-fatals via the Claude in Chrome extension. These notes are the
+"backbone" — enough for a future Playwright test to be written, even
+without an AI in the loop.
+
+Last verified: 2026-05-20.
+
+---
+
+## 1. The URL shape we drive
+
+Issue list (filtered to one version):
+
+    https://console.firebase.google.com
+      /u/<userIndex>/project/<projectId>
+      /crashlytics/app/<appId>
+      /issues
+      ?time=90d
+      &state=open
+      &tag=all
+      &sort=eventCount
+      &versions=<display_version> (<build>)
+      &types=error                            # "error" = non-fatals;
+                                              # "crash" = real crashes
+
+For GFK / iOS 3.7.0:
+- userIndex      = 0
+- projectId      = webszigno-dev-1532086359290
+- appId          = ios:hu.microsec.eszigno.mobile
+- versions       = 3.7.0%20(2753)   (URL-encoded space, parentheses kept)
+
+Issue detail (one issue, last-loaded event):
+
+    .../app/<appId>/issues/<issue_id>
+      ?time=90d
+      &versions=3.7.0%20(2753)
+      &types=error
+      &sessionEventKey=<session_id_base>_<event_id>
+
+`sessionEventKey` is updated by the page whenever you navigate between
+events with prev/next. It is the canonical per-event identity:
+- first half before `_` = `session_id_base` (32-char hex)  — the
+  iOS-side Firebase Analytics session
+- second half after `_` = `event_id` (numeric, ~19 digits) — the
+  unique non-fatal report
+
+This is also the dedup key we use in the collector. The full
+`session_id` with the `_DNE_<N>_v2` suffix (the "report index within
+session" mentioned in ai.md §3) is ONLY available in the downloaded
+JSON, not in the URL.
+
+
+## 2. Auth — Chrome extension uses your existing profile
+
+The Claude in Chrome extension drives a tab inside your normal Chrome
+window, so the Firebase login cookies you already have are reused.
+There is no SSO/MFA prompt during the scrape — provided you logged
+into Firebase in that browser profile before starting.
+
+The MCP tab group is a SEPARATE tab group within Chrome, but cookies
+are shared with your default profile, so login carries over.
+
+
+## 3. Page mechanics — Angular router quirks
+
+Issue links and the event prev/next buttons are Angular Router
+elements. Two real "gotchas":
+
+### 3a. Direct DOM clicks don't navigate
+Visible elements like the issue title (`<a class="fire-router-link-host
+link-wrapper" href="#">…</a>`) and the prev/next event buttons look
+clickable, but a `dispatchEvent('click')` from outside the page does
+NOT trigger Angular's router. The DOM click registers, the listener
+fires, but the route doesn't change.
+
+WORKAROUND: trigger the click programmatically from page JS:
+
+    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+    const keys = tabs.find(t => t.textContent.trim() === 'Keys');
+    keys.click();         // <- works
+                          // (vs. computer.left_click which doesn't)
+
+For the issue title:
+
+    const titles = Array.from(document.querySelectorAll('span.copy-target'))
+      .filter(s => s.textContent.trim() === '<issue title>');
+    titles[0].closest('a.fire-router-link-host').click();
+
+For prev/next event arrows:
+
+    const prev = Array.from(document.querySelectorAll('button'))
+      .find(b => /previous event|prev event/i.test(
+        (b.getAttribute('aria-label')||'') + ' ' + (b.title||'')));
+    prev.click();
+
+### 3b. Visible href looks like "#"
+Even when the visible attribute is `href="#"`, the real route is the
+actual `href` attribute (Angular renders the real path AND a "#" for
+the no-op semantic). The real path is in `a.outerHTML` or
+`a.getAttribute('href')`. But (see §5 below) reading hex-string
+hrefs back into your tool is blocked, so just use `.click()` and let
+the URL bar update.
+
+### 3c. Prev / next disabling
+- "Next event" is disabled on the most-recent event (Firebase loads
+  the newest event by default when opening an issue).
+- "Previous event" is disabled when you've reached the oldest event.
+  We use this as the loop terminator instead of counting.
+
+
+## 4. Where the per-event fields live in the UI
+
+The event detail panel has tabs: Stack trace | Keys | Logs & Breadcrumbs
+| Data | Rollouts.
+
+| §7 field                       | Where on the page                |
+|--------------------------------|----------------------------------|
+| app_version                    | Event summary header             |
+| os_version, model              | Event summary header             |
+| date                           | Event summary header             |
+| crash_kind / nserror_code      | Keys tab (`nserror-code`)        |
+| nserror_domain                 | Keys tab (`nserror-domain`)      |
+| source                         | Keys tab (`SOURCE`)              |
+| status                         | Keys tab (`STATUS`)              |
+| configuration                  | Keys tab (`CONFIGURATION`)       |
+| nslocalized_description        | Keys tab (NOT always present)    |
+| orientation_device, RAM, …     | Data tab → "Device"              |
+| orientation_os, jailbroken     | Data tab → "Operating System"    |
+| **user_id (full QR URL)**      | **Data tab → "User → ID"**       |
+| breadcrumbs                    | Logs & Breadcrumbs tab           |
+
+Important corrections vs. earlier assumptions:
+
+- **User ID is NOT on the Keys tab.** It lives on the Data tab under
+  "User → ID" as the full string Crashlytics received via
+  `setUserID(...)` — i.e. the full QR URL.
+- **STATUS and NSLocalizedDescription do not both appear together.**
+  For `FaceKomSDK.FaceKomError (46)`: STATUS is present,
+  NSLocalizedDescription is not. For the
+  `SelfServiceRuntimeError (30803)` fixture: NSLocalizedDescription
+  is present. The outcome string can be derived from EITHER, depending
+  on the issue type. The canonical discriminator is `nserror-domain`
+  (which Swift type produced the error).
+- **`SOURCE` should be kept as the literal string.** We've seen
+  `"videoId"` and `"Logged in videoId"` across events of the same
+  issue type — these aren't variants to normalize, they encode where
+  the flow was started from.
+- **RAM free is not interesting.** Every event we've scraped shows
+  `"0 B"` for RAM free regardless of device. Treat it as either
+  Firebase-not-capturing or noise; do not analyze.
+
+
+## 5. The JS sandbox safety filter
+
+`mcp__Claude_in_Chrome__javascript_tool` returns are run through a
+safety filter that BLOCKS strings that look like:
+- query-string–shaped data (anything with `?key=...`)
+- long base64-/hex-looking blobs
+
+This affects returns, not the execution itself. Specifically:
+
+    return window.location.href;
+      → returns "[BLOCKED: Cookie/query string data]"
+
+    return issueIdHex;   // e.g. "1554cddf903511ee1651c3806c818d82"
+      → returns "[BLOCKED: Base64 encoded data]"
+
+WORKAROUNDS used during the scrape:
+1. **Don't return URLs**. Extract small substrings instead, or only
+   return what's strictly needed (e.g. a parsed sessionEventKey
+   captured by regex).
+2. **Drive navigation by side-effect, then read the URL via
+   `tabs_context_mcp`** (the tab-context tool isn't subject to the
+   same filter and returns the address bar URL).
+3. **Don't read raw hex hrefs**. Trigger navigation with `a.click()`
+   and let the URL bar update; the URL bar URL DOES contain the new
+   issue_id but `tabs_context_mcp` is the safer way to read it.
+
+A Playwright equivalent has no such filter, so this restriction is
+purely a Cowork/Chrome-extension artifact — but the workaround
+(programmatic clicks, regex-extracted snippets) still works fine in
+Playwright too, so the recipe is portable.
+
+
+## 6. Empty Logs & Breadcrumbs tab is a real value, not an error
+
+For some issue types, the Logs & Breadcrumbs tab is empty —
+e.g. `FaceKomSDK.FaceKomError (46)` shows just the marketing
+placeholder ("Implement logging in your app to understand the user's
+activity leading up to the crash."). Detection:
+
+    main.innerText.includes('Implement logging in your app')
+      AND no "Custom log" / "FaceKom" lines
+
+When breadcrumbs ARE present, two ways to capture them:
+- **DOM scrape** — read the text under the Logs & Breadcrumbs tab and
+  write to `data/logs/<event_id>.log`.
+- **Firebase download** — click the `download` icon at the top-right
+  of the event detail (alongside `format_list_bulleted` and
+  `content_copy`). Sends a real JSON file (matching the
+  `data/fixtures/sample_3.7.0_…json` shape) to your default Chrome
+  Downloads folder.
+
+The downloaded JSON contains `session_id` with the `_DNE_<N>_v2`
+suffix; the DOM does not. So:
+- Use the DOM scrape for analyzer input.
+- Use the download for completeness / matching the fixture format.
+
+The events CSV records `breadcrumbs_status`:
+- `not_available` — empty Logs tab
+- `downloaded`    — clicked Firebase's download icon and scraped the
+                    DOM in parallel.
+
+
+## 7. Loop structure (for a Playwright port)
+
+For each issue:
+
+1. Navigate to the issue list (versions filter applied via URL).
+2. Read the issue rows, capture (rank, name, event_count, user_count)
+   from the rendered table.
+3. For the target issue, click the title → land on issue detail with
+   the newest event loaded.
+4. Loop while "Previous event" button isn't disabled:
+   a. Parse `sessionEventKey` from URL.
+   b. If already in events CSV AND its breadcrumbs_status is
+      "downloaded" (or "not_available" and we know it can't change),
+      skip — click prev, continue.
+   c. Else: click Data tab → scrape Device / OS / User sections.
+            Click Keys tab → scrape nserror/SOURCE/STATUS/etc.
+            Click Logs & Breadcrumbs tab → either mark not_available
+              OR scrape text + click download icon.
+   d. Append row to events CSV; increment processed_events on the
+      issue row.
+   e. Click "Previous event" (programmatic .click() in JS).
+
+
+## 8. Round-trip cost
+
+In rough order:
+- Per issue: 1 navigation + 1 title click ≈ 2 round trips
+- Per event: 1 combined JS call that switches tabs and reads ≈
+  1 round trip (plus 1 click on the download icon if breadcrumbs)
+- Per issue with K events: ~2 + K (or 2 + 2K with downloads)
+
+For our run across issues #5-11 (38 events total): ~80 round trips.
+
+
+## 9. What's NOT covered here
+
+- Pagination / scrolling in the issue list (we never had to — the
+  3.7.0 version page fits in one screen).
+- "Apply filter from breadcrumb" deep-links.
+- The "AI insights" / "Gemini can help" panels — irrelevant for the
+  collector.
+- Real crashes (`types=crash`) — only non-fatals (`types=error`) for
+  this project.

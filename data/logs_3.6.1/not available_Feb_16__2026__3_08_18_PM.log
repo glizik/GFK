@@ -1,0 +1,155 @@
+{
+  "title": "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform": "apple",
+  "display_version": "3.6.1",
+  "build_version": "2662",
+  "issue_id": "5dabf13a7baf66540c8b8dff4395671d",
+  "session_id": "aa244a83aa4a49e390c0b942dde1ad17_DNE_0_v2",
+  "event_timestamp": "Mon Feb 16 2026 15:08:18 GMT+0100 (Central European Standard Time)",
+  "logs_and_breadcrumbs": [
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:38 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "EULAScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:40 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:42 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom started from: Logged out videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:42 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:49 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom ID Verified",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:50 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdVerificationScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:53 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom SelfService started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom getSettings success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connecting",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom connectSocket success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfServiceViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom auth success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom flow successfully started, Listening...",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:06:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"voiceLivenessCheckNumber\": 9072, \"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:07:13 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfieViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:07:13 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom WebRTC started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:07:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:07:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:07:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:voice\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:08:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:08:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:08:18 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom SelfService disconnected because: consent timer expired, user waited for more than 60 seconds for detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:08:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: true, currentStep: voiceLivenessCheck",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Feb 16 2026 15:08:18 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom stopStream",
+      "source": "crashlytics"
+    }
+  ]
+}

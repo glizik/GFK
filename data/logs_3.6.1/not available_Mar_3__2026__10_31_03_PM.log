@@ -1,0 +1,638 @@
+{
+  "title": "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform": "apple",
+  "display_version": "3.6.1",
+  "build_version": "2662",
+  "issue_id": "5dabf13a7baf66540c8b8dff4395671d",
+  "session_id": "b793274c19374a54b0d9561afa3ee6c5_DNE_2_v2",
+  "event_timestamp": "Tue Mar 03 2026 22:31:03 GMT+0100 (Central European Standard Time)",
+  "logs_and_breadcrumbs": [
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:12 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "EULAScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:13 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:16 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginSelectorScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:18 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:40 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:46 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:47 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom started from: videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:22:48 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:01 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom ID Verified",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:02 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdVerificationScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom SelfService started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom getSettings success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connecting",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom connectSocket success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom auth success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom flow successfully started, Listening...",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"voiceLivenessCheckNumber\": 8788, \"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:07 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfServiceViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: false, currentStep: voiceLivenessCheck",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: end(status: \"aborted\", additionalData: nil)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom SelfService stopped and cleared.",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom aborted state: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: true, currentStep: end",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:11 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "FinishViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:12 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:23:12 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:24:47 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:24:49 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:24:50 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom started from: videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:24:50 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:24:54 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom ID Verified",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:24:55 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdVerificationScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom SelfService started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom getSettings success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connecting",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom connectSocket success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom auth success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom flow successfully started, Listening...",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"voiceLivenessCheckNumber\": 4533, \"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:00 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfServiceViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:21 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfieViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:21 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom WebRTC started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:23 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: guide(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataGuide(type: \"head_position\", instruction: \"face_the_camera\"))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:24 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: guide(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataGuide(type: \"head_position\", instruction: \"face_the_camera\"))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:26 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: guide(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataGuide(type: \"head_position\", instruction: \"move_head_up\"))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:28 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: guide(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataGuide(type: \"head_position\", instruction: \"move_head_away\"))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:29 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:29 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom consent voice: nil, face: Optional(eSzigno.MessageStep.faceDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:29 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:31 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:31 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:31 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:voice\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:36 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: custom(type: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:36 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:36 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:36 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:45 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:45 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:45 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:card\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:25:45 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:26:52 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: idFront(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"stopVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:26:53 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom stopStream",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:26:53 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdCardViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:28:14 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: idBack(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:28:15 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdCardViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:29:03 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: hologram(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:29:04 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdCardViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:29:04 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "InfoViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:29:31 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom WebRTC started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:29:32 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "HologramViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:02 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: custom(type: \"id-back-video\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:17 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: twoFactor(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"stopVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:17 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom stopStream",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:17 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "TwoFactorViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:33 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: false, currentStep: secondFactor",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:33 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:33 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:33 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom SelfService disconnected because: close while not in video step",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:33 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: true, currentStep: secondFactor",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:34 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:34 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:39 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:42 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:42 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom started from: videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:43 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:46 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom ID Verified",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:47 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdVerificationScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:48 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom SelfService started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:48 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom getSettings success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:48 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connecting",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom connectSocket success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: connected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom auth success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom flow successfully started, Listening...",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom nextStep: twoFactor(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"stopVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfServiceViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:30:49 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "TwoFactorViewController"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:31:03 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: false, currentStep: secondFactor",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:31:03 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:31:03 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:31:03 GMT+0100 (Central European Standard Time)",
+      "message": "Facekom SelfService disconnected because: close while not in video step",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 03 2026 22:31:03 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom user initiated closing, isAlreadyClosed: true, currentStep: secondFactor",
+      "source": "crashlytics"
+    }
+  ]
+}

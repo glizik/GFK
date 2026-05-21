@@ -1,0 +1,70 @@
+{
+  "title": "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform": "apple",
+  "display_version": "3.6.1",
+  "build_version": "2662",
+  "issue_id": "948ddfd40e59d4292b33af05432b4f35",
+  "session_id": "21d8f43320ed4d1f9720fa1e120cd540_DNE_0_v2",
+  "event_timestamp": "Tue Mar 24 2026 16:23:56 GMT+0100 (Central European Standard Time)",
+  "logs_and_breadcrumbs": [
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:42 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "EULAScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:45 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:48 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:50 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:51 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom started from: videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:52 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:56 GMT+0100 (Central European Standard Time)",
+      "message": "FaceKom failed no available customer",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Tue Mar 24 2026 16:23:56 GMT+0100 (Central European Standard Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "FinishViewController"
+      }
+    }
+  ]
+}
