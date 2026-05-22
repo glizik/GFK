@@ -1,12 +1,11 @@
 /**
- * GFK – Firebase Crashlytics issue collector
+ * GFK – 3.7.0 event collector
  *
- * Iterates over all configured ISSUE_TYPES_LIST entries, collects events for each,
- * downloads full log files, and saves results to CSV.
+ * Reads ISSUE_TYPES_LIST from .env, navigates to each issue in the
+ * Crashlytics issue list, and collects all events into events_3.7.0.csv.
  *
- * Already-processed sessions are skipped (identified by session_key = id + date).
- * After a full successful run to the last event, the time window is narrowed
- * automatically so subsequent runs only fetch new events.
+ * Dedup key: event_url (issue_id + sessionEventKey from page URL).
+ * On completion, increments processed_events in issues_3.7.0.csv.
  *
  * Usage:
  *   npm run collect            (visible browser)
@@ -17,40 +16,144 @@ import { test, Page } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  readCsv,
-  sessionExists,
-  appendCsv,
-  cleanOsVersion,
-  extractOsMajorVersion,
-  buildSessionKey,
-  IssueRecord,
-  ensureDirExists,
-} from '../utils/csv';
+import { cleanOsVersion, extractOsMajorVersion, ensureDirExists } from '../utils/csv';
 
 dotenv.config();
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const FIREBASE_BASE = `https://console.firebase.google.com/project/${process.env.FIREBASE_PROJECT}/crashlytics/app/${process.env.FIREBASE_APP}/issues`;
-const ISSUE_BASE        = process.env.ISSUE_BASE          ?? 'FaceKom';
-const ISSUE_TYPES_LIST  = (process.env.ISSUE_TYPES_LIST   ?? '').split(',').map(s => s.trim());
-const CSV_PATH          = path.resolve(process.env.CSV_OUTPUT        ?? './data/issues.csv');
-const LOGS_DIR          = path.resolve(process.env.LOGS_DIR          ?? './data/logs');
-const STATE_FILE        = path.resolve(process.env.STATE_FILE        ?? './data/state.json');
-const ISSUE_TIME_DEFAULT = process.env.ISSUE_TIME_DEFAULT ?? '90d';
-const COLLECT_LIMIT     = parseInt(process.env.COLLECT_LIMIT         ?? '0');
+const FIREBASE_BASE =
+  `https://console.firebase.google.com/project/${process.env.FIREBASE_PROJECT}` +
+  `/crashlytics/app/${process.env.FIREBASE_APP}/issues`;
+
+const ISSUE_BASE         = process.env.ISSUE_BASE          ?? 'FaceKom';
+const ISSUE_TYPES_LIST   = (process.env.ISSUE_TYPES_LIST   ?? '').split(',').map(s => s.trim()).filter(Boolean);
+const EVENTS_CSV         = path.resolve(process.env.EVENTS_CSV  ?? './data/events_3.7.0.csv');
+const ISSUES_CSV         = path.resolve(process.env.ISSUES_CSV  ?? './data/issues_3.7.0.csv');
+const LOGS_DIR           = path.resolve(process.env.LOGS_DIR    ?? './data/logs');
+const ISSUE_TIME_DEFAULT = process.env.ISSUE_TIME_DEFAULT   ?? '90d';
+const COLLECT_LIMIT      = parseInt(process.env.COLLECT_LIMIT   ?? '0');
 
 const BASE_QUERY = {
-  state:       process.env.ISSUE_STATE        ?? 'open',
-  tag:         process.env.ISSUE_TAG          ?? 'all',
-  sort:        process.env.ISSUE_SORT         ?? 'eventCount',
-  versions:    process.env.ISSUE_VERSIONS     ?? '',
-  types:       process.env.ISSUE_QUERY_TYPES  ?? 'error',
-  issuesQuery: process.env.ISSUE_QUERY        ?? 'FaceKom',
+  state:       process.env.ISSUE_STATE       ?? 'open',
+  tag:         process.env.ISSUE_TAG         ?? 'all',
+  sort:        process.env.ISSUE_SORT        ?? 'eventCount',
+  versions:    process.env.ISSUE_VERSIONS    ?? '',
+  types:       process.env.ISSUE_QUERY_TYPES ?? 'error',
+  issuesQuery: process.env.ISSUE_QUERY       ?? 'FaceKom',
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── EventRecord (3.7.0 schema) ────────────────────────────────────────────────
+
+const EVENT_HEADERS = [
+  'event_url', 'issue_id', 'session_event_key',
+  'session_id_full', 'session_id_base', 'report_index', 'event_id',
+  'user_id_base', 'user_id_suffix', 'identification_link',
+  'app_version', 'os_version', 'os_major_version', 'model', 'date',
+  'crash_kind', 'nserror_code', 'nserror_domain',
+  'source', 'status', 'configuration',
+  'breadcrumbs_status', 'nslocalized_description',
+  'orientation_device', 'ram_free_mib', 'jailbroken', 'orientation_os',
+  'outcome', 'reason', 'last_step', 'steps_reached',
+  'screen_views', 'n_status_changes',
+  'first_breadcrumb_ts', 'last_breadcrumb_ts', 'session_elapsed_s',
+] as const;
+
+type EventHeader = typeof EVENT_HEADERS[number];
+type EventRecord = Record<EventHeader, string>;
+
+// ── CSV helpers ───────────────────────────────────────────────────────────────
+
+function escapeCsv(v: string): string {
+  if (v == null) return '';
+  return (v.includes(',') || v.includes('"') || v.includes('\n'))
+    ? `"${v.replace(/"/g, '""')}"`
+    : v;
+}
+
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      out.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function readExistingKeys(csvPath: string): Set<string> {
+  const keys = new Set<string>();
+  if (!fs.existsSync(csvPath)) return keys;
+  const text = fs.readFileSync(csvPath, 'utf-8').trim();
+  if (!text) return keys;
+  const lines = text.split(/\r?\n/);
+  const headers = parseCsvLine(lines[0]);
+  const urlIdx = headers.indexOf('event_url');
+  const sekIdx = headers.indexOf('session_event_key');
+  for (const line of lines.slice(1)) {
+    if (!line.trim()) continue;
+    const vals = parseCsvLine(line);
+    if (urlIdx >= 0 && vals[urlIdx]) keys.add(vals[urlIdx]);
+    if (sekIdx >= 0 && vals[sekIdx]) keys.add(vals[sekIdx]);
+  }
+  return keys;
+}
+
+function appendEventCsv(csvPath: string, record: EventRecord) {
+  ensureDirExists(csvPath);
+  const exists    = fs.existsSync(csvPath);
+  const nonEmpty  = exists && fs.readFileSync(csvPath, 'utf-8').trim().length > 0;
+  const row       = EVENT_HEADERS.map(h => escapeCsv(record[h] ?? '')).join(',');
+  if (!nonEmpty) {
+    const header = EVENT_HEADERS.map(escapeCsv).join(',');
+    fs.writeFileSync(csvPath, header + '\n' + row + '\n', 'utf-8');
+  } else {
+    fs.appendFileSync(csvPath, row + '\n', 'utf-8');
+  }
+}
+
+function updateProcessedEvents(issuesCsvPath: string, issueName: string, delta: number) {
+  if (!fs.existsSync(issuesCsvPath)) return;
+  const text    = fs.readFileSync(issuesCsvPath, 'utf-8').trim();
+  const lines   = text.split(/\r?\n/);
+  const headers = parseCsvLine(lines[0]);
+  const nameIdx = headers.indexOf('issue_name');
+  const procIdx = headers.indexOf('processed_events');
+  if (nameIdx < 0 || procIdx < 0) return;
+  const updated = lines.map((line, i) => {
+    if (i === 0) return line;
+    const vals = parseCsvLine(line);
+    if (vals[nameIdx] === issueName) {
+      vals[procIdx] = String(parseInt(vals[procIdx] || '0') + delta);
+      return vals.map(escapeCsv).join(',');
+    }
+    return line;
+  });
+  fs.writeFileSync(issuesCsvPath, updated.join('\n') + '\n', 'utf-8');
+  console.log(`📋 Updated processed_events for "${issueName}" (+${delta})`);
+}
+
+// ── Derive crash_kind from issue name ─────────────────────────────────────────
+
+function deriveCrashKind(issueName: string): string {
+  // "FaceKomSDK.FaceKomError (46)" → "FaceKomError"
+  // "FaceKom handleFlow (0)"       → "handleFlow"
+  // "hu…SelfServiceRuntimeError (30803)" → "SelfServiceRuntimeError"
+  const withoutCode = issueName.replace(/\s*\([-\d]+\).*$/, '').trim();
+  const parts = withoutCode.split(/[\s.]+/);
+  return parts[parts.length - 1] ?? withoutCode;
+}
+
+// ── Page helpers ──────────────────────────────────────────────────────────────
 
 async function waitForStable(page: Page) {
   await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
@@ -59,11 +162,11 @@ async function waitForStable(page: Page) {
 async function readKeyValue(page: Page, keyName: string): Promise<string> {
   try {
     const row = page.locator('tr').filter({
-      has: page.locator('td').filter({ hasText: new RegExp(`^\\s*${keyName}\\s*$`) })
+      has: page.locator('td').filter({ hasText: new RegExp(`^\\s*${keyName}\\s*$`) }),
     });
     return (await row.locator('td').nth(1).innerText({ timeout: 5_000 })).trim();
   } catch {
-    return 'unknown';
+    return '';
   }
 }
 
@@ -98,7 +201,7 @@ async function readDataLineItem(page: Page, labelText: string): Promise<{ text: 
       for (const item of Array.from(items)) {
         const lbl = item.querySelector('label');
         if (lbl?.textContent?.trim().replace(/:$/, '') === label) {
-          const span = item.querySelector('.data-value');
+          const span   = item.querySelector('.data-value');
           const anchor = item.querySelector('a');
           return { text: span?.textContent?.trim() ?? '', href: anchor?.href ?? '' };
         }
@@ -116,300 +219,282 @@ async function readDataLineItem(page: Page, labelText: string): Promise<{ text: 
   return result ?? { text: '', href: '' };
 }
 
-/**
- * Try to download the full log file via the Download button.
- * Falls back to scraping visible rows if the download times out.
- */
-async function downloadOrScrapeLog(page: Page, logFilePath: string): Promise<'download' | 'scraped' | 'empty'> {
+async function downloadLog(page: Page, logFilePath: string): Promise<'downloaded' | 'not_available'> {
   fs.mkdirSync(path.dirname(logFilePath), { recursive: true });
 
-  // Check if download button exists before attempting
-  const downloadBtn = page.locator('button').filter({ hasText: /download logs/i }).first();
-  const btnExists = await downloadBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+  // Wait for tab content to fully render
+  await page.waitForTimeout(2000);
+  await waitForStable(page);
 
-  if (btnExists) {
-    try {
-      const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 20_000 }),
-        downloadBtn.click(),
-      ]);
-      await download.saveAs(logFilePath);
-      return 'download';
-    } catch { /* fall through to scrape */ }
+  // Click via JS — Angular/Material buttons sometimes aren't "visible" to Playwright
+  // even though they're in the DOM. The text content is "get_app Download logs"
+  // (Material icon prefix + label).
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 15_000 }),
+    page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const btn = btns.find(b => /download logs/i.test(b.textContent ?? ''));
+      if (btn) { (btn as HTMLButtonElement).click(); return true; }
+      return false;
+    }),
+  ]).catch(() => [null]);
+
+  if (download) {
+    await (download as any).saveAs(logFilePath);
+    return 'downloaded';
   }
 
-  // Scrape visible rows
-  try {
-    const scraped = await page.evaluate(() => {
-      function scrape(root: Document | ShadowRoot): string[] {
-        const rows = Array.from(root.querySelectorAll('tr.data-row, tbody tr'));
-        if (rows.length > 0) {
-          return rows.map(row =>
-            Array.from(row.querySelectorAll('td'))
-              .map(c => c.textContent?.trim() ?? '')
-              .join('\t')
-          ).filter(r => r.trim());
-        }
-        for (const el of Array.from(root.querySelectorAll('*'))) {
-          if ((el as Element).shadowRoot) {
-            const found = scrape((el as Element).shadowRoot!);
-            if (found.length > 0) return found;
-          }
-        }
-        return [];
-      }
-      return scrape(document).join('\n');
-    });
-    if (scraped.trim()) {
-      fs.writeFileSync(logFilePath, scraped);
-      return 'scraped';
-    }
-  } catch { /* fall through */ }
-
-  fs.writeFileSync(logFilePath, '');
-  return 'empty';
+  return 'not_available';
 }
-// ── Event loop for a single issue type ───────────────────────────────────────
+
+// ── URL parsing ───────────────────────────────────────────────────────────────
+
+function parsePageUrl(pageUrl: string): {
+  issueId: string; sessionEventKey: string; sessionIdBase: string; eventId: string;
+} {
+  try {
+    const u   = new URL(pageUrl);
+    const sek = u.searchParams.get('sessionEventKey') ?? '';
+    const sep = sek.lastIndexOf('_');
+    const sessionIdBase = sep > 0 ? sek.slice(0, sep) : sek;
+    const eventId       = sep > 0 ? sek.slice(sep + 1) : '';
+    const m = u.pathname.match(/\/issues\/([a-f0-9]{8,})/i);
+    return { issueId: m ? m[1] : '', sessionEventKey: sek, sessionIdBase, eventId };
+  } catch {
+    return { issueId: '', sessionEventKey: '', sessionIdBase: '', eventId: '' };
+  }
+}
+
+function parseUserId(identLink: string): { userIdBase: string; userIdSuffix: string } {
+  if (!identLink || identLink === 'not available') return { userIdBase: '', userIdSuffix: '' };
+  const m = identLink.match(/\/identification\/([^/?#\s]+)/);
+  if (!m) return { userIdBase: '', userIdSuffix: '' };
+  const full     = m[1];
+  const uuidPart = full.slice(0, 36);
+  const suffix   = full.length > 36 ? full.slice(36) : '';
+  return { userIdBase: uuidPart, userIdSuffix: suffix };
+}
+
+function buildEventUrl(issueId: string, sessionEventKey: string): string {
+  const params = new URLSearchParams({
+    time:            ISSUE_TIME_DEFAULT,
+    versions:        BASE_QUERY.versions,
+    types:           BASE_QUERY.types,
+    sessionEventKey,
+  });
+  return `${FIREBASE_BASE}/${issueId}?${params.toString()}`;
+}
+
+// ── Core collection loop ──────────────────────────────────────────────────────
 
 async function collectIssueType(
   page: Page,
   issueType: string,
-  existingRecords: IssueRecord[]
-): Promise<{ reachedEnd: boolean; oldestEventDate: string }> {
-
-  const start        = process.env.ISSUE_TIME_FROM;
-  const end          = process.env.ISSUE_TIME_TO;
-  const timeParam = `${start}:${end}`;
-  // const params = new URLSearchParams({ ...BASE_QUERY, time: timeParam});
-  const timeWindow = ISSUE_TIME_DEFAULT;
-
-  const params = new URLSearchParams({ ...BASE_QUERY, time: timeWindow });
-
-  const url = `${FIREBASE_BASE}?${params.toString()}`;
+  existingEventUrls: Set<string>,
+): Promise<number> {
+  const params  = new URLSearchParams({ ...BASE_QUERY, time: ISSUE_TIME_DEFAULT });
+  const listUrl = `${FIREBASE_BASE}?${params.toString()}`;
 
   console.log(`\n${'═'.repeat(60)}`);
-  console.log(`🎯 Issue type: "${issueType}"  time: ${timeParam}`);
-  console.log(`🌐 ${url}`);
+  console.log(`🎯 Collecting: "${issueType}"`);
+  console.log(`🌐 ${listUrl}`);
 
-  await page.goto(url);
+  await page.goto(listUrl);
   await waitForStable(page);
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(2000);
 
-  // Find and click the issue row
-  console.log(`🔍 Looking for issue: "${issueType}"`);
   const issueLink = page.locator('a.link-wrapper', {
-    has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE })
+    has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE }),
   }).filter({ hasText: issueType }).first();
 
   try {
     await issueLink.waitFor({ timeout: 10_000 });
   } catch {
-    console.log(`⚠️  Issue "${issueType}" not found on the page. Skipping.`);
-    return { reachedEnd: true, oldestEventDate: new Date().toISOString() };
+    console.log(`⚠️  Issue "${issueType}" not found on page. Skipping.`);
+    return 0;
   }
 
   await issueLink.click();
   await waitForStable(page);
-  console.log('✅ Issue opened');
 
-  let eventIndex = 0;
-  let reachedEnd = false;
-  let oldestEventDate = new Date().toISOString();
+  // Wait for sessionEventKey to appear in the URL (Angular router updates it asynchronously).
+  for (let ms = 0; ms < 10_000; ms += 300) {
+    if (parsePageUrl(page.url()).sessionEventKey) break;
+    await page.waitForTimeout(300);
+  }
+  console.log(`✅ Issue opened  url=${page.url().slice(-80)}`);
+
+  const crashKind = deriveCrashKind(issueType);
+  let issueId     = parsePageUrl(page.url()).issueId;
+  let eventIndex  = 0;
+  let collected   = 0;
 
   while (true) {
     eventIndex++;
-    console.log(`\n📄 [${issueType}] Event #${eventIndex}`);
+    const { issueId: urlIssueId, sessionEventKey, sessionIdBase, eventId } = parsePageUrl(page.url());
+    if (!issueId && urlIssueId) issueId = urlIssueId;
 
-    // ── Data tab ────────────────────────────────────────────────────────────
-    await page.getByRole('tab', { name: 'Data', exact: true }).click();
-    await waitForStable(page);
-    // await page.waitForSelector('.data-line-item', { timeout: 5_000 });
+    const eventUrl = (issueId && sessionEventKey)
+      ? buildEventUrl(issueId, sessionEventKey)
+      : '';
 
-    const idRow = await readDataLineItem(page, 'ID');
-    const identification_link = idRow.text || 'not available';
-    const identification_id = identification_link === 'not available'
-      ? 'not available'
-      : identification_link.split('/').pop() ?? 'not available';
-    const user_id = identification_id;
+    console.log(`\n📄 Event #${eventIndex}  sek=${sessionEventKey || '?'}`);
 
-    const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
-    const os_version = cleanOsVersion(rawOs);
-    const os_major_version = extractOsMajorVersion(os_version);
-
-    // Track oldest event date for state narrowing
-    try {
-      const eventTs = new Date(date.replace('\u202f', ' ')).toISOString();
-      if (eventTs < oldestEventDate) oldestEventDate = eventTs;
-    } catch { /* ignore parse errors */ }
-
-    console.log(`   ID:    ${identification_link}`);
-    console.log(`   Model: ${model}  OS: ${os_version}  App: ${app_version}`);
-    console.log(`   Date:  ${date}`);
-
-    // ── Duplicate check ─────────────────────────────────────────────────────
-    const session_key = buildSessionKey(identification_id, date);
-
-    if (sessionExists(existingRecords, session_key)) {
-      console.log(`⏭️  Already processed. Skipping.`);
+    const alreadySeen = (eventUrl && existingEventUrls.has(eventUrl))
+      || (sessionEventKey && existingEventUrls.has(sessionEventKey));
+    if (alreadySeen) {
+      console.log(`⏭️  Already collected. Skipping.`);
     } else {
 
-      // ── Keys tab ─────────────────────────────────────────────────────────
+      // ── Data tab ────────────────────────────────────────────────────────
+      await page.getByRole('tab', { name: 'Data', exact: true }).click();
+      await waitForStable(page);
+
+      const idRow              = await readDataLineItem(page, 'ID');
+      const identification_link = idRow.href || idRow.text || 'not available';
+      const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
+      const os_version         = cleanOsVersion(rawOs);
+      const os_major_version   = extractOsMajorVersion(os_version);
+      const orientationDevice  = (await readDataLineItem(page, 'Orientation (device)')).text;
+      const orientationOs      = (await readDataLineItem(page, 'Orientation (OS)')).text;
+      const jailbroken         = (await readDataLineItem(page, 'Jailbroken')).text;
+      const ramFree            = (await readDataLineItem(page, 'RAM free')).text;
+      const { userIdBase, userIdSuffix } = parseUserId(identification_link);
+
+      console.log(`   ID:    ${identification_link}`);
+      console.log(`   Model: ${model}  OS: ${os_version}  App: ${app_version}  Date: ${date}`);
+
+      // ── Keys tab ────────────────────────────────────────────────────────
       await page.getByRole('tab', { name: 'Keys', exact: true }).click();
       await page.waitForTimeout(800);
       await waitForStable(page);
 
-      const source        = await readKeyValue(page, 'SOURCE');
-      const status        = await readKeyValue(page, 'STATUS');
-      const configuration = await readKeyValue(page, 'CONFIGURATION');
-      const nserrorCode   = await readKeyValue(page, 'nserror-code');
-      const nserrorDomain = await readKeyValue(page, 'nserror-domain');
+      const nserror_code           = await readKeyValue(page, 'nserror-code');
+      const nserror_domain         = await readKeyValue(page, 'nserror-domain');
+      const source                 = await readKeyValue(page, 'SOURCE');
+      const status                 = await readKeyValue(page, 'STATUS');
+      const configuration          = await readKeyValue(page, 'CONFIGURATION');
+      const nslocalized_description = await readKeyValue(page, 'NSLocalizedDescription');
 
-      // ── Logs tab ─────────────────────────────────────────────────────────
+      // ── Logs & Breadcrumbs tab ──────────────────────────────────────────
       await page.getByRole('tab', { name: 'Logs & Breadcrumbs', exact: true }).click();
       await waitForStable(page);
 
-      const messageCell = page.locator('td.mat-column-message div')
-        .filter({ hasText: /FaceKom finished with type:/ }).first();
-      const closeTypeText = await messageCell.innerText({ timeout: 5_000 }).catch(() => '');
-      const closeTypeMatch = closeTypeText.match(/FaceKom finished with type:\s*(\w+)/);
-      const close_type = closeTypeMatch ? closeTypeMatch[1] : 'unknown';
+      const logFilename       = eventId ? `${eventId}.log` : `unknown_${Date.now()}.log`;
+      const logFilePath       = path.join(LOGS_DIR, logFilename);
+      const breadcrumbs_status = await downloadLog(page, logFilePath);
+      console.log(`   Breadcrumbs: ${breadcrumbs_status}`);
 
-      const reasonCell = page.locator('td.mat-column-message div')
-        .filter({ hasText: /reason\s*=/ }).first();
-      const reasonText = await reasonCell.innerText({ timeout: 5_000 }).catch(() => '');
-      const reasonMatch = reasonText.match(/reason\s*=\s*"([^"]+)"/);
-      const reason = reasonMatch ? reasonMatch[1] : '';
-
-      console.log(`   Close type: ${close_type}  Reason: ${reason}`);
-
-      // ── Download log ─────────────────────────────────────────────────────
-      const safeDate = date.replace(/[/:, \u202f]/g, '_');
-      const logFilename = `${identification_id}_${safeDate}.log`;
-      const logFilePath = path.join(LOGS_DIR, logFilename);
-      const logMethod = await downloadOrScrapeLog(page, logFilePath);
-      console.log(`📥 Log ${logMethod === 'download' ? 'downloaded' : 'scraped'}: ${logFilename}`);
-
-      // ── Save record ───────────────────────────────────────────────────────
-      const record: IssueRecord = {
-        session_key,
+      // ── Write record ────────────────────────────────────────────────────
+      const record: EventRecord = {
+        event_url:               eventUrl,
+        issue_id:                issueId,
+        session_event_key:       sessionEventKey,
+        session_id_full:         '',
+        session_id_base:         sessionIdBase,
+        report_index:            '',
+        event_id:                eventId,
+        user_id_base:            userIdBase,
+        user_id_suffix:          userIdSuffix,
         identification_link,
-        user_id,
-        close_type,
         app_version,
         os_version,
         os_major_version,
         model,
         date,
+        crash_kind:              crashKind,
+        nserror_code,
+        nserror_domain,
         source,
         status,
         configuration,
-        nserrorCode,
-        nserrorDomain,
-        log_filename: logFilename,
-        reason,
-        issue_type: issueType,
-        collected_at: new Date().toISOString(),
-        notes: '',
+        breadcrumbs_status,
+        nslocalized_description,
+        orientation_device:      orientationDevice,
+        ram_free_mib:            ramFree,
+        jailbroken,
+        orientation_os:          orientationOs,
+        outcome:                 '',
+        reason:                  '',
+        last_step:               '',
+        steps_reached:           '',
+        screen_views:            '',
+        n_status_changes:        '',
+        first_breadcrumb_ts:     '',
+        last_breadcrumb_ts:      '',
+        session_elapsed_s:       '',
       };
 
-      appendCsv(CSV_PATH, record);
-      existingRecords.push(record);
-      console.log(`✅ Saved: ${session_key}`);
+      appendEventCsv(EVENTS_CSV, record);
+      if (eventUrl) existingEventUrls.add(eventUrl);
+      if (sessionEventKey) existingEventUrls.add(sessionEventKey);
+      collected++;
+      console.log(`✅ Saved event #${eventIndex} → total collected: ${collected}`);
 
-      if (COLLECT_LIMIT > 0 && eventIndex >= COLLECT_LIMIT) {
-        console.log(`\n🛑 Limit of ${COLLECT_LIMIT} reached. Stopping (not marking as complete).`);
-        return { reachedEnd: false, oldestEventDate };
+      if (COLLECT_LIMIT > 0 && collected >= COLLECT_LIMIT) {
+        console.log(`🛑 Limit ${COLLECT_LIMIT} reached. Stopping.`);
+        return collected;
       }
     }
 
     // ── Pagination ──────────────────────────────────────────────────────────
-    const prevBtn = page.locator('button[aria-label="Previous event"]');
-
-    const MAX_WAIT_MS = 10_000;           // total time we're willing to wait for button to enable
-    const POLL_INTERVAL_MS = 800;         // how often to check
-    const startTime = Date.now();
-
-    let navigated = false;
+    const prevBtn       = page.locator('button[aria-label="Previous event"]');
+    const MAX_WAIT_MS   = 10_000;
+    const POLL_INTERVAL = 800;
+    const startTime     = Date.now();
+    let navigated       = false;
 
     while (Date.now() - startTime < MAX_WAIT_MS) {
-      // First ensure the button is attached/visible at all
       const isVisible = await prevBtn.isVisible().catch(() => false);
-      if (!isVisible) {
-        console.log(`Previous button not visible yet, waiting...`);
-        await page.waitForTimeout(POLL_INTERVAL_MS);
-        continue;
-      }
-
-      const isDisabledNow = await prevBtn.isDisabled().catch(() => true);
-
-      if (!isDisabledNow) {
-        console.log(`Previous button is now enabled → clicking to go to previous event`);
+      if (!isVisible) { await page.waitForTimeout(POLL_INTERVAL); continue; }
+      const isDisabled = await prevBtn.isDisabled().catch(() => true);
+      if (!isDisabled) {
         await prevBtn.click();
         await waitForStable(page);
-        await page.waitForTimeout(600);     // small buffer after click
+        await page.waitForTimeout(600);
         navigated = true;
         break;
       }
-
-      console.log(`Previous button still disabled... waiting ${POLL_INTERVAL_MS}ms`);
-      await page.waitForTimeout(POLL_INTERVAL_MS);
+      await page.waitForTimeout(POLL_INTERVAL);
     }
 
     if (!navigated) {
-      // Timed out waiting for enabled state → assume end of list
-      console.log(`\nGave up waiting for "Previous" button to become enabled after ~${MAX_WAIT_MS/1000}s → end of list reached.`);
-
-      const screenshotPath = path.join(
-        './data/screenshots',
-        `pagination_end_${issueType.replace(/[^a-z0-9]/gi, '_')}_event${eventIndex}_${Date.now()}.png`
-      );
-      fs.mkdirSync(path.dirname(screenshotPath), { recursive: true });
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-      console.log(`📸 Saved end-of-list screenshot: ${screenshotPath}`);
-
-      reachedEnd = true;
+      console.log(`\n✋ "Previous" button stayed disabled — end of list after ${eventIndex} event(s).`);
       break;
     }
-
-    await prevBtn.click();
-    await waitForStable(page);
   }
 
-  return { reachedEnd, oldestEventDate };
+  return collected;
 }
 
 // ── Main test ─────────────────────────────────────────────────────────────────
 
-test('Collect Crashlytics FaceKom issues', async ({ page }) => {
-  test.setTimeout(10 * 60 * 60 * 1000); // 10 hours
+test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
+  test.setTimeout(10 * 60 * 60 * 1000);
 
-  ensureDirExists(CSV_PATH);
-  ensureDirExists(path.join(LOGS_DIR, '.keep'));
+  ensureDirExists(EVENTS_CSV);
+  fs.mkdirSync(LOGS_DIR, { recursive: true });
 
-  const existingRecords = readCsv(CSV_PATH);
-  console.log(`📋 CSV loaded: ${existingRecords.length} existing records`);
+  const existingEventUrls = readExistingKeys(EVENTS_CSV);
+  console.log(`📋 Existing events in CSV: ${existingEventUrls.size}`);
   console.log(`📋 Issue types to collect: ${ISSUE_TYPES_LIST.join(', ')}`);
 
-  // Check for login wall on first load
   await page.goto('https://console.firebase.google.com');
   await waitForStable(page);
   const isLoginPage = await page
     .locator('input[type="email"], [data-identifier="email"]')
     .isVisible()
     .catch(() => false);
-  if (isLoginPage) {
-    throw new Error('BLOCKER: Login required. Run: npx playwright test --project=setup --headed');
-  }
+  if (isLoginPage) throw new Error('BLOCKER: Login required. Run: npm run setup');
 
-  // ── Loop over all configured issue types ─────────────────────────────────
+  let totalCollected = 0;
   for (const issueType of ISSUE_TYPES_LIST) {
-    const { reachedEnd, oldestEventDate } = await collectIssueType(
-      page,
-      issueType,
-      existingRecords
-    );
+    const count = await collectIssueType(page, issueType, existingEventUrls);
+    totalCollected += count;
+    if (count > 0) updateProcessedEvents(ISSUES_CSV, issueType, count);
+    console.log(`\n📊 "${issueType}": ${count} new events collected.`);
   }
 
-  console.log('\n🎉 All issue types processed.');
+  console.log(`\n🎉 Done. Total new events: ${totalCollected}`);
 });

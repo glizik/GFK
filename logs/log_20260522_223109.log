@@ -1,0 +1,40 @@
+
+> gfk@1.0.0 collect
+> npx playwright test tests/collect.spec.ts
+
+
+Running 1 test using 1 worker
+
+📋 Existing events in CSV: 0
+📋 Issue types to collect: FaceKomSDK.FaceKomError (43)
+
+════════════════════════════════════════════════════════════
+🎯 Collecting: "FaceKomSDK.FaceKomError (43)"
+🌐 https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues?state=open&tag=all&sort=eventCount&versions=3.7.0+%282753%29&types=error&issuesQuery=FaceKom&time=90d
+✅ Issue opened  url=or&time=90d&sessionEventKey=21177932b7d94921a3f2dcbeb3d080f0_2215941702234759309
+
+📄 Event #1  sek=21177932b7d94921a3f2dcbeb3d080f0_2215941702234759309
+   ID:    not available
+   Model: iPhone 14  OS: iOS 26.4.2  App: 3.7.0 (2753)  Date: May 8, 2026, 2:25:32 PM
+   No download button found. Visible buttons: ["visibility","keep","visibility","keep","visibility","keep","visibility","keep","visibility","keep","expand_moreShow all","Upgrade New","chevron_left","menu","Webszigno-dev arrow_drop_down","more_vert","plat_ios e-Szignó","content_copy ID: cc976fb6b163a26ebbddf22103e89d3c","Close","keyboard_arrow_down","1 note","close","keyboard_arrow_up","keyboard_arrow_up","Populate data for table, \"Line\", on chart, \"Total events by version\"","100% iPhone arrow_forward","keyboard_arrow_left","keyboard_arrow_right","format_list_bulleted","download","content_copy","All","Logs","Events","arrow_drop_down Expand all","get_app Download logs","notifications","spark","contact_support","school","light_mode","fullscreen","bug_report","close"]
+   📸 Screenshot: data/screenshots/logs_tab_2215941702234759309.png
+   Breadcrumbs: not_available
+✅ Saved event #1 → total collected: 1
+
+📄 Event #2  sek=21177932b7d94921a3f2dcbeb3d080f0_2215941487486394507
+   ID:    not available
+   Model: iPhone 14  OS: iOS 26.4.2  App: 3.7.0 (2753)  Date: May 8, 2026, 2:24:42 PM
+   No download button found. Visible buttons: ["visibility","keep","visibility","keep","visibility","keep","visibility","keep","visibility","keep","expand_moreShow all","Upgrade New","chevron_left","menu","Webszigno-dev arrow_drop_down","more_vert","plat_ios e-Szignó","content_copy ID: cc976fb6b163a26ebbddf22103e89d3c","Close","keyboard_arrow_down","1 note","close","keyboard_arrow_up","keyboard_arrow_up","Populate data for table, \"Line\", on chart, \"Total events by version\"","100% iPhone arrow_forward","keyboard_arrow_left","keyboard_arrow_right","format_list_bulleted","download","content_copy","All","Logs","Events","arrow_drop_down Expand all","get_app Download logs","notifications","spark","contact_support","school","light_mode","fullscreen","bug_report","close"]
+   📸 Screenshot: data/screenshots/logs_tab_2215941487486394507.png
+   Breadcrumbs: not_available
+✅ Saved event #2 → total collected: 2
+
+✋ "Previous" button stayed disabled — end of list after 2 event(s).
+📋 Updated processed_events for "FaceKomSDK.FaceKomError (43)" (+2)
+
+📊 "FaceKomSDK.FaceKomError (43)": 2 new events collected.
+
+🎉 Done. Total new events: 2
+  ✓  1 [chrome] › tests/collect.spec.ts:487:5 › Collect 3.7.0 Crashlytics events (48.8s)
+
+  1 passed (50.8s)
