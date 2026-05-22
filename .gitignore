@@ -5,3 +5,4 @@ session.json
 test-results
 .DS_Store
 venv
+.claude
