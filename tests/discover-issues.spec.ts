@@ -87,8 +87,9 @@ const HEADERS = [
   'nserror_domain',
   'nserror_code',
   'issue_id',
-  'events_total',
-  'users_total',
+  'variants_total', // Firebase column 1: number of distinct crash signatures grouped under this issue
+  'events_total',   // Firebase column 2: total number of crash/error events
+  'users_total',    // Firebase column 3: distinct affected users
   'processed_events',
   'analysed_events',
   'last_scraped',
@@ -281,11 +282,12 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
   type DiscoveredIssue = {
     rank: number;
     title: string;
-    href_attr: string;          // getAttribute('href') — may be "#" for Angular stubs
-    href_property: string;      // a.href — resolved URL (sometimes useful)
+    href_attr: string;            // getAttribute('href') — may be "#" for Angular stubs
+    href_property: string;        // a.href — resolved URL (sometimes useful)
     issue_id: string;
-    event_count: { value: number; rounded: boolean; raw: string } | null;
-    user_count:  { value: number; rounded: boolean; raw: string } | null;
+    variant_count: { value: number; rounded: boolean; raw: string } | null; // Firebase col 1
+    event_count:   { value: number; rounded: boolean; raw: string } | null; // Firebase col 2
+    user_count:    { value: number; rounded: boolean; raw: string } | null; // Firebase col 3
     row_text: string;
     kind: 'non-fatal' | 'crash' | 'unknown';
     nserror_domain: string;
@@ -350,10 +352,18 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
       return { href_attr, href_property, title, rowText, candidateTexts };
     });
 
-    // [Events, Users] are the first two numeric cells in row order.
+    // Firebase shows Variants/Events/Users (3 cols) for some issues and
+    // Events/Users (2 cols) for others. Detect by how many numeric cells are present.
     const uniqCounts = [...new Set(data.candidateTexts)];
-    const eventLabel = uniqCounts[0] ?? '';
-    const userLabel  = uniqCounts[1] ?? '';
+    let variantLabel = '', eventLabel = '', userLabel = '';
+    if (uniqCounts.length >= 3) {
+      variantLabel = uniqCounts[0];
+      eventLabel   = uniqCounts[1];
+      userLabel    = uniqCounts[2];
+    } else {
+      eventLabel = uniqCounts[0] ?? '';
+      userLabel  = uniqCounts[1] ?? '';
+    }
 
     // Prefer the attribute (route) for issue_id; fall back to the
     // resolved href property if needed.
@@ -369,8 +379,9 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
       href_attr: data.href_attr,
       href_property: data.href_property,
       issue_id,
-      event_count: eventLabel ? parseCount(eventLabel) : null,
-      user_count:  userLabel  ? parseCount(userLabel)  : null,
+      variant_count: variantLabel ? parseCount(variantLabel) : null,
+      event_count:   eventLabel   ? parseCount(eventLabel)   : null,
+      user_count:    userLabel    ? parseCount(userLabel)    : null,
       row_text: data.rowText,
       kind: filterKind,
       nserror_domain,
@@ -378,11 +389,12 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
     };
     discovered.push(issue);
 
-    const ev = issue.event_count?.raw ?? '—';
-    const us = issue.user_count?.raw  ?? '—';
+    const vr = issue.variant_count?.raw ?? '—';
+    const ev = issue.event_count?.raw   ?? '—';
+    const us = issue.user_count?.raw    ?? '—';
     console.log(
       `   [${String(issue.rank).padStart(2)}] ${issue.kind.padEnd(9)} ` +
-      `ev=${ev.padStart(6)} us=${us.padStart(6)}  ${issue.title}`,
+      `var=${vr.padStart(6)} ev=${ev.padStart(6)} us=${us.padStart(6)}  ${issue.title}`,
     );
     if (!issue.issue_id) {
       console.log(`        ⚠️  could not extract issue_id (href_attr="${data.href_attr}")`);
@@ -394,7 +406,7 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
     (acc, it) => acc + (it.event_count?.value || 0),
     0,
   );
-  console.log(`\nΣ event_count across discovered ${ISSUE_BASE} issues: ${summedEvents}`);
+  console.log(`\nΣ events_total across discovered ${ISSUE_BASE} issues: ${summedEvents}`);
   if (typeof totals.non_fatals === 'number' && filterKind === 'non-fatal') {
     const delta = summedEvents - totals.non_fatals;
     console.log(`Page non_fatals total: ${totals.non_fatals}  (delta vs Σ ${ISSUE_BASE} events: ${delta})`);
@@ -425,8 +437,9 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
       nserror_domain:   d.nserror_domain,
       nserror_code:     d.nserror_code,
       issue_id:         d.issue_id,
-      events_total:     d.event_count ? String(d.event_count.value) : '',
-      users_total:      d.user_count  ? String(d.user_count.value)  : '',
+      variants_total:   d.variant_count ? String(d.variant_count.value) : '0',
+      events_total:     d.event_count   ? String(d.event_count.value)   : '',
+      users_total:      d.user_count    ? String(d.user_count.value)    : '',
       processed_events: prior?.processed_events ?? '0',
       analysed_events:  prior?.analysed_events  ?? '0',
       last_scraped:     prior?.last_scraped     ?? '',

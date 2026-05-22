@@ -70,16 +70,16 @@
   .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
   /* Issues table */
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .issues-table { width: 100%; border-collapse: collapse; }
-  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
-  .issues-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+  .issues-table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .issues-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
   .issues-table tr:last-child td { border-bottom: none; }
   .issues-table tr.clickable:hover td { background: var(--surface2); cursor: pointer; }
   .issues-table tr.active-rank td { background: rgba(91,127,255,0.08); }
   .rank-num { color: var(--muted); font-size: 12px; }
-  .issue-name { font-weight: 500; color: #fff; font-size: 13px; }
-  .issue-domain { font-size: 11px; color: var(--muted); font-family: monospace; }
+  .issue-name { font-weight: 500; color: #fff; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-domain { font-size: 11px; color: var(--muted); font-family: monospace; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .progress-wrap { display: flex; align-items: center; gap: 8px; }
   .progress-bar { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 60px; }
   .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
@@ -229,6 +229,7 @@
             <th>#</th>
             <th>Issue</th>
             <th>Domain · Code</th>
+            <th style="text-align:right" title="Distinct crash signatures grouped under this issue">Variants</th>
             <th style="text-align:right">Events</th>
             <th style="text-align:right">Users</th>
             <th style="min-width:140px">Progress</th>
@@ -288,6 +289,7 @@ async function loadStatus() {
     issues = data.issues.map(i => ({
       ...i,
       rank: +i.rank || 0,
+      variants_total: +i.variants_total || 0,
       events_total: +i.events_total || 0,
       users_total: +i.users_total || 0,
       processed_events: +i.processed_events || 0,
@@ -338,13 +340,13 @@ function processLogs(rawItems) {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats() {
-  const totalEv = issues.reduce((s, i) => s + i.events_total, 0);
-  const collected = issues.reduce((s, i) => s + i.processed_events, 0);
-  const pct = totalEv ? Math.round(collected / totalEv * 100) : 0;
-  document.getElementById('statIssues').textContent = issues.length;
-  document.getElementById('statEvents').textContent = totalEv;
+  const totalEv    = issues.reduce((s, i) => s + i.events_total, 0);
+  const collected  = issues.reduce((s, i) => s + i.processed_events, 0);
+  const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  document.getElementById('statIssues').textContent    = issues.length;
+  document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = collected;
-  document.getElementById('statCoverage').textContent = pct + '%';
+  document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
 }
 
 // ── Issues table ──────────────────────────────────────────────────────────────
@@ -355,15 +357,16 @@ function renderIssues() {
     const isActive = issue.rank === activeRank;
     const hasData = issue.processed_events > 0;
     const statusBadge = hasData
-      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total} collected</span>`
+      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total || '?'} collected</span>`
       : `<span class="badge badge-gray">Pending</span>`;
     const issueTypeEsc = escAttr(issue.issue_name);
     return `<tr class="clickable ${isActive ? 'active-rank' : ''}" onclick="selectRank(${issue.rank})">
       <td class="rank-num num">${issue.rank}</td>
-      <td><div class="issue-name">${esc(issue.issue_name)}</div></td>
-      <td><span class="issue-domain">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
-      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total}</td>
-      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total}</td>
+      <td><div class="issue-name" title="${escAttr(issue.issue_name)}">${esc(issue.issue_name)}</div></td>
+      <td><span class="issue-domain" title="${escAttr(issue.nserror_domain)}">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.variants_total || '—'}</td>
+      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total || '—'}</td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total || '—'}</td>
       <td>
         <div class="progress-wrap">
           <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
