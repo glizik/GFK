@@ -8,7 +8,8 @@ export default defineConfig({
   timeout: 10 * 60 * 60 * 1000,
   retries: 0,
   workers: 1,
-  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+  reporter: [['list']],
+  outputDir: '/tmp/gfk-test-results',
   use: {
     headless: process.env.HEADLESS === 'true',
     storageState: fs.existsSync('auth/session.json') ? 'auth/session.json' : undefined,

@@ -471,9 +471,11 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
   }
 
   // ── Audit screenshot ────────────────────────────────────────────────────
+  const _d = new Date(), _p = (n: number) => String(n).padStart(2, '0');
+  const shotTs = `${_d.getFullYear()}${_p(_d.getMonth()+1)}${_p(_d.getDate())}_${_p(_d.getHours())}${_p(_d.getMinutes())}${_p(_d.getSeconds())}`;
   const shotPath = path.resolve(
     './data/screenshots',
-    `discover_${VERSION_SLUG}_${BASE_QUERY.types}_${Date.now()}.png`,
+    `discover_${VERSION_SLUG}_${shotTs}.png`,
   );
   fs.mkdirSync(path.dirname(shotPath), { recursive: true });
   await page.screenshot({ path: shotPath, fullPage: true });
