@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GFK — FaceKom 3.7.0 Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222535;
+    --border: #2e3250;
+    --accent: #5b7fff;
+    --accent2: #a78bfa;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --orange: #f97316;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --analytics: #38bdf8;
+    --crashlytics: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .header { margin-bottom: 32px; }
+  .header h1 { font-size: 26px; font-weight: 700; color: #fff; }
+  .header p { color: var(--muted); margin-top: 4px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-blue { background: #1e3a8a; color: #93c5fd; }
+  .badge-green { background: #14532d; color: #86efac; }
+  .badge-yellow { background: #713f12; color: #fde68a; }
+  .badge-red { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray { background: #1e293b; color: #94a3b8; }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-title .count { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+  /* Issues table */
+  .issues-table { width: 100%; border-collapse: collapse; }
+  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  .issues-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .issues-table tr:hover td { background: var(--surface2); cursor: pointer; }
+  .issues-table tr.active-rank td { background: rgba(91,127,255,0.08); }
+  .rank-num { color: var(--muted); font-size: 12px; width: 32px; }
+  .issue-name { font-weight: 500; color: #fff; }
+  .issue-domain { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: monospace; }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-bar { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .fill-blue { background: var(--accent); }
+  .fill-green { background: var(--green); }
+  .fill-none { background: var(--border); }
+  .progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* Event cards */
+  .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
+  .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .event-card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  .event-card-header h3 { font-size: 13px; font-weight: 600; color: #fff; }
+  .event-card-header .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .event-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .event-tab { padding: 8px 16px; font-size: 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+  .event-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .event-tab-content { display: none; padding: 16px 20px; }
+  .event-tab-content.active { display: block; }
+
+  /* Key-value grid */
+  .kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+  .kv-key { color: var(--muted); font-size: 11px; font-weight: 500; white-space: nowrap; align-self: start; padding-top: 1px; }
+  .kv-val { font-size: 12px; color: var(--text); word-break: break-all; font-family: monospace; }
+  .kv-val.highlight { color: var(--red); font-weight: 600; }
+  .kv-val.ok { color: var(--green); }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--border); border-radius: 2px; }
+  .tl-item { position: relative; margin-bottom: 8px; }
+  .tl-dot { position: absolute; left: -17px; top: 5px; width: 8px; height: 8px; border-radius: 50%; }
+  .tl-dot.analytics { background: var(--analytics); }
+  .tl-dot.crashlytics { background: var(--crashlytics); }
+  .tl-dot.error { background: var(--red); }
+  .tl-dot.ok { background: var(--green); }
+  .tl-time { font-size: 10px; color: var(--muted); font-family: monospace; }
+  .tl-msg { font-size: 12px; margin-top: 1px; }
+  .tl-msg.screen { color: var(--analytics); }
+  .tl-msg.error { color: var(--red); font-weight: 500; }
+  .tl-msg.warn { color: var(--yellow); }
+  .tl-msg.ok { color: var(--green); }
+  .tl-msg.muted { color: var(--muted); }
+
+  /* Analysis box */
+  .analysis-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .analysis-box h3 { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 12px; }
+  .finding { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+  .finding-icon { font-size: 16px; flex-shrink: 0; }
+  .finding-text { font-size: 13px; color: var(--text); }
+  .finding-text strong { color: #fff; }
+
+  /* Stat row */
+  .stat-row { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 140px; }
+  .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-value { font-size: 24px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>GFK — FaceKom Crashlytics Dashboard</h1>
+    <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Last updated <span id="updated"></span></p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Issues</div>
+      <div class="stat-value" id="totalIssues">—</div>
+      <div class="stat-sub">issue types tracked</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value" id="totalEvents">—</div>
+      <div class="stat-sub">across all issue types</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collected</div>
+      <div class="stat-value" id="totalCollected" style="color:var(--green)">—</div>
+      <div class="stat-sub">events in CSV</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Coverage</div>
+      <div class="stat-value" id="coverage">—</div>
+      <div class="stat-sub">of total events</div>
+    </div>
+  </div>
+
+  <!-- Issues worklist -->
+  <div class="section">
+    <div class="section-title">Issue Types <span class="count">— click a row to filter events</span></div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <table class="issues-table" id="issuesTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Issue</th>
+            <th>Domain · Code</th>
+            <th style="text-align:right">Events</th>
+            <th style="text-align:right">Users</th>
+            <th style="min-width:160px">Collection progress</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="issuesBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Collected events -->
+  <div class="section" id="eventsSection">
+    <div class="section-title">Collected Events <span class="count" id="eventsSubtitle"></span></div>
+    <div class="events-grid" id="eventsGrid"></div>
+  </div>
+
+  <!-- Analysis -->
+  <div class="section" id="analysisSection" style="display:none">
+    <div class="section-title">Analysis — <span id="analysisIssue"></span></div>
+    <div class="analysis-box" id="analysisBox"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Embedded data ──────────────────────────────────────────────────────────────
+
+const ISSUES = [
+  { rank:1, issue_name:"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)", nserror_domain:"hu.microsec.eszigno.mobile.SelfServiceRuntimeError", nserror_code:"30803", issue_id:"", events_total:9, users_total:883, processed_events:0, analysed_events:0, last_scraped:"2026-05-22" },
+  { rank:2, issue_name:"FaceKom handleFlow (0)", nserror_domain:"FaceKom handleFlow", nserror_code:"0", issue_id:"", events_total:2, users_total:406, processed_events:0, analysed_events:0, last_scraped:"2026-05-22" },
+  { rank:3, issue_name:"FaceKom stopAndClear (0)", nserror_domain:"FaceKom stopAndClear", nserror_code:"0", issue_id:"", events_total:122, users_total:79, processed_events:0, analysed_events:0, last_scraped:"2026-05-22" },
+  { rank:4, issue_name:"FaceKomSDK.FaceKomError (46)", nserror_domain:"FaceKomSDK.FaceKomError", nserror_code:"46", issue_id:"", events_total:16, users_total:12, processed_events:0, analysed_events:0, last_scraped:"2026-05-22" },
+  { rank:5, issue_name:"FaceKomSDK.FaceKomError (3)", nserror_domain:"FaceKomSDK.FaceKomError", nserror_code:"3", issue_id:"", events_total:6, users_total:5, processed_events:0, analysed_events:0, last_scraped:"2026-05-22" },
+  { rank:6, issue_name:"FaceKomSDK.FaceKomError (43)", nserror_domain:"FaceKomSDK.FaceKomError", nserror_code:"43", issue_id:"cc976fb6b163a26ebbddf22103e89d3c", events_total:2, users_total:1, processed_events:2, analysed_events:0, last_scraped:"2026-05-22" },
+];
+
+const EVENTS = [
+  {
+    event_url: "https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/cc976fb6b163a26ebbddf22103e89d3c?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=21177932b7d94921a3f2dcbeb3d080f0_2215941702234759309",
+    issue_id: "cc976fb6b163a26ebbddf22103e89d3c",
+    session_event_key: "21177932b7d94921a3f2dcbeb3d080f0_2215941702234759309",
+    session_id_full: "21177932b7d94921a3f2dcbeb3d080f0_DNE_7_v2",
+    session_id_base: "21177932b7d94921a3f2dcbeb3d080f0",
+    report_index: 7,
+    event_id: "2215941702234759309",
+    app_version: "3.7.0 (2753)", os_version: "iOS 26.4.2", model: "iPhone 14", date: "May 8, 2026, 2:25:32 PM",
+    crash_kind: "FaceKomError", nserror_code: "43", nserror_domain: "FaceKomSDK.FaceKomError",
+    source: "videoId", configuration: "PROD Release", breadcrumbs_status: "downloaded",
+    outcome: "aborted", reason: "invalidToken", last_step: "voiceLivenessCheck",
+    logs: [
+      { ts:"14:23:57", type:"screen", msg:"LoginQrReaderScreen" },
+      { ts:"14:24:00", type:"screen", msg:"VideoUserAgreementsScreen" },
+      { ts:"14:24:02", type:"screen", msg:"VideoAssistanceScreen" },
+      { ts:"14:24:04", type:"log", msg:"FaceKom started from: videoId" },
+      { ts:"14:24:04", type:"log", msg:"FaceKom started with assistance: false" },
+      { ts:"14:24:05", type:"screen", msg:"VideoIntroScreen" },
+      { ts:"14:24:20", type:"log-ok", msg:"FaceKom ID Verified" },
+      { ts:"14:24:21", type:"screen", msg:"IdVerificationScreen" },
+      { ts:"14:24:30", type:"log", msg:"FaceKom SelfService started" },
+      { ts:"14:24:30", type:"log-ok", msg:"FaceKom getSettings success" },
+      { ts:"14:24:30", type:"log", msg:"FaceKom status changed: connecting" },
+      { ts:"14:24:30", type:"screen", msg:"SelfServiceViewController" },
+      { ts:"14:24:31", type:"log-ok", msg:"FaceKom connectSocket success" },
+      { ts:"14:24:31", type:"log", msg:"FaceKom status changed: connected" },
+      { ts:"14:24:31", type:"error", msg:"Facekom auth error: invalidToken" },
+      { ts:"14:24:31", type:"screen", msg:"UIAlertController" },
+      { ts:"14:24:36", type:"error", msg:"FaceKom error: invalidToken happened, stop and show abort" },
+      { ts:"14:24:36", type:"screen", msg:"SelfServiceViewController" },
+      { ts:"14:24:36", type:"error", msg:"FaceKom failed to stop with error: notAuthorized from SelfService error, currentStep: voiceLivenessCheck. Aborted." },
+      { ts:"14:24:36", type:"error", msg:"Facekom finished with state: aborted(message: nil)" },
+      { ts:"14:24:36", type:"screen", msg:"FinishViewController" },
+      { ts:"14:24:41", type:"log", msg:"FaceKom user initiated closing, isAlreadyClosed: false, currentStep: voiceLivenessCheck" },
+      { ts:"14:24:42", type:"error", msg:"Facekom SelfService stopped and cleared with error: FaceKomSDK.FaceKomError error 43." },
+      { ts:"14:24:42", type:"log", msg:"FaceKom user initiated closing, isAlreadyClosed: true, currentStep: voiceLivenessCheck" },
+      { ts:"14:24:42", type:"screen", msg:"LoginQrReaderScreen" },
+      { ts:"14:24:43", type:"screen", msg:"LoginStartScreen" },
+      { ts:"14:24:45", type:"screen", msg:"LoginQrReaderScreen" },
+      { ts:"14:24:47", type:"screen", msg:"VideoUserAgreementsScreen" },
+      { ts:"14:25:02", type:"screen", msg:"VideoAssistanceScreen" },
+      { ts:"14:25:03", type:"log", msg:"FaceKom started from: videoId (retry)" },
+      { ts:"14:25:03", type:"log", msg:"FaceKom started with assistance: false" },
+      { ts:"14:25:04", type:"screen", msg:"VideoIntroScreen" },
+      { ts:"14:25:17", type:"log-ok", msg:"FaceKom ID Verified" },
+      { ts:"14:25:18", type:"screen", msg:"IdVerificationScreen" },
+      { ts:"14:25:21", type:"log", msg:"FaceKom SelfService started" },
+      { ts:"14:25:22", type:"log-ok", msg:"FaceKom getSettings success" },
+      { ts:"14:25:22", type:"log", msg:"FaceKom status changed: connecting" },
+      { ts:"14:25:22", type:"screen", msg:"SelfServiceViewController" },
+      { ts:"14:25:22", type:"log-ok", msg:"FaceKom connectSocket success" },
+      { ts:"14:25:22", type:"log", msg:"FaceKom status changed: connected" },
+      { ts:"14:25:23", type:"error", msg:"Facekom auth error: invalidToken" },
+      { ts:"14:25:23", type:"screen", msg:"UIAlertController" },
+      { ts:"14:25:30", type:"error", msg:"FaceKom error: invalidToken happened, stop and show abort" },
+      { ts:"14:25:30", type:"screen", msg:"SelfServiceViewController" },
+      { ts:"14:25:30", type:"error", msg:"FaceKom failed to stop with error: notAuthorized from SelfService error, currentStep: voiceLivenessCheck. Aborted." },
+      { ts:"14:25:30", type:"error", msg:"Facekom finished with state: aborted(message: nil)" },
+      { ts:"14:25:30", type:"screen", msg:"FinishViewController" },
+      { ts:"14:25:32", type:"log", msg:"FaceKom user initiated closing, isAlreadyClosed: false, currentStep: voiceLivenessCheck" },
+      { ts:"14:25:32", type:"error", msg:"Facekom SelfService stopped and cleared with error: FaceKomSDK.FaceKomError error 43." },
+      { ts:"14:25:32", type:"log", msg:"FaceKom user initiated closing, isAlreadyClosed: true, currentStep: voiceLivenessCheck" },
+      { ts:"14:25:32", type:"screen", msg:"LoginQrReaderScreen" },
+    ]
+  },
+  {
+    event_url: "https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/cc976fb6b163a26ebbddf22103e89d3c?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=21177932b7d94921a3f2dcbeb3d080f0_2215941487486394507",
+    issue_id: "cc976fb6b163a26ebbddf22103e89d3c",
+    session_event_key: "21177932b7d94921a3f2dcbeb3d080f0_2215941487486394507",
+    session_id_full: "21177932b7d94921a3f2dcbeb3d080f0_DNE_5_v2",
+    session_id_base: "21177932b7d94921a3f2dcbeb3d080f0",
+    report_index: 5,
+    event_id: "2215941487486394507",
+    app_version: "3.7.0 (2753)", os_version: "iOS 26.4.2", model: "iPhone 14", date: "May 8, 2026, 2:24:42 PM",
+    crash_kind: "FaceKomError", nserror_code: "43", nserror_domain: "FaceKomSDK.FaceKomError",
+    source: "videoId", configuration: "PROD Release", breadcrumbs_status: "downloaded",
+    outcome: "aborted", reason: "invalidToken", last_step: "voiceLivenessCheck",
+    logs: [
+      { ts:"14:23:57", type:"screen", msg:"LoginQrReaderScreen" },
+      { ts:"14:24:00", type:"screen", msg:"VideoUserAgreementsScreen" },
+      { ts:"14:24:02", type:"screen", msg:"VideoAssistanceScreen" },
+      { ts:"14:24:04", type:"log", msg:"FaceKom started from: videoId" },
+      { ts:"14:24:04", type:"log", msg:"FaceKom started with assistance: false" },
+      { ts:"14:24:05", type:"screen", msg:"VideoIntroScreen" },
+      { ts:"14:24:20", type:"log-ok", msg:"FaceKom ID Verified" },
+      { ts:"14:24:21", type:"screen", msg:"IdVerificationScreen" },
+      { ts:"14:24:30", type:"log", msg:"FaceKom SelfService started" },
+      { ts:"14:24:30", type:"log-ok", msg:"FaceKom getSettings success" },
+      { ts:"14:24:30", type:"log", msg:"FaceKom status changed: connecting" },
+      { ts:"14:24:30", type:"screen", msg:"SelfServiceViewController" },
+      { ts:"14:24:31", type:"log-ok", msg:"FaceKom connectSocket success" },
+      { ts:"14:24:31", type:"log", msg:"FaceKom status changed: connected" },
+      { ts:"14:24:31", type:"error", msg:"Facekom auth error: invalidToken" },
+      { ts:"14:24:31", type:"screen", msg:"UIAlertController" },
+      { ts:"14:24:36", type:"error", msg:"FaceKom error: invalidToken happened, stop and show abort" },
+      { ts:"14:24:36", type:"screen", msg:"SelfServiceViewController" },
+      { ts:"14:24:36", type:"error", msg:"FaceKom failed to stop with error: notAuthorized from SelfService error, currentStep: voiceLivenessCheck. Aborted." },
+      { ts:"14:24:36", type:"error", msg:"Facekom finished with state: aborted(message: nil)" },
+      { ts:"14:24:36", type:"screen", msg:"FinishViewController" },
+      { ts:"14:24:41", type:"log", msg:"FaceKom user initiated closing, isAlreadyClosed: false, currentStep: voiceLivenessCheck" },
+      { ts:"14:24:42", type:"error", msg:"Facekom SelfService stopped and cleared with error: FaceKomSDK.FaceKomError error 43." },
+      { ts:"14:24:42", type:"log", msg:"FaceKom user initiated closing, isAlreadyClosed: true, currentStep: voiceLivenessCheck" },
+      { ts:"14:24:42", type:"screen", msg:"LoginQrReaderScreen" },
+    ]
+  }
+];
+
+// ── Derived fields from logs ───────────────────────────────────────────────────
+
+function enrichEvent(ev) {
+  // Parse session_id_full from log data
+  if (!ev.session_id_full) {
+    // Already set in data above
+  }
+  // Elapsed seconds
+  const times = ev.logs.map(l => {
+    const [h,m,s] = l.ts.split(':').map(Number);
+    return h*3600 + m*60 + s;
+  });
+  ev.session_elapsed_s = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  ev.first_ts = ev.logs[0]?.ts;
+  ev.last_ts = ev.logs[ev.logs.length-1]?.ts;
+  ev.n_errors = ev.logs.filter(l => l.type === 'error').length;
+  ev.n_screens = ev.logs.filter(l => l.type === 'screen').length;
+  return ev;
+}
+EVENTS.forEach(enrichEvent);
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+
+document.getElementById('updated').textContent = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+
+// Stats
+const totalEvents = ISSUES.reduce((a,i) => a + i.events_total, 0);
+const totalCollected = ISSUES.reduce((a,i) => a + i.processed_events, 0);
+document.getElementById('totalIssues').textContent = ISSUES.length;
+document.getElementById('totalEvents').textContent = totalEvents;
+document.getElementById('totalCollected').textContent = totalCollected;
+document.getElementById('coverage').textContent = Math.round(totalCollected / totalEvents * 100) + '%';
+
+// Issues table
+let activeRank = 6;
+function renderIssues() {
+  const tbody = document.getElementById('issuesBody');
+  tbody.innerHTML = ISSUES.map(issue => {
+    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
+    const isActive = issue.rank === activeRank;
+    const hasData = issue.processed_events > 0;
+    const statusBadge = hasData
+      ? `<span class="badge badge-green">Collected ${issue.processed_events}/${issue.events_total}</span>`
+      : `<span class="badge badge-gray">Pending</span>`;
+    return `<tr class="${isActive ? 'active-rank' : ''}" onclick="selectRank(${issue.rank})" title="Click to filter events">
+      <td class="rank-num">${issue.rank}</td>
+      <td>
+        <div class="issue-name">${issue.issue_name}</div>
+      </td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--muted)">${issue.nserror_domain} · <strong style="color:var(--text)">${issue.nserror_code}</strong></span></td>
+      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total}</td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
+          <span class="progress-label">${pct}%</span>
+        </div>
+      </td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+renderIssues();
+
+function selectRank(rank) {
+  activeRank = rank;
+  renderIssues();
+  renderEvents(rank);
+  renderAnalysis(rank);
+  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Events
+function renderEvents(filterRank) {
+  const issue = ISSUES.find(i => i.rank === filterRank);
+  const filtered = EVENTS.filter(e => {
+    if (!issue) return true;
+    return e.nserror_code === issue.nserror_code && e.nserror_domain.includes(issue.nserror_domain.split('.').pop());
+  });
+
+  const subtitle = document.getElementById('eventsSubtitle');
+  subtitle.textContent = issue
+    ? `— ${issue.issue_name} · ${filtered.length} event${filtered.length !== 1 ? 's' : ''} collected`
+    : `— ${EVENTS.length} total`;
+
+  const grid = document.getElementById('eventsGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div style="color:var(--muted);padding:24px;grid-column:1/-1">No events collected yet for this issue type.</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map((ev, idx) => renderEventCard(ev, idx)).join('');
+
+  // Re-attach tab listeners
+  grid.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+}
+
+function renderEventCard(ev, idx) {
+  const reportLabel = ev.session_id_full ? `Report DNE_${ev.report_index}` : `Event ${idx+1}`;
+  const sameSession = EVENTS.filter(e => e.session_id_base === ev.session_id_base).length > 1;
+
+  return `<div class="event-card">
+    <div class="event-card-header">
+      <div>
+        <h3>${reportLabel} &nbsp;<span class="badge badge-red">aborted</span> ${sameSession ? '<span class="badge badge-yellow">same session</span>' : ''}</h3>
+        <div class="meta">${ev.date} &nbsp;·&nbsp; ${ev.model} &nbsp;·&nbsp; ${ev.os_version}</div>
+      </div>
+      <a href="${ev.event_url}" target="_blank" style="font-size:11px;color:var(--accent);white-space:nowrap">Open ↗</a>
+    </div>
+
+    <div class="event-tabs">
+      <div class="event-tab active" data-tab="summary">Summary</div>
+      <div class="event-tab" data-tab="keys">Keys</div>
+      <div class="event-tab" data-tab="timeline">Timeline (${ev.logs.length})</div>
+    </div>
+
+    <div class="event-tab-content active" data-tab="summary">
+      <div class="kv-grid">
+        <span class="kv-key">Session ID</span>
+        <span class="kv-val" style="font-size:11px">${ev.session_id_full || ev.session_id_base}</span>
+
+        <span class="kv-key">Event ID</span>
+        <span class="kv-val">${ev.event_id}</span>
+
+        <span class="kv-key">App version</span>
+        <span class="kv-val">${ev.app_version}</span>
+
+        <span class="kv-key">Device</span>
+        <span class="kv-val">${ev.model} · ${ev.os_version}</span>
+
+        <span class="kv-key">Duration</span>
+        <span class="kv-val">${ev.session_elapsed_s}s &nbsp;(${ev.first_ts} → ${ev.last_ts})</span>
+
+        <span class="kv-key">Outcome</span>
+        <span class="kv-val highlight">aborted — invalidToken</span>
+
+        <span class="kv-key">Last step</span>
+        <span class="kv-val highlight">voiceLivenessCheck</span>
+
+        <span class="kv-key">Screens</span>
+        <span class="kv-val">${ev.n_screens} screen views</span>
+
+        <span class="kv-key">Errors</span>
+        <span class="kv-val highlight">${ev.n_errors} error events</span>
+
+        <span class="kv-key">Breadcrumbs</span>
+        <span class="kv-val ok">downloaded ✓</span>
+      </div>
+    </div>
+
+    <div class="event-tab-content" data-tab="keys">
+      <div class="kv-grid">
+        <span class="kv-key">nserror-domain</span>
+        <span class="kv-val">${ev.nserror_domain}</span>
+
+        <span class="kv-key">nserror-code</span>
+        <span class="kv-val highlight">${ev.nserror_code}</span>
+
+        <span class="kv-key">crash_kind</span>
+        <span class="kv-val">${ev.crash_kind}</span>
+
+        <span class="kv-key">SOURCE</span>
+        <span class="kv-val">${ev.source}</span>
+
+        <span class="kv-key">CONFIGURATION</span>
+        <span class="kv-val">${ev.configuration}</span>
+
+        <span class="kv-key">issue_id</span>
+        <span class="kv-val" style="font-size:11px">${ev.issue_id}</span>
+      </div>
+    </div>
+
+    <div class="event-tab-content" data-tab="timeline">
+      <div class="timeline">
+        ${ev.logs.map(l => {
+          let dotClass = 'analytics', msgClass = 'screen';
+          if (l.type === 'error') { dotClass = 'error'; msgClass = 'error'; }
+          else if (l.type === 'log-ok') { dotClass = 'ok'; msgClass = 'ok'; }
+          else if (l.type === 'log') { dotClass = 'crashlytics'; msgClass = 'muted'; }
+          return `<div class="tl-item">
+            <div class="tl-dot ${dotClass}"></div>
+            <div class="tl-time">${l.ts}</div>
+            <div class="tl-msg ${msgClass}">${l.msg}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAnalysis(rank) {
+  const issue = ISSUES.find(i => i.rank === rank);
+  const section = document.getElementById('analysisSection');
+  if (!issue || issue.processed_events === 0) { section.style.display = 'none'; return; }
+
+  section.style.display = '';
+  document.getElementById('analysisIssue').textContent = issue.issue_name;
+
+  document.getElementById('analysisBox').innerHTML = `
+    <div class="finding">
+      <span class="finding-icon">🔍</span>
+      <div class="finding-text"><strong>Error 43 = FaceKomSDK.FaceKomError.stopAndClear via invalidToken path.</strong>
+      The SDK calls <code>stopAndClear()</code> after receiving an <code>invalidToken</code> auth error during socket connection.
+      Both events confirm: socket connects successfully, then auth fails immediately.</div>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">👤</span>
+      <div class="finding-text"><strong>Single user, two attempts in the same session.</strong>
+      Both events share <code>session_id_base: 21177932b7d94921a3f2dcbeb3d080f0</code> (report DNE_5 and DNE_7).
+      The user retried immediately (14:24:42 → 14:25:32) — same token, same failure.</div>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">🚫</span>
+      <div class="finding-text"><strong>Not a user-behaviour issue — backend auth is broken for this token.</strong>
+      The user completed ID verification, the socket handshake succeeded (<em>connectSocket success → connected</em>),
+      but the server rejected the auth token. This is a server-side invalidToken error, not a network timeout.</div>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">⚠️</span>
+      <div class="finding-text"><strong>3.7.0 multi-report confirmed.</strong>
+      Crashlytics fired two separate non-fatal reports (DNE_5 at 14:24:42, DNE_7 at 14:25:32) for the same session.
+      Both share identical breadcrumb history up to DNE_5's event timestamp — DNE_7 includes the retry.</div>
+    </div>
+    <div class="finding">
+      <span class="finding-icon">📌</span>
+      <div class="finding-text"><strong>Step reached: voiceLivenessCheck (first video step).</strong>
+      The user never got past the auth phase. This failure mode should be classified as
+      <em>backend error, pre-video</em> — distinct from user abandonment or network timeouts.</div>
+    </div>
+  `;
+}
+
+// Initial render — show rank 6 by default
+renderEvents(6);
+renderAnalysis(6);
+</script>
+</body>
+</html>
