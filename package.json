@@ -9,7 +9,8 @@
     "discover:headless": "HEADLESS=true npx playwright test tests/discover-issues.spec.ts",
     "collect": "npx playwright test tests/collect.spec.ts",
     "collect:headless": "HEADLESS=true npx playwright test tests/collect.spec.ts",
-    "test": "npx playwright test"
+    "test": "npx playwright test",
+    "serve": "node server.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",

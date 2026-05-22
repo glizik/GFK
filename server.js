@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+'use strict';
+
+const http = require('http');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+const PORT = process.env.PORT || 3737;
+const ROOT = __dirname;
+const DATA_DIR = path.join(ROOT, 'data');
+const LOGS_DIR = path.join(DATA_DIR, 'logs');
+const ISSUES_CSV = path.join(DATA_DIR, 'issues_3.7.0.csv');
+const EVENTS_CSV = path.join(DATA_DIR, 'events_3.7.0.csv');
+
+// ── CSV parser ────────────────────────────────────────────────────────────────
+
+function splitCsvLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseCsv(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = splitCsvLine(lines[0]);
+  return lines.slice(1).filter(Boolean).map(line => {
+    const values = splitCsvLine(line);
+    return Object.fromEntries(headers.map((h, i) => [h.trim(), (values[i] ?? '').trim()]));
+  });
+}
+
+function readCsv(filePath) {
+  try { return parseCsv(fs.readFileSync(filePath, 'utf-8')); }
+  catch { return []; }
+}
+
+function readLog(eventId) {
+  try { return JSON.parse(fs.readFileSync(path.join(LOGS_DIR, `${eventId}.log`), 'utf-8')); }
+  catch { return null; }
+}
+
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
+
+function cors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+}
+
+function jsonResp(res, data) {
+  cors(res);
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(data));
+}
+
+function sseStart(res) {
+  cors(res);
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.write(':ok\n\n'); // initial ping so browser fires 'open'
+}
+
+function sseWrite(res, event, data) {
+  if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+}
+
+function runWithSSE(res, cmd, args, env = {}) {
+  sseStart(res);
+
+  const child = spawn(cmd, args, {
+    cwd: ROOT,
+    env: { ...process.env, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  child.stdout.on('data', chunk => sseWrite(res, 'output', { text: chunk.toString() }));
+  child.stderr.on('data', chunk => sseWrite(res, 'output', { text: chunk.toString(), err: true }));
+  child.on('close', code => { sseWrite(res, 'done', { code }); res.end(); });
+  res.on('close', () => { try { child.kill(); } catch {} });
+}
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+  const { pathname, searchParams } = url;
+
+  if (req.method === 'OPTIONS') { cors(res); res.writeHead(204); res.end(); return; }
+
+  if (pathname === '/' || pathname === '/index.html') {
+    try {
+      const html = fs.readFileSync(path.join(DATA_DIR, 'dashboard.html'));
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch {
+      res.writeHead(500); res.end('dashboard.html not found');
+    }
+    return;
+  }
+
+  if (pathname === '/api/status') {
+    const issues = readCsv(ISSUES_CSV);
+    const events = readCsv(EVENTS_CSV).map(ev => {
+      const eventId = (ev.session_event_key || '').split('_').pop();
+      const log = eventId ? readLog(eventId) : null;
+      return { ...ev, log };
+    });
+    jsonResp(res, { issues, events, ts: new Date().toISOString() });
+    return;
+  }
+
+  if (pathname === '/api/discover') {
+    runWithSSE(res, 'npx', ['playwright', 'test', 'tests/discover-issues.spec.ts']);
+    return;
+  }
+
+  if (pathname === '/api/collect') {
+    const issueType = searchParams.get('issueType') || '';
+    const env = issueType ? { ISSUE_TYPES_LIST: issueType } : {};
+    runWithSSE(res, 'npx', ['playwright', 'test', 'tests/collect.spec.ts'], env);
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not found');
+});
+
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`\n  GFK Dashboard  →  http://localhost:${PORT}\n`);
+});

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GFK — FaceKom Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222535;
+    --border: #2e3250;
+    --accent: #5b7fff;
+    --accent2: #a78bfa;
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --orange: #f97316;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --analytics: #38bdf8;
+    --crashlytics: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; padding-bottom: 60px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  /* Header */
+  .header { margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .header-left h1 { font-size: 24px; font-weight: 700; color: #fff; }
+  .header-left p { color: var(--muted); margin-top: 4px; font-size: 13px; }
+  .header-actions { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; white-space: nowrap; }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #4a6ef0; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: #2a2e45; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-collect { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
+  .btn-collect:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(91,127,255,0.08); }
+  .btn-collect:disabled { opacity: 0.4; cursor: not-allowed; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-blue { background: #1e3a8a; color: #93c5fd; }
+  .badge-green { background: #14532d; color: #86efac; }
+  .badge-yellow { background: #713f12; color: #fde68a; }
+  .badge-red { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray { background: #1e293b; color: #94a3b8; }
+
+  /* Section */
+  .section { margin-bottom: 36px; }
+  .section-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .section-title .count { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+  /* Stats */
+  .stat-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 130px; }
+  .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-value { font-size: 24px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Issues table */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .issues-table { width: 100%; border-collapse: collapse; }
+  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+  .issues-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .issues-table tr:last-child td { border-bottom: none; }
+  .issues-table tr.clickable:hover td { background: var(--surface2); cursor: pointer; }
+  .issues-table tr.active-rank td { background: rgba(91,127,255,0.08); }
+  .rank-num { color: var(--muted); font-size: 12px; }
+  .issue-name { font-weight: 500; color: #fff; font-size: 13px; }
+  .issue-domain { font-size: 11px; color: var(--muted); font-family: monospace; }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-bar { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+  .fill-blue { background: var(--accent); }
+  .fill-green { background: var(--green); }
+  .fill-none { background: var(--border); }
+  .progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* Event cards */
+  .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
+  .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .event-card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .event-card-header h3 { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .event-card-header .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .event-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .event-tab { padding: 8px 14px; font-size: 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; user-select: none; }
+  .event-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .event-tab-content { display: none; padding: 14px 18px; }
+  .event-tab-content.active { display: block; }
+
+  /* Key-value */
+  .kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+  .kv-key { color: var(--muted); font-size: 11px; font-weight: 500; white-space: nowrap; align-self: start; padding-top: 1px; }
+  .kv-val { font-size: 12px; color: var(--text); word-break: break-all; font-family: monospace; }
+  .kv-val.highlight { color: var(--red); font-weight: 600; }
+  .kv-val.ok { color: var(--green); }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--border); border-radius: 2px; }
+  .tl-item { position: relative; margin-bottom: 8px; }
+  .tl-dot { position: absolute; left: -17px; top: 5px; width: 8px; height: 8px; border-radius: 50%; }
+  .tl-dot.analytics { background: var(--analytics); }
+  .tl-dot.crashlytics { background: var(--crashlytics); }
+  .tl-dot.error { background: var(--red); }
+  .tl-dot.ok { background: var(--green); }
+  .tl-time { font-size: 10px; color: var(--muted); font-family: monospace; }
+  .tl-msg { font-size: 12px; margin-top: 1px; }
+  .tl-msg.screen { color: var(--analytics); }
+  .tl-msg.error { color: var(--red); font-weight: 500; }
+  .tl-msg.ok { color: var(--green); }
+  .tl-msg.muted { color: var(--muted); }
+
+  /* Analysis */
+  .analysis-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .finding { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
+  .finding-icon { font-size: 16px; flex-shrink: 0; }
+  .finding-text { font-size: 13px; color: var(--text); }
+  .finding-text strong { color: #fff; }
+  .finding-text code { background: var(--surface2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  /* Empty state */
+  .empty { color: var(--muted); padding: 32px 16px; text-align: center; font-size: 13px; }
+
+  /* Error banner */
+  .error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px; color: var(--red); font-size: 13px; margin-bottom: 20px; display: none; }
+
+  /* Terminal panel */
+  .terminal-panel {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0a0c12;
+    border-top: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    max-height: 40vh;
+    z-index: 100;
+  }
+  .terminal-panel.open { transform: translateY(0); }
+  .term-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #111320;
+    flex-shrink: 0;
+  }
+  .term-label { font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .term-label .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .term-label .dot.running { background: var(--green); animation: pulse 1s ease-in-out infinite; }
+  .term-label .dot.done-ok { background: var(--green); }
+  .term-label .dot.done-err { background: var(--red); }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .term-actions { display: flex; gap: 6px; }
+  .term-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 3px 10px; font-size: 11px; border-radius: 5px; cursor: pointer; }
+  .term-btn:hover { color: var(--text); border-color: #4a5080; }
+  .term-output {
+    flex: 1; overflow-y: auto; padding: 10px 16px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.5;
+    color: #c9d1d9;
+    scroll-behavior: smooth;
+  }
+  .term-line { margin-bottom: 1px; white-space: pre-wrap; word-break: break-all; }
+  .term-line.err { color: #f87171; }
+  .term-line.info { color: var(--muted); font-style: italic; }
+  .term-line.success { color: var(--green); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>GFK — FaceKom Crashlytics Dashboard</h1>
+      <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="loadStatus()" id="refreshBtn">↺ Refresh</button>
+      <button class="btn btn-primary" id="discoverBtn" onclick="runDiscover()">Discover Issues</button>
+    </div>
+  </div>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Stats -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Issues</div>
+      <div class="stat-value" id="statIssues">—</div>
+      <div class="stat-sub">tracked types</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value" id="statEvents">—</div>
+      <div class="stat-sub">across all issues</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collected</div>
+      <div class="stat-value" id="statCollected" style="color:var(--green)">—</div>
+      <div class="stat-sub">events downloaded</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Coverage</div>
+      <div class="stat-value" id="statCoverage">—</div>
+      <div class="stat-sub">of total events</div>
+    </div>
+  </div>
+
+  <!-- Issues -->
+  <div class="section">
+    <div class="section-title">Issue Types <span class="count">— click a row to filter events below</span></div>
+    <div class="table-wrap">
+      <table class="issues-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Issue</th>
+            <th>Domain · Code</th>
+            <th style="text-align:right">Events</th>
+            <th style="text-align:right">Users</th>
+            <th style="min-width:140px">Progress</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="issuesBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Events -->
+  <div class="section" id="eventsSection">
+    <div class="section-title">Collected Events <span class="count" id="eventsSubtitle"></span></div>
+    <div id="eventsGrid"></div>
+  </div>
+
+  <!-- Analysis -->
+  <div class="section" id="analysisSection" style="display:none">
+    <div class="section-title">Analysis — <span id="analysisIssue" style="color:var(--accent2)"></span></div>
+    <div class="analysis-box" id="analysisBox"></div>
+  </div>
+
+</div>
+
+<!-- Terminal panel -->
+<div class="terminal-panel" id="termPanel">
+  <div class="term-header">
+    <div class="term-label">
+      <div class="dot" id="termDot"></div>
+      <span id="termLabel">Idle</span>
+    </div>
+    <div class="term-actions">
+      <button class="term-btn" onclick="clearTerm()">Clear</button>
+      <button class="term-btn" onclick="closeTerm()">✕ Close</button>
+    </div>
+  </div>
+  <div class="term-output" id="termOutput"></div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let issues = [], events = [];
+let activeRank = null;
+let currentSSE = null;
+let isBusy = false;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadStatus();
+
+async function loadStatus() {
+  document.getElementById('refreshBtn').disabled = true;
+  try {
+    const data = await fetch('/api/status').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    hideError();
+    issues = data.issues.map(i => ({
+      ...i,
+      rank: +i.rank || 0,
+      events_total: +i.events_total || 0,
+      users_total: +i.users_total || 0,
+      processed_events: +i.processed_events || 0,
+    }));
+    events = data.events.map(ev => ({
+      ...ev,
+      logs: ev.log ? processLogs(ev.log.logs_and_breadcrumbs) : [],
+    }));
+    const d = new Date(data.ts);
+    document.getElementById('updated').textContent =
+      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' +
+      d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+    renderStats();
+    renderIssues();
+    if (activeRank !== null) {
+      renderEvents(activeRank);
+      renderAnalysis(activeRank);
+    } else {
+      // Default: select rank with most collected events, or last rank
+      const bestRank = [...issues].sort((a,b) => b.processed_events - a.processed_events)[0];
+      if (bestRank) selectRank(bestRank.rank);
+    }
+  } catch (e) {
+    showError('Cannot reach GFK server at http://localhost:3737 — is it running?');
+  }
+  document.getElementById('refreshBtn').disabled = false;
+}
+
+// ── Log processing ────────────────────────────────────────────────────────────
+function fmtTs(tsStr) {
+  const d = new Date(tsStr);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function processLogs(rawItems) {
+  return (rawItems || []).map(item => {
+    if (item.name === 'screen_view') {
+      return { ts: fmtTs(item.timestamp), type: 'screen', msg: item.params?.firebase_screen_class || '?' };
+    }
+    const msg = item.message || '';
+    let type = 'log';
+    if (/error|failed|abort/i.test(msg) && !/success/i.test(msg)) type = 'error';
+    else if (/success|verified|connected/i.test(msg)) type = 'log-ok';
+    return { ts: fmtTs(item.timestamp), type, msg };
+  });
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const totalEv = issues.reduce((s, i) => s + i.events_total, 0);
+  const collected = issues.reduce((s, i) => s + i.processed_events, 0);
+  const pct = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  document.getElementById('statIssues').textContent = issues.length;
+  document.getElementById('statEvents').textContent = totalEv;
+  document.getElementById('statCollected').textContent = collected;
+  document.getElementById('statCoverage').textContent = pct + '%';
+}
+
+// ── Issues table ──────────────────────────────────────────────────────────────
+function renderIssues() {
+  const tbody = document.getElementById('issuesBody');
+  tbody.innerHTML = issues.map(issue => {
+    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
+    const isActive = issue.rank === activeRank;
+    const hasData = issue.processed_events > 0;
+    const statusBadge = hasData
+      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total} collected</span>`
+      : `<span class="badge badge-gray">Pending</span>`;
+    const issueTypeEsc = escAttr(issue.issue_name);
+    return `<tr class="clickable ${isActive ? 'active-rank' : ''}" onclick="selectRank(${issue.rank})">
+      <td class="rank-num num">${issue.rank}</td>
+      <td><div class="issue-name">${esc(issue.issue_name)}</div></td>
+      <td><span class="issue-domain">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
+      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total}</td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
+          <span class="progress-label">${pct}%</span>
+        </div>
+      </td>
+      <td>${statusBadge}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn-collect" ${isBusy ? 'disabled' : ''} onclick="runCollect('${issueTypeEsc}', ${issue.rank})">
+          Collect
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function selectRank(rank) {
+  activeRank = rank;
+  renderIssues();
+  renderEvents(rank);
+  renderAnalysis(rank);
+  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+function renderEvents(filterRank) {
+  const issue = issues.find(i => i.rank === filterRank);
+  const filtered = events.filter(ev => {
+    if (!issue) return true;
+    if (issue.issue_id && ev.issue_id && issue.issue_id === ev.issue_id) return true;
+    return ev.nserror_code === issue.nserror_code;
+  });
+
+  const sub = document.getElementById('eventsSubtitle');
+  sub.textContent = issue
+    ? `— ${issue.issue_name} · ${filtered.length} event${filtered.length !== 1 ? 's' : ''} collected`
+    : `— ${events.length} total`;
+
+  const grid = document.getElementById('eventsGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty">No events collected yet for this issue type.<br><br>
+      <button class="btn btn-ghost btn-sm" onclick="runCollect('${escAttr(issue?.issue_name || '')}', ${filterRank})">Collect now</button>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = `<div class="events-grid">${filtered.map((ev, idx) => renderEventCard(ev, idx)).join('')}</div>`;
+
+  grid.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+}
+
+function renderEventCard(ev, idx) {
+  const sib = events.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
+  const sameSession = sib.length > 1;
+  const reportLabel = ev.session_id_full
+    ? `Report ${ev.session_id_full.match(/DNE_\d+/)?.[0] || 'DNE_?'}`
+    : `Event ${idx + 1}`;
+
+  const times = ev.logs.map(l => {
+    const [h, m, s] = l.ts.split(':').map(Number);
+    return h * 3600 + m * 60 + s;
+  });
+  const elapsed = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  const nErrors = ev.logs.filter(l => l.type === 'error').length;
+  const nScreens = ev.logs.filter(l => l.type === 'screen').length;
+  const firstTs = ev.logs[0]?.ts || '—';
+  const lastTs = ev.logs[ev.logs.length - 1]?.ts || '—';
+
+  const outcome = ev.outcome || '—';
+  const reason = ev.reason || '—';
+  const lastStep = ev.last_step || '—';
+  const bStatus = ev.breadcrumbs_status || 'unknown';
+  const hasLogs = ev.logs.length > 0;
+
+  return `<div class="event-card">
+    <div class="event-card-header">
+      <div>
+        <h3>
+          ${esc(reportLabel)}
+          <span class="badge badge-red">${esc(outcome)}</span>
+          ${sameSession ? '<span class="badge badge-yellow">same session</span>' : ''}
+        </h3>
+        <div class="meta">${esc(ev.date)} &nbsp;·&nbsp; ${esc(ev.model)} &nbsp;·&nbsp; ${esc(ev.os_version)}</div>
+      </div>
+      ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" style="font-size:11px;color:var(--accent);white-space:nowrap;flex-shrink:0">Open ↗</a>` : ''}
+    </div>
+
+    <div class="event-tabs">
+      <div class="event-tab active" data-tab="summary">Summary</div>
+      <div class="event-tab" data-tab="keys">Keys</div>
+      <div class="event-tab" data-tab="timeline">Timeline (${ev.logs.length})</div>
+    </div>
+
+    <div class="event-tab-content active" data-tab="summary">
+      <div class="kv-grid">
+        <span class="kv-key">Session</span>
+        <span class="kv-val" style="font-size:10px">${esc(ev.session_id_full || ev.session_id_base || '—')}</span>
+        <span class="kv-key">Event ID</span>
+        <span class="kv-val">${esc(ev.event_id || '—')}</span>
+        <span class="kv-key">Device</span>
+        <span class="kv-val">${esc(ev.model)} · ${esc(ev.os_version)}</span>
+        <span class="kv-key">Duration</span>
+        <span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
+        <span class="kv-key">Outcome</span>
+        <span class="kv-val highlight">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
+        <span class="kv-key">Last step</span>
+        <span class="kv-val highlight">${esc(lastStep)}</span>
+        <span class="kv-key">Screens</span>
+        <span class="kv-val">${nScreens} screen views</span>
+        <span class="kv-key">Errors</span>
+        <span class="kv-val highlight">${nErrors} error events</span>
+        <span class="kv-key">Breadcrumbs</span>
+        <span class="kv-val ${hasLogs ? 'ok' : ''}">${bStatus}${hasLogs ? ' ✓' : ''}</span>
+      </div>
+    </div>
+
+    <div class="event-tab-content" data-tab="keys">
+      <div class="kv-grid">
+        <span class="kv-key">nserror_domain</span>
+        <span class="kv-val">${esc(ev.nserror_domain || '—')}</span>
+        <span class="kv-key">nserror_code</span>
+        <span class="kv-val highlight">${esc(ev.nserror_code || '—')}</span>
+        <span class="kv-key">crash_kind</span>
+        <span class="kv-val">${esc(ev.crash_kind || '—')}</span>
+        <span class="kv-key">source</span>
+        <span class="kv-val">${esc(ev.source || '—')}</span>
+        <span class="kv-key">configuration</span>
+        <span class="kv-val">${esc(ev.configuration || '—')}</span>
+        <span class="kv-key">app_version</span>
+        <span class="kv-val">${esc(ev.app_version || '—')}</span>
+        <span class="kv-key">issue_id</span>
+        <span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
+      </div>
+    </div>
+
+    <div class="event-tab-content" data-tab="timeline">
+      ${ev.logs.length === 0
+        ? `<div class="empty" style="padding:16px">No breadcrumbs downloaded for this event.</div>`
+        : `<div class="timeline">${ev.logs.map(l => {
+            let dotClass = 'analytics', msgClass = 'screen';
+            if (l.type === 'error')    { dotClass = 'error'; msgClass = 'error'; }
+            else if (l.type === 'log-ok') { dotClass = 'ok'; msgClass = 'ok'; }
+            else if (l.type === 'log')    { dotClass = 'crashlytics'; msgClass = 'muted'; }
+            return `<div class="tl-item">
+              <div class="tl-dot ${dotClass}"></div>
+              <div class="tl-time">${esc(l.ts)}</div>
+              <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
+            </div>`;
+          }).join('')}</div>`
+      }
+    </div>
+  </div>`;
+}
+
+// ── Analysis ──────────────────────────────────────────────────────────────────
+function renderAnalysis(rank) {
+  const issue = issues.find(i => i.rank === rank);
+  const section = document.getElementById('analysisSection');
+  if (!issue || issue.processed_events === 0) { section.style.display = 'none'; return; }
+
+  const filtered = events.filter(ev => ev.nserror_code === issue.nserror_code);
+  const reasons = [...new Set(filtered.map(e => e.reason).filter(Boolean))];
+  const steps   = [...new Set(filtered.map(e => e.last_step).filter(Boolean))];
+  const devices = [...new Set(filtered.map(e => e.model).filter(Boolean))];
+  const sessions = [...new Set(filtered.map(e => e.session_id_base).filter(Boolean))];
+
+  section.style.display = '';
+  document.getElementById('analysisIssue').textContent = issue.issue_name;
+
+  const findings = [];
+  findings.push({ icon: '📊', html: `<strong>${filtered.length} event${filtered.length!==1?'s':''} collected</strong> out of ${issue.events_total} total for this issue type. Coverage: ${Math.round(filtered.length/issue.events_total*100)}%.` });
+  if (sessions.length < filtered.length) findings.push({ icon: '👥', html: `<strong>${sessions.length} unique session${sessions.length!==1?'s':''}</strong> across ${filtered.length} events — some sessions generated multiple Crashlytics reports.` });
+  if (reasons.length) findings.push({ icon: '🔍', html: `<strong>Failure reason${reasons.length>1?'s':''}: ${reasons.map(r=>`<code>${r}</code>`).join(', ')}</strong>.` });
+  if (steps.length) findings.push({ icon: '📍', html: `<strong>Last step${steps.length>1?'s':''}: ${steps.map(s=>`<code>${s}</code>`).join(', ')}</strong> — where the flow aborted.` });
+  if (devices.length) findings.push({ icon: '📱', html: `<strong>Devices:</strong> ${devices.join(', ')}.` });
+
+  // Issue-specific analysis for known patterns
+  if (issue.nserror_code === '43' && issue.nserror_domain.includes('FaceKomError')) {
+    findings.push({ icon: '⚡', html: `<strong>Error 43 = stopAndClear via invalidToken.</strong> Socket connects successfully, then auth is rejected server-side. Not a network issue — the backend rejects the token before any video step begins.` });
+  }
+
+  document.getElementById('analysisBox').innerHTML = findings.map(f =>
+    `<div class="finding"><span class="finding-icon">${f.icon}</span><div class="finding-text">${f.html}</div></div>`
+  ).join('');
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function runDiscover() { runSSE('/api/discover', 'Discovering issues…'); }
+
+function runCollect(issueType, rank) {
+  const url = issueType ? `/api/collect?issueType=${encodeURIComponent(issueType)}` : '/api/collect';
+  const label = issueType ? `Collecting: ${issueType}` : 'Collecting events…';
+  runSSE(url, label, rank);
+}
+
+function runSSE(url, label, refreshRank) {
+  if (currentSSE) { currentSSE.close(); currentSSE = null; }
+
+  isBusy = true;
+  renderIssues();
+  document.getElementById('discoverBtn').disabled = true;
+  openTerm(label, 'running');
+  termLine(`▶ ${label}`, 'info');
+
+  const sse = new EventSource(url);
+  currentSSE = sse;
+
+  sse.addEventListener('output', e => {
+    const { text, err } = JSON.parse(e.data);
+    text.split('\n').forEach(line => { if (line) termLine(line, err ? 'err' : ''); });
+  });
+
+  sse.addEventListener('done', e => {
+    const { code } = JSON.parse(e.data);
+    const ok = code === 0;
+    termLine(ok ? `✓ Finished (exit 0)` : `✗ Exited with code ${code}`, ok ? 'success' : 'err');
+    setTermState(ok ? 'done-ok' : 'done-err', ok ? 'Done' : `Failed (${code})`);
+    sse.close(); currentSSE = null;
+    isBusy = false;
+    document.getElementById('discoverBtn').disabled = false;
+    loadStatus().then(() => { if (refreshRank != null) selectRank(refreshRank); });
+  });
+
+  sse.onerror = () => {
+    if (!isBusy) return;
+    termLine('Connection closed.', 'err');
+    setTermState('done-err', 'Error');
+    sse.close(); currentSSE = null;
+    isBusy = false;
+    document.getElementById('discoverBtn').disabled = false;
+    renderIssues();
+  };
+}
+
+// ── Terminal ──────────────────────────────────────────────────────────────────
+function openTerm(label, state) {
+  document.getElementById('termPanel').classList.add('open');
+  setTermState(state, label);
+  document.getElementById('termOutput').innerHTML = '';
+}
+
+function setTermState(state, label) {
+  const dot = document.getElementById('termDot');
+  dot.className = `dot ${state}`;
+  document.getElementById('termLabel').textContent = label;
+}
+
+function termLine(text, cls) {
+  const out = document.getElementById('termOutput');
+  const line = document.createElement('div');
+  line.className = `term-line${cls ? ' ' + cls : ''}`;
+  line.textContent = text;
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+}
+
+function clearTerm() { document.getElementById('termOutput').innerHTML = ''; }
+
+function closeTerm() {
+  document.getElementById('termPanel').classList.remove('open');
+  if (currentSSE && isBusy) {
+    currentSSE.close(); currentSSE = null;
+    isBusy = false;
+    document.getElementById('discoverBtn').disabled = false;
+    renderIssues();
+    termLine('Cancelled.', 'info');
+  }
+}
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s ?? '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function showError(msg) {
+  const b = document.getElementById('errorBanner');
+  b.textContent = msg; b.style.display = 'block';
+}
+function hideError() { document.getElementById('errorBanner').style.display = 'none'; }
+</script>
+</body>
+</html>
