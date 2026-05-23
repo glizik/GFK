@@ -587,6 +587,10 @@ function runSSE(url, label, refreshRank) {
     text.split('\n').forEach(line => { if (line) termLine(line, err ? 'err' : ''); });
   });
 
+  sse.addEventListener('progress', () => {
+    loadStatus().then(() => { if (refreshRank != null) renderEvents(refreshRank); });
+  });
+
   sse.addEventListener('done', e => {
     const { code } = JSON.parse(e.data);
     const ok = code === 0;

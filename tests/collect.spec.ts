@@ -431,6 +431,7 @@ async function collectIssueType(
       if (sessionEventKey) existingEventUrls.add(sessionEventKey);
       collected++;
       console.log(`✅ Saved event #${eventIndex} → total collected: ${collected}`);
+      console.log(`[GFK:PROGRESS]`);
 
       if (COLLECT_LIMIT > 0 && collected >= COLLECT_LIMIT) {
         console.log(`🛑 Limit ${COLLECT_LIMIT} reached. Stopping.`);

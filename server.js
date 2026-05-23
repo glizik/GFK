@@ -85,9 +85,25 @@ function runWithSSE(res, cmd, args, env = {}) {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  child.stdout.on('data', chunk => sseWrite(res, 'output', { text: chunk.toString() }));
+  let stdoutBuf = '';
+  child.stdout.on('data', chunk => {
+    stdoutBuf += chunk.toString();
+    const lines = stdoutBuf.split('\n');
+    stdoutBuf = lines.pop(); // keep incomplete last line
+    for (const line of lines) {
+      if (line.includes('[GFK:PROGRESS]')) {
+        sseWrite(res, 'progress', {});
+      } else {
+        sseWrite(res, 'output', { text: line + '\n' });
+      }
+    }
+  });
   child.stderr.on('data', chunk => sseWrite(res, 'output', { text: chunk.toString(), err: true }));
-  child.on('close', code => { sseWrite(res, 'done', { code }); res.end(); });
+  child.on('close', code => {
+    if (stdoutBuf) sseWrite(res, 'output', { text: stdoutBuf });
+    sseWrite(res, 'done', { code });
+    res.end();
+  });
   res.on('close', () => { try { child.kill(); } catch {} });
 }
 
