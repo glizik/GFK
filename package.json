@@ -10,7 +10,8 @@
     "collect": "npx playwright test tests/collect.spec.ts",
     "collect:headless": "HEADLESS=true npx playwright test tests/collect.spec.ts",
     "test": "npx playwright test",
-    "serve": "node server.js"
+    "serve": "node server.js",
+    "push-data": "git add data/issues_3.7.0.csv data/events_3.7.0.csv data/logs/ index.html && git diff --cached --quiet && echo 'Nothing to push.' || (git commit -m 'data: update collected events' && git push)"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",

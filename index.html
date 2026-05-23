@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GFK — FaceKom Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #222535; --border: #2e3250;
+    --accent: #5b7fff; --accent2: #a78bfa; --green: #22c55e; --yellow: #f59e0b;
+    --red: #ef4444; --orange: #f97316; --text: #e2e8f0; --muted: #64748b;
+    --analytics: #38bdf8; --crashlytics: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  .header { margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .header-left h1 { font-size: 24px; font-weight: 700; color: #fff; }
+  .header-left p { color: var(--muted); margin-top: 4px; font-size: 13px; }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s; white-space: nowrap; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: #2a2e45; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #14532d; color: #86efac; }
+  .badge-yellow { background: #713f12; color: #fde68a; }
+  .badge-red { background: #7f1d1d; color: #fca5a5; }
+  .badge-gray { background: #1e293b; color: #94a3b8; }
+
+  .section { margin-bottom: 36px; }
+  .section-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .section-title .count { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+  .stat-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 130px; }
+  .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-value { font-size: 24px; font-weight: 700; color: #fff; margin-top: 4px; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+  .issues-table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .issues-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  .issues-table tr:last-child td { border-bottom: none; }
+  .issues-table tr.clickable:hover td { background: var(--surface2); cursor: pointer; }
+  .issues-table tr.active-rank td { background: rgba(91,127,255,0.08); }
+  .issue-name { font-weight: 500; color: #fff; font-size: 13px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  .issue-domain { font-size: 11px; color: var(--muted); font-family: monospace; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-bar { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+  .fill-green { background: var(--green); }
+  .fill-none { background: var(--border); }
+  .progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
+  .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .event-card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .event-card-header h3 { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .event-card-header .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .event-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .event-tab { padding: 8px 14px; font-size: 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; user-select: none; }
+  .event-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .event-tab-content { display: none; padding: 14px 18px; }
+  .event-tab-content.active { display: block; }
+
+  .kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+  .kv-key { color: var(--muted); font-size: 11px; font-weight: 500; white-space: nowrap; align-self: start; padding-top: 1px; }
+  .kv-val { font-size: 12px; color: var(--text); word-break: break-all; font-family: monospace; }
+  .kv-val.highlight { color: var(--red); font-weight: 600; }
+  .kv-val.ok { color: var(--green); }
+
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--border); border-radius: 2px; }
+  .tl-item { position: relative; margin-bottom: 8px; }
+  .tl-dot { position: absolute; left: -17px; top: 5px; width: 8px; height: 8px; border-radius: 50%; }
+  .tl-dot.analytics { background: var(--analytics); }
+  .tl-dot.crashlytics { background: var(--crashlytics); }
+  .tl-dot.error { background: var(--red); }
+  .tl-dot.ok { background: var(--green); }
+  .tl-time { font-size: 10px; color: var(--muted); font-family: monospace; }
+  .tl-msg { font-size: 12px; margin-top: 1px; }
+  .tl-msg.screen { color: var(--analytics); }
+  .tl-msg.error { color: var(--red); font-weight: 500; }
+  .tl-msg.ok { color: var(--green); }
+  .tl-msg.muted { color: var(--muted); }
+
+  .empty { color: var(--muted); padding: 32px 16px; text-align: center; font-size: 13px; }
+  .error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px; color: var(--red); font-size: 13px; margin-bottom: 20px; display: none; }
+  .loading { color: var(--muted); text-align: center; padding: 48px; font-size: 13px; }
+  .ro-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="header-left">
+      <h1>GFK — FaceKom Crashlytics</h1>
+      <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
+    </div>
+    <div class="header-actions">
+      <span class="ro-badge">👁 Read-only</span>
+      <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
+    </div>
+  </div>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Issues</div>
+      <div class="stat-value" id="statIssues">—</div>
+      <div class="stat-sub">tracked types</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value" id="statEvents">—</div>
+      <div class="stat-sub">across all issues</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Collected</div>
+      <div class="stat-value" id="statCollected" style="color:var(--green)">—</div>
+      <div class="stat-sub">events downloaded</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Coverage</div>
+      <div class="stat-value" id="statCoverage">—</div>
+      <div class="stat-sub">of total events</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Issue Types <span class="count">— click a row to view events</span></div>
+    <div class="table-wrap">
+      <table class="issues-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Issue</th>
+            <th>Domain · Code</th>
+            <th style="text-align:right" title="Distinct crash signatures">Variants</th>
+            <th style="text-align:right">Events</th>
+            <th style="text-align:right">Users</th>
+            <th style="min-width:140px">Progress</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="issuesBody"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" id="eventsSection">
+    <div class="section-title">Collected Events <span class="count" id="eventsSubtitle"></span></div>
+    <div id="eventsGrid"></div>
+  </div>
+
+</div>
+
+<script>
+// ── CSV parser ────────────────────────────────────────────────────────────────
+function parseCsv(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = splitLine(lines[0]);
+  return lines.slice(1).filter(Boolean).map(line => {
+    const vals = splitLine(line);
+    return Object.fromEntries(headers.map((h, i) => [h.trim(), (vals[i] ?? '').trim()]));
+  });
+}
+function splitLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (const c of line) {
+    if (c === '"') inQ = !inQ;
+    else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur); return out;
+}
+
+// ── Log processing ────────────────────────────────────────────────────────────
+function fmtTs(ts) {
+  const d = new Date(ts);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function processLogs(items) {
+  return (items || []).map(item => {
+    if (item.name === 'screen_view')
+      return { ts: fmtTs(item.timestamp), type: 'screen', msg: item.params?.firebase_screen_class || '?' };
+    const msg = item.message || '';
+    let type = 'log';
+    if (/error|failed|abort/i.test(msg) && !/success/i.test(msg)) type = 'error';
+    else if (/success|verified|connected/i.test(msg)) type = 'log-ok';
+    return { ts: fmtTs(item.timestamp), type, msg };
+  });
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let issues = [], events = [], activeRank = null;
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const [issuesCsv, eventsCsv] = await Promise.all([
+      fetch(`data/issues_3.7.0.csv?_=${Date.now()}`).then(r => { if (!r.ok) throw r; return r.text(); }),
+      fetch(`data/events_3.7.0.csv?_=${Date.now()}`).then(r => { if (!r.ok) throw r; return r.text(); }),
+    ]);
+
+    issues = parseCsv(issuesCsv).map(i => ({
+      ...i,
+      rank: +i.rank || 0,
+      variants_total: +i.variants_total || 0,
+      events_total: +i.events_total || 0,
+      users_total: +i.users_total || 0,
+      processed_events: +i.processed_events || 0,
+    }));
+
+    const rawEvents = parseCsv(eventsCsv);
+    events = await Promise.all(rawEvents.map(async ev => {
+      const eventId = (ev.session_event_key || '').split('_').pop();
+      const log = eventId
+        ? await fetch(`data/logs/${eventId}.log?_=${Date.now()}`).then(r => r.json()).catch(() => null)
+        : null;
+      return { ...ev, logs: log ? processLogs(log.logs_and_breadcrumbs) : [] };
+    }));
+
+    const last = issues.map(i => i.last_scraped).filter(Boolean).sort().pop();
+    if (last) document.getElementById('updated').textContent =
+      new Date(last).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+    hideError();
+    renderStats();
+    renderIssues();
+    if (activeRank === null) {
+      const best = [...issues].sort((a,b) => b.processed_events - a.processed_events)[0];
+      if (best) selectRank(best.rank);
+    } else {
+      renderEvents(activeRank);
+    }
+  } catch (e) {
+    showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
+    console.error(e);
+  }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const totalEv   = issues.reduce((s, i) => s + i.events_total, 0);
+  const collected = issues.reduce((s, i) => s + i.processed_events, 0);
+  const pct       = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  document.getElementById('statIssues').textContent    = issues.length;
+  document.getElementById('statEvents').textContent    = totalEv || '—';
+  document.getElementById('statCollected').textContent = collected;
+  document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
+}
+
+// ── Issues table ──────────────────────────────────────────────────────────────
+function renderIssues() {
+  document.getElementById('issuesBody').innerHTML = issues.map(issue => {
+    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
+    const isActive = issue.rank === activeRank;
+    const hasData = issue.processed_events > 0;
+    const statusBadge = hasData
+      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total || '?'} collected</span>`
+      : `<span class="badge badge-gray">Pending</span>`;
+    return `<tr class="clickable ${isActive ? 'active-rank' : ''}" onclick="selectRank(${issue.rank})">
+      <td class="num" style="color:var(--muted);font-size:12px">${issue.rank}</td>
+      <td><div class="issue-name" title="${escAttr(issue.issue_name)}">${esc(issue.issue_name)}</div></td>
+      <td><span class="issue-domain" title="${escAttr(issue.nserror_domain)}">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.variants_total || '—'}</td>
+      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total || '—'}</td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total || '—'}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
+          <span class="progress-label">${pct}%</span>
+        </div>
+      </td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function selectRank(rank) {
+  activeRank = rank;
+  renderIssues();
+  renderEvents(rank);
+  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+function renderEvents(filterRank) {
+  const issue = issues.find(i => i.rank === filterRank);
+  const filtered = events.filter(ev => {
+    if (!issue) return true;
+    if (issue.issue_id && ev.issue_id && issue.issue_id === ev.issue_id) return true;
+    return ev.nserror_code === issue.nserror_code;
+  });
+
+  document.getElementById('eventsSubtitle').textContent = issue
+    ? `— ${issue.issue_name} · ${filtered.length} event${filtered.length !== 1 ? 's' : ''} collected`
+    : `— ${events.length} total`;
+
+  const grid = document.getElementById('eventsGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty">No events collected yet for this issue type.</div>`;
+    return;
+  }
+
+  grid.innerHTML = `<div class="events-grid">${filtered.map((ev, idx) => renderEventCard(ev, idx)).join('')}</div>`;
+  grid.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+}
+
+function renderEventCard(ev, idx) {
+  const sib = events.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
+  const sameSession = sib.length > 1;
+  const reportLabel = ev.session_id_full
+    ? `Report ${ev.session_id_full.match(/DNE_\d+/)?.[0] || 'DNE_?'}`
+    : `Event ${idx + 1}`;
+  const times = ev.logs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
+  const elapsed = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  const nErrors  = ev.logs.filter(l => l.type === 'error').length;
+  const nScreens = ev.logs.filter(l => l.type === 'screen').length;
+  const firstTs  = ev.logs[0]?.ts || '—';
+  const lastTs   = ev.logs[ev.logs.length-1]?.ts || '—';
+  const outcome  = ev.outcome || '—';
+  const reason   = ev.reason || '—';
+  const lastStep = ev.last_step || '—';
+  const hasLogs  = ev.logs.length > 0;
+
+  return `<div class="event-card">
+    <div class="event-card-header">
+      <div>
+        <h3>${esc(reportLabel)} <span class="badge badge-red">${esc(outcome)}</span>${sameSession ? ' <span class="badge badge-yellow">same session</span>' : ''}</h3>
+        <div class="meta">${esc(ev.date)} &nbsp;·&nbsp; ${esc(ev.model)} &nbsp;·&nbsp; ${esc(ev.os_version)}</div>
+      </div>
+      ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" style="font-size:11px;white-space:nowrap;flex-shrink:0">Open ↗</a>` : ''}
+    </div>
+    <div class="event-tabs">
+      <div class="event-tab active" data-tab="summary">Summary</div>
+      <div class="event-tab" data-tab="keys">Keys</div>
+      <div class="event-tab" data-tab="timeline">Timeline (${ev.logs.length})</div>
+    </div>
+    <div class="event-tab-content active" data-tab="summary">
+      <div class="kv-grid">
+        <span class="kv-key">Session</span><span class="kv-val" style="font-size:10px">${esc(ev.session_id_full || ev.session_id_base || '—')}</span>
+        <span class="kv-key">Event ID</span><span class="kv-val">${esc(ev.event_id || '—')}</span>
+        <span class="kv-key">Device</span><span class="kv-val">${esc(ev.model)} · ${esc(ev.os_version)}</span>
+        <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
+        <span class="kv-key">Outcome</span><span class="kv-val highlight">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
+        <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
+        <span class="kv-key">Screens</span><span class="kv-val">${nScreens} screen views</span>
+        <span class="kv-key">Errors</span><span class="kv-val highlight">${nErrors} error events</span>
+        <span class="kv-key">Breadcrumbs</span><span class="kv-val ${hasLogs ? 'ok' : ''}">${esc(ev.breadcrumbs_status || '—')}${hasLogs ? ' ✓' : ''}</span>
+      </div>
+    </div>
+    <div class="event-tab-content" data-tab="keys">
+      <div class="kv-grid">
+        <span class="kv-key">nserror_domain</span><span class="kv-val">${esc(ev.nserror_domain || '—')}</span>
+        <span class="kv-key">nserror_code</span><span class="kv-val highlight">${esc(ev.nserror_code || '—')}</span>
+        <span class="kv-key">crash_kind</span><span class="kv-val">${esc(ev.crash_kind || '—')}</span>
+        <span class="kv-key">source</span><span class="kv-val">${esc(ev.source || '—')}</span>
+        <span class="kv-key">configuration</span><span class="kv-val">${esc(ev.configuration || '—')}</span>
+        <span class="kv-key">app_version</span><span class="kv-val">${esc(ev.app_version || '—')}</span>
+        <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
+      </div>
+    </div>
+    <div class="event-tab-content" data-tab="timeline">
+      ${!hasLogs
+        ? `<div class="empty" style="padding:16px">No breadcrumbs for this event.</div>`
+        : `<div class="timeline">${ev.logs.map(l => {
+            let dotClass = 'analytics', msgClass = 'screen';
+            if (l.type === 'error')    { dotClass = 'error';      msgClass = 'error'; }
+            else if (l.type === 'log-ok') { dotClass = 'ok';     msgClass = 'ok'; }
+            else if (l.type === 'log')    { dotClass = 'crashlytics'; msgClass = 'muted'; }
+            return `<div class="tl-item">
+              <div class="tl-dot ${dotClass}"></div>
+              <div class="tl-time">${esc(l.ts)}</div>
+              <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
+            </div>`;
+          }).join('')}</div>`
+      }
+    </div>
+  </div>`;
+}
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s??'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function showError(msg) { const b=document.getElementById('errorBanner'); b.textContent=msg; b.style.display='block'; }
+function hideError() { document.getElementById('errorBanner').style.display='none'; }
+
+loadData();
+</script>
+</body>
+</html>
