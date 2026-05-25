@@ -266,7 +266,7 @@ async function loadData() {
 
     hideError();
     renderStats();
-    activeIssueIds = new Set(issues.map(i => i.issue_id).filter(Boolean));
+    activeIssueIds = new Set(issues.map(i => String(i.rank)));
     renderIssueChips();
     renderEventsFromActiveIssues();
   } catch (e) {
@@ -303,9 +303,9 @@ function renderIssueChips() {
   if (subtitle) subtitle.textContent = `— ${activeIssueIds.size}/${issues.length} active`;
   el.innerHTML = issues.map(issue => {
     const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
-    const isActive = activeIssueIds.has(issue.issue_id);
+    const isActive = activeIssueIds.has(String(issue.rank));
     const domainCode = [issue.nserror_domain, issue.nserror_code].filter(Boolean).join(' · ');
-    return `<div class="issue-chip${isActive ? '' : ' inactive'}" data-issue-id="${esc(issue.issue_id)}" onclick="toggleIssue(this.dataset.issueId)">
+    return `<div class="issue-chip${isActive ? '' : ' inactive'}" data-issue-id="${issue.rank}" onclick="toggleIssue(this.dataset.issueId)">
       <div class="chip-rank">Rank ${issue.rank}</div>
       <div class="chip-name" title="${esc(issue.issue_name)}">${esc(issue.issue_name)}</div>
       ${domainCode ? `<div class="chip-domain" title="${esc(domainCode)}">${esc(domainCode)}</div>` : ''}
@@ -358,7 +358,10 @@ function filterEvents() {
 
 // ── Events ────────────────────────────────────────────────────────────────────
 function renderEventsFromActiveIssues() {
-  currentEventsForDisplay = events.filter(ev => !ev.issue_id || activeIssueIds.has(ev.issue_id));
+  const activeCodes = new Set(
+    issues.filter(i => activeIssueIds.has(String(i.rank))).map(i => i.nserror_code)
+  );
+  currentEventsForDisplay = events.filter(ev => !ev.nserror_code || activeCodes.has(ev.nserror_code));
   const uniqueSess = new Set(currentEventsForDisplay.map(ev => ev.session_id_base).filter(Boolean)).size;
   document.getElementById('eventsSubtitle').textContent =
     `— ${currentEventsForDisplay.length} events · ${uniqueSess} sessions`;
