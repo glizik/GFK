@@ -340,11 +340,15 @@ async function loadData() {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats() {
-  const totalEv      = issues.reduce((s, i) => s + i.events_total, 0);
-  const collected    = issues.reduce((s, i) => s + i.processed_events, 0);
-  const pct          = totalEv ? Math.round(collected / totalEv * 100) : 0;
-  const uniqueSess   = new Set(events.map(e => e.session_id_base).filter(Boolean)).size;
-  document.getElementById('statIssues').textContent    = issues.length;
+  const activeIssues = issues.filter(i => activeIssueIds.has(String(i.rank)));
+  const totalEv    = activeIssues.reduce((s, i) => s + i.events_total, 0);
+  const collected  = activeIssues.reduce((s, i) => s + i.processed_events, 0);
+  const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  const activeCodes = new Set(activeIssues.map(i => i.nserror_code));
+  const uniqueSess = new Set(
+    events.filter(e => activeCodes.has(e.nserror_code)).map(e => e.session_id_base).filter(Boolean)
+  ).size;
+  document.getElementById('statIssues').textContent    = activeIssues.length;
   document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = collected;
   document.getElementById('statSessions').textContent  = uniqueSess || '—';
@@ -431,7 +435,7 @@ function renderAnalytics() {
 
   // Stats row
   document.getElementById('analyticsStatsRow').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Total Sessions</div><div class="stat-value">${allSessions.length}</div><div class="stat-sub">unique session IDs</div></div>
+    <div class="stat-card"><div class="stat-label">Total Sessions</div><div class="stat-value" style="color:var(--accent)">${allSessions.length}</div><div class="stat-sub">unique session IDs</div></div>
     <div class="stat-card"><div class="stat-label">Single Report</div><div class="stat-value" style="color:var(--green)">${typeCounts.unique}</div><div class="stat-sub">one event only</div></div>
     <div class="stat-card"><div class="stat-label">Continued</div><div class="stat-value" style="color:var(--accent)">${typeCounts.continuous}</div><div class="stat-sub">left &amp; came back</div></div>
     <div class="stat-card"><div class="stat-label">Multi-try</div><div class="stat-value" style="color:var(--yellow)">${typeCounts['multi-try']}</div><div class="stat-sub">retried same flow</div></div>
@@ -544,6 +548,7 @@ function toggleIssue(issueId) {
     activeIssueIds.add(issueId);
   }
   renderIssueChips();
+  renderStats();
   document.getElementById('eventsSearch').value = '';
   renderEventsFromActiveIssues();
 }
