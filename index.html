@@ -148,6 +148,25 @@
   .filter-btn.btn-yellow { border-color: rgba(245,158,11,0.35); color: var(--yellow); }
   .filter-btn.btn-yellow:hover { border-color: var(--yellow); }
   .filter-btn.btn-yellow.active { background: var(--yellow); border-color: var(--yellow); color: #000; }
+
+  .steps-panel { }
+  .steps-panel.collapsed { display: none; }
+  .funnel-row-wrap { border-bottom: 1px solid var(--border); }
+  .funnel-row-wrap:last-child { border-bottom: none; }
+  .funnel-row { display: flex; align-items: center; gap: 12px; padding: 10px 4px; flex-wrap: wrap; }
+  .funnel-step { font-weight: 600; font-size: 13px; color: #fff; min-width: 160px; flex-shrink: 0; }
+  .funnel-reached { font-size: 12px; color: var(--muted); white-space: nowrap; min-width: 64px; flex-shrink: 0; text-align: right; }
+  .funnel-bar-wrap { flex: 1; min-width: 100px; }
+  .funnel-bar-bg { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .funnel-bar-inner { height: 100%; border-radius: 4px; transition: width 0.4s; }
+  .funnel-pct-val { font-size: 13px; font-weight: 700; min-width: 44px; white-space: nowrap; flex-shrink: 0; }
+  .funnel-counts { font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  .funnel-stopped { color: var(--red); }
+  .funnel-details-panel { background: var(--surface2); border-radius: 8px; margin: 0 4px 10px; padding: 14px; display: none; }
+  .session-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
+  .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
+  .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .session-list-link { font-size: 11px; margin-left: auto; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -239,6 +258,17 @@
         <div id="analyticsOutcomeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
       <div id="analyticsGrid"></div>
+    </div>
+  </div>
+
+  <div class="section" id="stepsSection">
+    <div class="section-header" onclick="toggleStepsPanel()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="stepsToggleIcon">▶</span>Step Funnel <span class="count" id="stepsSubtitle"></span>
+      </div>
+    </div>
+    <div class="steps-panel" id="stepsPanel">
+      <div id="stepsFunnel"></div>
     </div>
   </div>
 
@@ -340,11 +370,155 @@ async function loadData() {
     renderIssueChips();
     renderIssuesTable();
     renderAnalytics();
+    renderStepFunnel();
     renderEventsFromActiveIssues();
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
     console.error(e);
   }
+}
+
+// ── Step Funnel ───────────────────────────────────────────────────────────────
+function extractStepSequence(logs) {
+  const steps = [];
+  for (const log of logs) {
+    const msg = log.msg || '';
+    if (!msg.includes('FaceKom nextStep:')) continue;
+    let name;
+    if (msg.includes('end(')) {
+      const status = msg.includes('status: "') ? msg.split('status: "')[1].split('"')[0] : '';
+      name = status ? `end · ${status}` : 'end';
+    } else if (msg.includes('type: "')) {
+      name = msg.split('type: "')[1].split('"')[0];
+    } else {
+      const after = msg.split('nextStep:')[1]?.trim() || '';
+      name = after.split('(')[0].trim();
+    }
+    if (name && (steps.length === 0 || steps[steps.length - 1] !== name)) steps.push(name);
+  }
+  return steps;
+}
+
+function arrMedian(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function buildStepFunnel() {
+  const allSessions = buildAllSessions();
+  // For each session, merge step sequences from all events in group
+  const sessionStepData = allSessions.map(group => {
+    const combined = [];
+    for (const ev of group) {
+      for (const s of extractStepSequence(ev.logs)) {
+        if (combined.length === 0 || combined[combined.length - 1] !== s) combined.push(s);
+      }
+    }
+    return { group, steps: combined, lastStep: combined[combined.length - 1] || null };
+  });
+
+  // Collect all unique steps + their normalized positions for ordering
+  const stepPositions = new Map();
+  for (const { steps } of sessionStepData) {
+    const total = steps.length;
+    steps.forEach((step, i) => {
+      if (!stepPositions.has(step)) stepPositions.set(step, []);
+      stepPositions.get(step).push(total > 1 ? i / (total - 1) : 0.5);
+    });
+  }
+
+  const sortedSteps = [...stepPositions.keys()].sort((a, b) =>
+    arrMedian(stepPositions.get(a)) - arrMedian(stepPositions.get(b))
+  );
+
+  return sortedSteps.map(step => {
+    const reached       = sessionStepData.filter(s => s.steps.includes(step));
+    const stoppedGroups = reached.filter(s => s.lastStep === step).map(s => s.group);
+    const passedGroups  = reached.filter(s => s.lastStep !== step).map(s => s.group);
+    const pct = reached.length ? Math.round(passedGroups.length / reached.length * 100) : 0;
+    return { step, reached: reached.length, stoppedGroups, passedGroups, pct };
+  });
+}
+
+function toggleStepsPanel() {
+  const panel = document.getElementById('stepsPanel');
+  const icon  = document.getElementById('stepsToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function toggleStepDetails(idx) {
+  const el  = document.getElementById(`sd-${idx}`);
+  const btn = document.getElementById(`sdb-${idx}`);
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? 'Details' : 'Close';
+}
+
+function toggleStepPassing(idx) {
+  const el  = document.getElementById(`sp-${idx}`);
+  const btn = document.getElementById(`spb-${idx}`);
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? `Show passing sessions` : 'Hide passing sessions';
+}
+
+function renderSessionListItems(groups) {
+  return groups.map(group => {
+    const primary = group[group.length - 1];
+    const outcome = deriveOutcome(primary);
+    const sessId  = primary.session_id_base || primary.session_event_key || '?';
+    const url     = group.find(ev => ev.event_url)?.event_url || '';
+    return `<div class="session-list-item">
+      <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
+      <span class="badge ${outcomeBadgeClass(outcome)}" style="font-size:10px">${esc(outcome)}</span>
+      ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
+      ${url ? `<a href="${escAttr(url)}" target="_blank" class="session-list-link">Open ↗</a>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderStepFunnel() {
+  const steps = buildStepFunnel();
+  document.getElementById('stepsSubtitle').textContent = `— ${steps.length} steps`;
+  const container = document.getElementById('stepsFunnel');
+  if (!steps.length) {
+    container.innerHTML = `<div class="empty">No step data found in session logs.</div>`;
+    return;
+  }
+  const totalSessions = buildAllSessions().length;
+  container.innerHTML = steps.map((s, idx) => {
+    const color = s.pct >= 80 ? 'var(--green)' : s.pct >= 50 ? 'var(--yellow)' : 'var(--red)';
+    return `<div class="funnel-row-wrap">
+      <div class="funnel-row">
+        <span class="funnel-step">${esc(s.step)}</span>
+        <span class="funnel-reached">${s.reached} / ${totalSessions}</span>
+        <div class="funnel-bar-wrap">
+          <div class="funnel-bar-bg"><div class="funnel-bar-inner" style="width:${s.pct}%;background:${color}"></div></div>
+        </div>
+        <span class="funnel-pct-val" style="color:${color}">${s.pct}%</span>
+        <span class="funnel-counts">${s.passedGroups.length} passed · <span class="funnel-stopped">${s.stoppedGroups.length} stopped</span></span>
+        <button class="btn btn-ghost btn-sm" id="sdb-${idx}" onclick="toggleStepDetails(${idx})">Details</button>
+      </div>
+      <div class="funnel-details-panel" id="sd-${idx}">
+        <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:10px">
+          Stopped here — ${s.stoppedGroups.length} session${s.stoppedGroups.length !== 1 ? 's' : ''}
+        </div>
+        <div class="session-list">
+          ${s.stoppedGroups.length ? renderSessionListItems(s.stoppedGroups) : '<div style="color:var(--muted);font-size:12px">None stopped here.</div>'}
+        </div>
+        ${s.passedGroups.length ? `<div style="margin-top:12px">
+          <button class="btn btn-ghost btn-sm" id="spb-${idx}" onclick="toggleStepPassing(${idx})">Show passing sessions (${s.passedGroups.length})</button>
+        </div>
+        <div class="session-list" id="sp-${idx}" style="display:none;margin-top:8px">
+          ${renderSessionListItems(s.passedGroups)}
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
