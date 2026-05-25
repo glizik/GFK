@@ -59,6 +59,21 @@
   .issues-panel { }
   .issues-panel.collapsed { display: none; }
 
+  .table-wrap { overflow-x: auto; margin-top: 16px; }
+  .issues-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .issues-table th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .issues-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .issues-table tr:last-child td { border-bottom: none; }
+  .issues-table tr:hover td { background: var(--surface2); }
+  .issue-name { font-weight: 500; color: #fff; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-domain { font-family: monospace; font-size: 11px; color: var(--muted); }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-bar { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+  .fill-green { background: var(--green); }
+  .fill-none { background: var(--border); }
+  .progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
   .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
   .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -170,6 +185,23 @@
     </div>
     <div class="issues-panel" id="issuesPanel">
       <div class="issue-chips" id="issueChips"><div class="loading">Loading…</div></div>
+      <div class="table-wrap">
+        <table class="issues-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Issue</th>
+              <th>Domain · Code</th>
+              <th style="text-align:right" title="Distinct crash signatures">Variants</th>
+              <th style="text-align:right">Events</th>
+              <th style="text-align:right">Users</th>
+              <th style="min-width:140px">Progress</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="issuesBody"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -268,6 +300,7 @@ async function loadData() {
     renderStats();
     activeIssueIds = new Set(issues.map(i => String(i.rank)));
     renderIssueChips();
+    renderIssuesTable();
     renderEventsFromActiveIssues();
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
@@ -289,6 +322,31 @@ function renderStats() {
 }
 
 // ── Issues chips ──────────────────────────────────────────────────────────────
+function renderIssuesTable() {
+  document.getElementById('issuesBody').innerHTML = issues.map(issue => {
+    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
+    const hasData = issue.processed_events > 0;
+    const statusBadge = hasData
+      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total || '?'} collected</span>`
+      : `<span class="badge badge-gray">Pending</span>`;
+    return `<tr>
+      <td class="num" style="color:var(--muted);font-size:12px">${issue.rank}</td>
+      <td><div class="issue-name" title="${esc(issue.issue_name)}">${esc(issue.issue_name)}</div></td>
+      <td><span class="issue-domain">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.variants_total || '—'}</td>
+      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total || '—'}</td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total || '—'}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
+          <span class="progress-label">${pct}%</span>
+        </div>
+      </td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
 function toggleIssuesPanel() {
   const panel = document.getElementById('issuesPanel');
   const icon  = document.getElementById('issuesToggleIcon');
