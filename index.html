@@ -143,12 +143,17 @@
     <div class="stat-card">
       <div class="stat-label">Total Events</div>
       <div class="stat-value" id="statEvents">—</div>
-      <div class="stat-sub">across all issues</div>
+      <div class="stat-sub">Firebase reported</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Collected</div>
+      <div class="stat-label">Raw Collected</div>
       <div class="stat-value" id="statCollected" style="color:var(--green)">—</div>
-      <div class="stat-sub">events downloaded</div>
+      <div class="stat-sub">incl. cross-rank dupes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Sessions</div>
+      <div class="stat-value" id="statSessions" style="color:var(--accent)">—</div>
+      <div class="stat-sub">distinct user sessions</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Coverage</div>
@@ -286,12 +291,14 @@ async function loadData() {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats() {
-  const totalEv   = issues.reduce((s, i) => s + i.events_total, 0);
-  const collected = issues.reduce((s, i) => s + i.processed_events, 0);
-  const pct       = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  const totalEv      = issues.reduce((s, i) => s + i.events_total, 0);
+  const collected    = issues.reduce((s, i) => s + i.processed_events, 0);
+  const pct          = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  const uniqueSess   = new Set(events.map(e => e.session_id_base).filter(Boolean)).size;
   document.getElementById('statIssues').textContent    = issues.length;
   document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = collected;
+  document.getElementById('statSessions').textContent  = uniqueSess || '—';
   document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
 }
 
