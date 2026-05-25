@@ -98,6 +98,18 @@
   .error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px; color: var(--red); font-size: 13px; margin-bottom: 20px; display: none; }
   .loading { color: var(--muted); text-align: center; padding: 48px; font-size: 13px; }
   .ro-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
+
+  .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; cursor: pointer; user-select: none; }
+  .section-header:hover .section-title { color: var(--accent); }
+  .toggle-icon { font-size: 10px; color: var(--muted); transition: transform 0.2s; display: inline-block; margin-right: 6px; }
+  .toggle-icon.open { transform: rotate(90deg); }
+  .events-panel { display: none; }
+  .events-panel.open { display: block; }
+  .search-bar { margin-bottom: 14px; }
+  .search-input { width: 100%; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); }
+  .search-match-count { font-size: 12px; color: var(--muted); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -161,8 +173,18 @@
   </div>
 
   <div class="section" id="eventsSection">
-    <div class="section-title">Collected Events <span class="count" id="eventsSubtitle"></span></div>
-    <div id="eventsGrid"></div>
+    <div class="section-header" onclick="toggleEvents()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon" id="eventsToggleIcon">▶</span>Collected Events <span class="count" id="eventsSubtitle"></span>
+      </div>
+    </div>
+    <div class="events-panel" id="eventsPanel">
+      <div class="search-bar">
+        <input type="text" class="search-input" id="eventsSearch" placeholder="Filter by session / event identifier…" oninput="filterEvents()">
+        <div class="search-match-count" id="searchMatchCount"></div>
+      </div>
+      <div id="eventsGrid"></div>
+    </div>
   </div>
 
 </div>
@@ -207,7 +229,7 @@ function processLogs(items) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let issues = [], events = [], activeRank = null;
+let issues = [], events = [], activeRank = null, currentEventsForDisplay = [];
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function loadData() {
@@ -247,6 +269,7 @@ async function loadData() {
       if (best) selectRank(best.rank);
     } else {
       renderEvents(activeRank);
+      openEventsPanel();
     }
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
@@ -295,26 +318,70 @@ function renderIssues() {
 function selectRank(rank) {
   activeRank = rank;
   renderIssues();
+  document.getElementById('eventsSearch').value = '';
   renderEvents(rank);
+  openEventsPanel();
   document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleEvents() {
+  const panel = document.getElementById('eventsPanel');
+  const icon  = document.getElementById('eventsToggleIcon');
+  const isOpen = panel.classList.toggle('open');
+  icon.classList.toggle('open', isOpen);
+}
+
+function openEventsPanel() {
+  const panel = document.getElementById('eventsPanel');
+  const icon  = document.getElementById('eventsToggleIcon');
+  panel.classList.add('open');
+  icon.classList.add('open');
+}
+
+function filterEvents() {
+  const q = document.getElementById('eventsSearch').value.trim().toLowerCase();
+  const filtered = q
+    ? currentEventsForDisplay.filter(ev => {
+        const identifiers = [
+          ev.session_event_key, ev.session_id_full, ev.session_id_base, ev.event_id
+        ].join(' ').toLowerCase();
+        return identifiers.includes(q);
+      })
+    : currentEventsForDisplay;
+  renderEventsGrid(filtered);
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
 function renderEvents(filterRank) {
   const issue = issues.find(i => i.rank === filterRank);
-  const filtered = events.filter(ev => {
+  currentEventsForDisplay = events.filter(ev => {
     if (!issue) return true;
     if (issue.issue_id && ev.issue_id && issue.issue_id === ev.issue_id) return true;
     return ev.nserror_code === issue.nserror_code;
   });
 
   document.getElementById('eventsSubtitle').textContent = issue
-    ? `— ${issue.issue_name} · ${filtered.length} event${filtered.length !== 1 ? 's' : ''} collected`
+    ? `— ${issue.issue_name} · ${currentEventsForDisplay.length} event${currentEventsForDisplay.length !== 1 ? 's' : ''} collected`
     : `— ${events.length} total`;
 
+  document.getElementById('searchMatchCount').textContent = '';
+  renderEventsGrid(currentEventsForDisplay);
+}
+
+function renderEventsGrid(filtered) {
   const grid = document.getElementById('eventsGrid');
+  const total = currentEventsForDisplay.length;
+  const countEl = document.getElementById('searchMatchCount');
+
+  const q = document.getElementById('eventsSearch').value.trim();
+  if (q) {
+    countEl.textContent = `${filtered.length} of ${total} match`;
+  } else {
+    countEl.textContent = '';
+  }
+
   if (filtered.length === 0) {
-    grid.innerHTML = `<div class="empty">No events collected yet for this issue type.</div>`;
+    grid.innerHTML = `<div class="empty">${q ? 'No events match that identifier.' : 'No events collected yet for this issue type.'}</div>`;
     return;
   }
 
