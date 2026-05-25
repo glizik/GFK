@@ -44,22 +44,20 @@
   .stat-value { font-size: 24px; font-weight: 700; color: #fff; margin-top: 4px; }
   .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
-  .issues-table { width: 100%; border-collapse: collapse; min-width: 760px; }
-  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .issues-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
-  .issues-table tr:last-child td { border-bottom: none; }
-  .issues-table tr.clickable:hover td { background: var(--surface2); cursor: pointer; }
-  .issues-table tr.active-rank td { background: rgba(91,127,255,0.08); }
-  .issue-name { font-weight: 500; color: #fff; font-size: 13px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
-  .issue-domain { font-size: 11px; color: var(--muted); font-family: monospace; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-  .progress-wrap { display: flex; align-items: center; gap: 8px; }
-  .progress-bar { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 60px; }
-  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
-  .fill-green { background: var(--green); }
-  .fill-none { background: var(--border); }
-  .progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
   .num { font-variant-numeric: tabular-nums; }
+  .issue-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .issue-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; cursor: pointer; user-select: none; transition: border-color 0.15s, opacity 0.2s; min-width: 160px; flex: 1; }
+  .issue-chip:hover { border-color: var(--accent); }
+  .issue-chip.inactive { opacity: 0.35; filter: grayscale(1); }
+  .chip-rank { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .chip-name { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-domain { font-size: 11px; color: var(--muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 8px; }
+  .chip-progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .chip-bar { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .chip-bar-fill { height: 100%; border-radius: 2px; background: var(--green); }
+  .chip-events { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .issues-panel { }
+  .issues-panel.collapsed { display: none; }
 
   .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
@@ -165,23 +163,13 @@
   </div>
 
   <div class="section">
-    <div class="section-title">Issue Types <span class="count">— click a row to view events</span></div>
-    <div class="table-wrap">
-      <table class="issues-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Issue</th>
-            <th>Domain · Code</th>
-            <th style="text-align:right" title="Distinct crash signatures">Variants</th>
-            <th style="text-align:right">Events</th>
-            <th style="text-align:right">Users</th>
-            <th style="min-width:140px">Progress</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="issuesBody"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
-      </table>
+    <div class="section-header" onclick="toggleIssuesPanel()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="issuesToggleIcon">▶</span>Issue Types <span class="count" id="issuesSubtitle"></span>
+      </div>
+    </div>
+    <div class="issues-panel" id="issuesPanel">
+      <div class="issue-chips" id="issueChips"><div class="loading">Loading…</div></div>
     </div>
   </div>
 
@@ -242,7 +230,8 @@ function processLogs(items) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let issues = [], events = [], activeRank = null, currentEventsForDisplay = [];
+let issues = [], events = [], currentEventsForDisplay = [];
+let activeIssueIds = new Set();
 const sessionGroups = new Map(); // cardId → group array
 
 // ── Load ──────────────────────────────────────────────────────────────────────
@@ -277,15 +266,9 @@ async function loadData() {
 
     hideError();
     renderStats();
-    renderIssues();
-    if (activeRank === null) {
-      const best = [...issues].sort((a,b) => b.processed_events - a.processed_events)[0];
-      if (best) renderEvents(best.rank);
-      activeRank = best?.rank ?? null;
-      renderIssues();
-    } else {
-      renderEvents(activeRank);
-    }
+    activeIssueIds = new Set(issues.map(i => i.issue_id).filter(Boolean));
+    renderIssueChips();
+    renderEventsFromActiveIssues();
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
     console.error(e);
@@ -305,40 +288,44 @@ function renderStats() {
   document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
 }
 
-// ── Issues table ──────────────────────────────────────────────────────────────
-function renderIssues() {
-  document.getElementById('issuesBody').innerHTML = issues.map(issue => {
+// ── Issues chips ──────────────────────────────────────────────────────────────
+function toggleIssuesPanel() {
+  const panel = document.getElementById('issuesPanel');
+  const icon  = document.getElementById('issuesToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function renderIssueChips() {
+  const el = document.getElementById('issueChips');
+  const subtitle = document.getElementById('issuesSubtitle');
+  if (subtitle) subtitle.textContent = `— ${activeIssueIds.size}/${issues.length} active`;
+  el.innerHTML = issues.map(issue => {
     const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
-    const isActive = issue.rank === activeRank;
-    const hasData = issue.processed_events > 0;
-    const statusBadge = hasData
-      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total || '?'} collected</span>`
-      : `<span class="badge badge-gray">Pending</span>`;
-    return `<tr class="clickable ${isActive ? 'active-rank' : ''}" onclick="selectRank(${issue.rank})">
-      <td class="num" style="color:var(--muted);font-size:12px">${issue.rank}</td>
-      <td><div class="issue-name" title="${escAttr(issue.issue_name)}">${esc(issue.issue_name)}</div></td>
-      <td><span class="issue-domain" title="${escAttr(issue.nserror_domain)}">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
-      <td class="num" style="text-align:right;color:var(--muted)">${issue.variants_total || '—'}</td>
-      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total || '—'}</td>
-      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total || '—'}</td>
-      <td>
-        <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
-          <span class="progress-label">${pct}%</span>
-        </div>
-      </td>
-      <td>${statusBadge}</td>
-    </tr>`;
+    const isActive = activeIssueIds.has(issue.issue_id);
+    const domainCode = [issue.nserror_domain, issue.nserror_code].filter(Boolean).join(' · ');
+    return `<div class="issue-chip${isActive ? '' : ' inactive'}" data-issue-id="${esc(issue.issue_id)}" onclick="toggleIssue(this.dataset.issueId)">
+      <div class="chip-rank">Rank ${issue.rank}</div>
+      <div class="chip-name" title="${esc(issue.issue_name)}">${esc(issue.issue_name)}</div>
+      ${domainCode ? `<div class="chip-domain" title="${esc(domainCode)}">${esc(domainCode)}</div>` : ''}
+      <div class="chip-progress-wrap">
+        <div class="chip-bar"><div class="chip-bar-fill" style="width:${pct}%"></div></div>
+        <span class="chip-events">${issue.processed_events}/${issue.events_total || '?'}</span>
+      </div>
+    </div>`;
   }).join('');
 }
 
-function selectRank(rank) {
-  activeRank = rank;
-  renderIssues();
+function toggleIssue(issueId) {
+  if (activeIssueIds.has(issueId)) {
+    activeIssueIds.delete(issueId);
+  } else {
+    activeIssueIds.add(issueId);
+  }
+  renderIssueChips();
   document.getElementById('eventsSearch').value = '';
-  renderEvents(rank);
-  openEventsPanel();
-  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  renderEventsFromActiveIssues();
 }
 
 function toggleEvents() {
@@ -370,6 +357,15 @@ function filterEvents() {
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
+function renderEventsFromActiveIssues() {
+  currentEventsForDisplay = events.filter(ev => !ev.issue_id || activeIssueIds.has(ev.issue_id));
+  const uniqueSess = new Set(currentEventsForDisplay.map(ev => ev.session_id_base).filter(Boolean)).size;
+  document.getElementById('eventsSubtitle').textContent =
+    `— ${currentEventsForDisplay.length} events · ${uniqueSess} sessions`;
+  document.getElementById('searchMatchCount').textContent = '';
+  renderEventsGrid(currentEventsForDisplay);
+}
+
 function deriveOutcome(ev) {
   const csvVal = (ev.outcome || '').trim();
   if (csvVal && csvVal !== '—') return csvVal;
@@ -420,23 +416,6 @@ function deriveLastStep(ev) {
 function issueLabel(ev) {
   const iss = issues.find(i => i.issue_id === ev.issue_id);
   return iss ? `#${iss.rank} ${iss.issue_name}` : (ev.nserror_domain ? `${ev.nserror_domain} · ${ev.nserror_code}` : '');
-}
-
-function renderEvents(filterRank) {
-  const issue = issues.find(i => i.rank === filterRank);
-  currentEventsForDisplay = events.filter(ev => {
-    if (!issue) return true;
-    if (issue.issue_id && ev.issue_id && issue.issue_id === ev.issue_id) return true;
-    return ev.nserror_code === issue.nserror_code;
-  });
-
-  const uniqueSessions = new Set(currentEventsForDisplay.map(ev => ev.session_id_base || ev.session_event_key)).size;
-  document.getElementById('eventsSubtitle').textContent = issue
-    ? `— ${issue.issue_name} · ${currentEventsForDisplay.length} events · ${uniqueSessions} sessions`
-    : `— ${events.length} total`;
-
-  document.getElementById('searchMatchCount').textContent = '';
-  renderEventsGrid(currentEventsForDisplay);
 }
 
 function renderEventsGrid(filtered) {
