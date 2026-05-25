@@ -112,8 +112,10 @@
   .search-match-count { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .subreports { border-top: 1px solid var(--border); padding: 10px 18px; }
   .subreport-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
-  .subreport-item { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
-  .subreport-item:first-of-type { border-top: none; }
+  .subreport-item { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 6px; cursor: pointer; flex-wrap: wrap; row-gap: 4px; }
+  .subreport-item + .subreport-item { border-top: 1px solid var(--border); border-radius: 0; }
+  .subreport-item:hover { background: var(--surface2); }
+  .subreport-item.subreport-selected { background: rgba(91,127,255,0.12); border-color: transparent !important; border-radius: 6px !important; }
   .subreport-key { color: var(--muted); font-family: monospace; font-size: 11px; flex-shrink: 0; }
   .subreport-link { margin-left: auto; font-size: 11px; flex-shrink: 0; }
 </style>
@@ -241,6 +243,7 @@ function processLogs(items) {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let issues = [], events = [], activeRank = null, currentEventsForDisplay = [];
+const sessionGroups = new Map(); // cardId → group array
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function loadData() {
@@ -478,43 +481,102 @@ function renderEventsGrid(filtered) {
   });
 }
 
+function selectReport(cardId, repIdx) {
+  const group = sessionGroups.get(cardId);
+  if (!group) return;
+  const ev = group[repIdx];
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  card.querySelector('.event-tab-content[data-tab="summary"]').innerHTML = renderSummaryContent(ev);
+  card.querySelector('.event-tab-content[data-tab="keys"]').innerHTML    = renderKeysContent(ev);
+  card.querySelector('.event-tab-content[data-tab="timeline"]').innerHTML = renderTimelineContent(ev.logs);
+
+  card.querySelectorAll('.subreport-item').forEach((el, i) => {
+    el.classList.toggle('subreport-selected', i === repIdx);
+  });
+}
+
+function renderSummaryContent(ev) {
+  const logs = ev.logs;
+  const times = logs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
+  const elapsed  = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  const nErrors  = logs.filter(l => l.type === 'error').length;
+  const nScreens = logs.filter(l => l.type === 'screen').length;
+  const firstTs  = logs[0]?.ts || '—';
+  const lastTs   = logs[logs.length-1]?.ts || '—';
+  const outcome  = deriveOutcome(ev);
+  const reason   = ev.reason || '—';
+  const lastStep = deriveLastStep(ev);
+  const hasLogs  = logs.length > 0;
+  return `<div class="kv-grid">
+    <span class="kv-key">Session</span><span class="kv-val" style="font-size:10px">${esc(ev.session_id_base || '—')}</span>
+    <span class="kv-key">Outcome</span><span class="kv-val ${outcome === 'approve' || outcome === 'finished' ? 'ok' : 'highlight'}">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
+    <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
+    <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
+    <span class="kv-key">Screens</span><span class="kv-val">${nScreens} screen views</span>
+    <span class="kv-key">Errors</span><span class="kv-val highlight">${nErrors} error events</span>
+    <span class="kv-key">Breadcrumbs</span><span class="kv-val ${hasLogs ? 'ok' : ''}">${esc(ev.breadcrumbs_status || '—')}${hasLogs ? ' ✓' : ''}</span>
+  </div>`;
+}
+
+function renderKeysContent(ev) {
+  return `<div class="kv-grid">
+    <span class="kv-key">nserror_domain</span><span class="kv-val">${esc(ev.nserror_domain || '—')}</span>
+    <span class="kv-key">nserror_code</span><span class="kv-val highlight">${esc(ev.nserror_code || '—')}</span>
+    <span class="kv-key">crash_kind</span><span class="kv-val">${esc(ev.crash_kind || '—')}</span>
+    <span class="kv-key">source</span><span class="kv-val">${esc(ev.source || '—')}</span>
+    <span class="kv-key">configuration</span><span class="kv-val">${esc(ev.configuration || '—')}</span>
+    <span class="kv-key">app_version</span><span class="kv-val">${esc(ev.app_version || '—')}</span>
+    <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
+  </div>`;
+}
+
+function renderTimelineContent(logs) {
+  if (!logs.length) return `<div class="empty" style="padding:16px">No breadcrumbs for this event.</div>`;
+  return `<div class="timeline">${logs.map(l => {
+    let dotClass = 'analytics', msgClass = 'screen';
+    if (l.type === 'error')       { dotClass = 'error';       msgClass = 'error'; }
+    else if (l.type === 'log-ok') { dotClass = 'ok';          msgClass = 'ok'; }
+    else if (l.type === 'log')    { dotClass = 'crashlytics'; msgClass = 'muted'; }
+    return `<div class="tl-item">
+      <div class="tl-dot ${dotClass}"></div>
+      <div class="tl-time">${esc(l.ts)}</div>
+      <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
 function renderSessionCard(group, idx) {
+  const cardId  = `card-${idx}`;
+  sessionGroups.set(cardId, group);
   const primary = group[group.length - 1];
-  const allLogs = group.flatMap(ev => ev.logs);
-  const times = allLogs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
-  const elapsed = times.length ? Math.max(...times) - Math.min(...times) : 0;
-  const nErrors  = allLogs.filter(l => l.type === 'error').length;
-  const nScreens = allLogs.filter(l => l.type === 'screen').length;
-  const firstTs  = allLogs[0]?.ts || '—';
-  const lastTs   = allLogs[allLogs.length-1]?.ts || '—';
-  const outcome  = deriveOutcome(primary);
-  const reason   = primary.reason || '—';
-  const lastStep = primary.last_step || '—';
-  const hasLogs  = allLogs.length > 0;
-  const isMulti  = group.length > 1;
-  const title    = primary.session_id_base
+  const defaultRepIdx = group.length - 1;
+  const outcome = deriveOutcome(primary);
+  const title = primary.session_id_base
     ? `Session ${primary.session_id_base.slice(0, 12)}…`
     : `Event ${idx + 1}`;
 
   const subReportsHtml = `
     <div class="subreports">
-      <div class="subreport-label">${group.length} report${group.length !== 1 ? 's' : ''} in this session</div>
-      ${group.map(ev => {
-        const repLabel = ev.session_id_full?.match(/DNE_\d+/)?.[0] || ev.event_id?.slice(0, 10) || '?';
+      <div class="subreport-label">${group.length} report${group.length !== 1 ? 's' : ''} — click to inspect</div>
+      ${group.map((ev, repIdx) => {
+        const repLabel   = ev.session_id_full?.match(/DNE_\d+/)?.[0] || ev.event_id?.slice(0, 10) || '?';
         const repOutcome = deriveOutcome(ev);
-        const repStep = deriveLastStep(ev);
-        const repIssue = issueLabel(ev);
-        return `<div class="subreport-item" style="flex-wrap:wrap;row-gap:4px">
+        const repStep    = deriveLastStep(ev);
+        const repIssue   = issueLabel(ev);
+        const isSelected = repIdx === defaultRepIdx;
+        return `<div class="subreport-item${isSelected ? ' subreport-selected' : ''}" onclick="selectReport('${cardId}', ${repIdx})">
           <span class="subreport-key">${esc(repLabel)}</span>
           <span class="badge ${outcomeBadgeClass(repOutcome)}" style="font-size:10px">${esc(repOutcome)}</span>
           ${repStep !== '—' ? `<span style="font-size:11px;color:var(--analytics)">→ ${esc(repStep)}</span>` : ''}
           ${repIssue ? `<span style="font-size:10px;color:var(--muted)">${esc(repIssue)}</span>` : ''}
-          ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" class="subreport-link">Open ↗</a>` : ''}
+          ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" class="subreport-link" onclick="event.stopPropagation()">Open ↗</a>` : ''}
         </div>`;
       }).join('')}
     </div>`;
 
-  return `<div class="event-card">
+  return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div>
         <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span></h3>
@@ -524,46 +586,11 @@ function renderSessionCard(group, idx) {
     <div class="event-tabs">
       <div class="event-tab active" data-tab="summary">Summary</div>
       <div class="event-tab" data-tab="keys">Keys</div>
-      <div class="event-tab" data-tab="timeline">Timeline (${allLogs.length})</div>
+      <div class="event-tab" data-tab="timeline">Timeline (${primary.logs.length})</div>
     </div>
-    <div class="event-tab-content active" data-tab="summary">
-      <div class="kv-grid">
-        <span class="kv-key">Session</span><span class="kv-val" style="font-size:10px">${esc(primary.session_id_base || '—')}</span>
-        <span class="kv-key">Outcome</span><span class="kv-val ${outcome === 'approve' || outcome === 'finished' ? 'ok' : 'highlight'}">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
-        <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
-        <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
-        <span class="kv-key">Screens</span><span class="kv-val">${nScreens} screen views</span>
-        <span class="kv-key">Errors</span><span class="kv-val highlight">${nErrors} error events</span>
-        <span class="kv-key">Breadcrumbs</span><span class="kv-val ${hasLogs ? 'ok' : ''}">${esc(primary.breadcrumbs_status || '—')}${hasLogs ? ' ✓' : ''}</span>
-      </div>
-    </div>
-    <div class="event-tab-content" data-tab="keys">
-      <div class="kv-grid">
-        <span class="kv-key">nserror_domain</span><span class="kv-val">${esc(primary.nserror_domain || '—')}</span>
-        <span class="kv-key">nserror_code</span><span class="kv-val highlight">${esc(primary.nserror_code || '—')}</span>
-        <span class="kv-key">crash_kind</span><span class="kv-val">${esc(primary.crash_kind || '—')}</span>
-        <span class="kv-key">source</span><span class="kv-val">${esc(primary.source || '—')}</span>
-        <span class="kv-key">configuration</span><span class="kv-val">${esc(primary.configuration || '—')}</span>
-        <span class="kv-key">app_version</span><span class="kv-val">${esc(primary.app_version || '—')}</span>
-        <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(primary.issue_id || '—')}</span>
-      </div>
-    </div>
-    <div class="event-tab-content" data-tab="timeline">
-      ${!hasLogs
-        ? `<div class="empty" style="padding:16px">No breadcrumbs for this event.</div>`
-        : `<div class="timeline">${allLogs.map(l => {
-            let dotClass = 'analytics', msgClass = 'screen';
-            if (l.type === 'error')       { dotClass = 'error';       msgClass = 'error'; }
-            else if (l.type === 'log-ok') { dotClass = 'ok';          msgClass = 'ok'; }
-            else if (l.type === 'log')    { dotClass = 'crashlytics'; msgClass = 'muted'; }
-            return `<div class="tl-item">
-              <div class="tl-dot ${dotClass}"></div>
-              <div class="tl-time">${esc(l.ts)}</div>
-              <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
-            </div>`;
-          }).join('')}</div>`
-      }
-    </div>
+    <div class="event-tab-content active" data-tab="summary">${renderSummaryContent(primary)}</div>
+    <div class="event-tab-content" data-tab="keys">${renderKeysContent(primary)}</div>
+    <div class="event-tab-content" data-tab="timeline">${renderTimelineContent(primary.logs)}</div>
     ${subReportsHtml}
   </div>`;
 }
