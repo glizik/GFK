@@ -131,6 +131,14 @@
   .subreport-item.subreport-selected { background: rgba(91,127,255,0.12); border-color: transparent !important; border-radius: 6px !important; }
   .subreport-key { color: var(--muted); font-family: monospace; font-size: 11px; flex-shrink: 0; }
   .subreport-link { margin-left: auto; font-size: 11px; flex-shrink: 0; }
+
+  .analytics-panel { }
+  .analytics-panel.collapsed { display: none; }
+  .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; min-width: 80px; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -205,6 +213,26 @@
     </div>
   </div>
 
+  <div class="section" id="analyticsSection">
+    <div class="section-header" onclick="toggleAnalytics()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="analyticsToggleIcon">▶</span>Analytics <span class="count" id="analyticsSubtitle"></span>
+      </div>
+    </div>
+    <div class="analytics-panel" id="analyticsPanel">
+      <div class="stat-row" id="analyticsStatsRow"></div>
+      <div class="filter-group">
+        <span class="filter-label">Session type</span>
+        <div id="analyticsTypeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Outcome</span>
+        <div id="analyticsOutcomeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div id="analyticsGrid"></div>
+    </div>
+  </div>
+
   <div class="section" id="eventsSection">
     <div class="section-header" onclick="toggleEvents()">
       <div class="section-title" style="margin-bottom:0">
@@ -264,6 +292,7 @@ function processLogs(items) {
 // ── State ─────────────────────────────────────────────────────────────────────
 let issues = [], events = [], currentEventsForDisplay = [];
 let activeIssueIds = new Set();
+let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all';
 const sessionGroups = new Map(); // cardId → group array
 
 // ── Load ──────────────────────────────────────────────────────────────────────
@@ -301,6 +330,7 @@ async function loadData() {
     activeIssueIds = new Set(issues.map(i => String(i.rank)));
     renderIssueChips();
     renderIssuesTable();
+    renderAnalytics();
     renderEventsFromActiveIssues();
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
@@ -319,6 +349,138 @@ function renderStats() {
   document.getElementById('statCollected').textContent = collected;
   document.getElementById('statSessions').textContent  = uniqueSess || '—';
   document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+function buildAllSessions() {
+  const sessionMap = new Map();
+  for (const ev of events) {
+    const key = ev.session_id_base || ev.session_event_key || ev.event_id;
+    if (!sessionMap.has(key)) {
+      const group = ev.session_id_base
+        ? events.filter(e => e.session_id_base === ev.session_id_base)
+        : [ev];
+      group.sort((a, b) => {
+        const ri = (+a.report_index || 0) - (+b.report_index || 0);
+        if (ri !== 0) return ri;
+        const ea = a.event_id || '', eb = b.event_id || '';
+        return ea < eb ? -1 : ea > eb ? 1 : 0;
+      });
+      sessionMap.set(key, group);
+    }
+  }
+  return [...sessionMap.values()];
+}
+
+function categorizeSession(group) {
+  if (group.length === 1) return 'unique';
+  const codeCounts = {};
+  for (const ev of group) codeCounts[ev.nserror_code] = (codeCounts[ev.nserror_code] || 0) + 1;
+  const crossRank = Object.keys(codeCounts).length > 1;
+  const multiTry  = Object.values(codeCounts).some(c => c > 1);
+  if (crossRank && multiTry) return 'mixed';
+  if (crossRank) return 'continuous';
+  return 'multi-try';
+}
+
+function normalizeOutcome(outcome) {
+  if (outcome === 'approve' || outcome === 'finished') return 'approve';
+  if (outcome === 'reject') return 'reject';
+  if (outcome === 'aborted' || outcome === 'user closed') return 'aborted';
+  if (outcome === 'failed') return 'failed';
+  return 'other';
+}
+
+function toggleAnalytics() {
+  const panel = document.getElementById('analyticsPanel');
+  const icon  = document.getElementById('analyticsToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function setTypeFilter(type) {
+  analyticsTypeFilter = type;
+  renderAnalytics();
+}
+
+function setOutcomeFilter(outcome) {
+  analyticsOutcomeFilter = outcome;
+  renderAnalytics();
+}
+
+function renderAnalytics() {
+  const allSessions = buildAllSessions();
+
+  const categorized = allSessions.map(group => ({
+    group,
+    type: categorizeSession(group),
+    outcome: normalizeOutcome(deriveOutcome(group[group.length - 1])),
+  }));
+
+  const typeCounts = { unique: 0, continuous: 0, 'multi-try': 0, mixed: 0 };
+  const outcomeCounts = { approve: 0, reject: 0, aborted: 0, failed: 0, other: 0 };
+  for (const s of categorized) {
+    typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
+    outcomeCounts[s.outcome] = (outcomeCounts[s.outcome] || 0) + 1;
+  }
+
+  let filtered = categorized;
+  if (analyticsTypeFilter !== 'all')    filtered = filtered.filter(s => s.type === analyticsTypeFilter);
+  if (analyticsOutcomeFilter !== 'all') filtered = filtered.filter(s => s.outcome === analyticsOutcomeFilter);
+
+  // Stats row
+  document.getElementById('analyticsStatsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Sessions</div><div class="stat-value">${allSessions.length}</div><div class="stat-sub">unique session IDs</div></div>
+    <div class="stat-card"><div class="stat-label">Single Report</div><div class="stat-value" style="color:var(--green)">${typeCounts.unique}</div><div class="stat-sub">one event only</div></div>
+    <div class="stat-card"><div class="stat-label">Continued</div><div class="stat-value" style="color:var(--accent)">${typeCounts.continuous}</div><div class="stat-sub">left &amp; came back</div></div>
+    <div class="stat-card"><div class="stat-label">Multi-try</div><div class="stat-value" style="color:var(--yellow)">${typeCounts['multi-try']}</div><div class="stat-sub">retried same flow</div></div>
+    <div class="stat-card"><div class="stat-label">Mixed</div><div class="stat-value" style="color:var(--orange)">${typeCounts.mixed}</div><div class="stat-sub">retried + cross-rank</div></div>
+  `;
+
+  // Type filter buttons
+  const typeOpts = [
+    { key: 'all',        label: `All (${allSessions.length})` },
+    { key: 'unique',     label: `Single (${typeCounts.unique})` },
+    { key: 'continuous', label: `Continued (${typeCounts.continuous})` },
+    { key: 'multi-try',  label: `Multi-try (${typeCounts['multi-try']})` },
+    { key: 'mixed',      label: `Mixed (${typeCounts.mixed})` },
+  ];
+  document.getElementById('analyticsTypeFilters').innerHTML = typeOpts.map(o =>
+    `<button class="filter-btn${analyticsTypeFilter === o.key ? ' active' : ''}" onclick="setTypeFilter('${o.key}')">${o.label}</button>`
+  ).join('');
+
+  // Outcome filter buttons
+  const outcomeOpts = [
+    { key: 'all',     label: 'All' },
+    { key: 'approve', label: `Approved (${outcomeCounts.approve})` },
+    { key: 'reject',  label: `Rejected (${outcomeCounts.reject})` },
+    { key: 'aborted', label: `Aborted (${outcomeCounts.aborted})` },
+    { key: 'failed',  label: `Failed (${outcomeCounts.failed})` },
+    { key: 'other',   label: `Other (${outcomeCounts.other})` },
+  ];
+  document.getElementById('analyticsOutcomeFilters').innerHTML = outcomeOpts.map(o =>
+    `<button class="filter-btn${analyticsOutcomeFilter === o.key ? ' active' : ''}" onclick="setOutcomeFilter('${o.key}')">${o.label}</button>`
+  ).join('');
+
+  document.getElementById('analyticsSubtitle').textContent = `— ${filtered.length} of ${allSessions.length} sessions`;
+
+  // Session grid
+  const grid = document.getElementById('analyticsGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty">No sessions match the selected filters.</div>`;
+    return;
+  }
+  grid.innerHTML = `<div class="events-grid">${filtered.map((s, idx) => renderSessionCard(s.group, `a${idx}`)).join('')}</div>`;
+  grid.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
 }
 
 // ── Issues chips ──────────────────────────────────────────────────────────────
