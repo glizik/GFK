@@ -266,10 +266,11 @@ async function loadData() {
     renderIssues();
     if (activeRank === null) {
       const best = [...issues].sort((a,b) => b.processed_events - a.processed_events)[0];
-      if (best) selectRank(best.rank);
+      if (best) renderEvents(best.rank);
+      activeRank = best?.rank ?? null;
+      renderIssues();
     } else {
       renderEvents(activeRank);
-      openEventsPanel();
     }
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
@@ -320,7 +321,6 @@ function selectRank(rank) {
   renderIssues();
   document.getElementById('eventsSearch').value = '';
   renderEvents(rank);
-  openEventsPanel();
   document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -398,7 +398,7 @@ function renderEventsGrid(filtered) {
 }
 
 function renderEventCard(ev, idx) {
-  const sib = events.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
+  const sib = currentEventsForDisplay.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
   const sameSession = sib.length > 1;
   const reportLabel = ev.session_id_full
     ? `Report ${ev.session_id_full.match(/DNE_\d+/)?.[0] || 'DNE_?'}`
