@@ -151,22 +151,22 @@
 
   .steps-panel { }
   .steps-panel.collapsed { display: none; }
-  .funnel-row-wrap { border-radius: 6px; margin-bottom: 3px; background: linear-gradient(90deg, rgba(91,127,255,0.1) var(--cum-pct, 100%), transparent var(--cum-pct, 100%)); }
-  .funnel-row { display: flex; align-items: center; gap: 12px; padding: 10px 8px; flex-wrap: wrap; }
-  .funnel-num { font-family: monospace; font-size: 11px; color: var(--muted); min-width: 40px; flex-shrink: 0; }
-  .funnel-step { font-weight: 600; font-size: 13px; color: #fff; min-width: 160px; flex-shrink: 0; }
-  .funnel-reached { font-size: 12px; color: var(--muted); white-space: nowrap; min-width: 64px; flex-shrink: 0; text-align: right; }
-  .funnel-bar-wrap { flex: 1; min-width: 100px; }
-  .funnel-bar-bg { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
-  .funnel-bar-inner { height: 100%; border-radius: 4px; transition: width 0.4s; }
-  .funnel-pct-val { font-size: 13px; font-weight: 700; min-width: 44px; white-space: nowrap; flex-shrink: 0; }
-  .funnel-counts { font-size: 12px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
-  .funnel-stopped { color: var(--red); }
-  .funnel-details-panel { background: var(--surface2); border-radius: 8px; margin: 0 4px 10px; padding: 14px; display: none; }
-  .funnel-outcomes-row { display: flex; align-items: center; gap: 12px; padding: 14px 8px; flex-wrap: wrap; margin-top: 8px; border-top: 2px solid var(--border); }
-  .funnel-outcomes-bar { flex: 1; height: 30px; display: flex; border-radius: 6px; overflow: hidden; min-width: 200px; }
-  .funnel-outcome-seg { display: flex; align-items: center; justify-content: center; overflow: hidden; min-width: 0; transition: width 0.4s; }
-  .funnel-outcome-label { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; padding: 0 8px; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+  .flow-funnel { padding: 4px 0; }
+  .flow-bar-row { margin-bottom: 0; }
+  .flow-bar { height: 44px; background: linear-gradient(90deg, #5b7fff, rgba(91,127,255,0.55)); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: #fff; font-size: 13px; font-weight: 600; overflow: hidden; min-width: 80px; box-shadow: 0 2px 10px rgba(91,127,255,0.3); transition: width 0.5s ease; }
+  .flow-bar.entry { background: linear-gradient(90deg, #7c9fff, #5b7fff); }
+  .flow-bar-name { display: flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .flow-bar-count { white-space: nowrap; font-size: 12px; opacity: 0.85; margin-left: 12px; flex-shrink: 0; }
+  .flow-connector { display: flex; align-items: stretch; min-height: 32px; }
+  .flow-spine { width: 2px; background: var(--border); flex-shrink: 0; margin-left: 21px; }
+  .flow-branch { display: flex; align-items: center; gap: 8px; padding: 7px 0 7px 12px; }
+  .flow-drop-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 20px; padding: 3px 12px; font-size: 12px; color: var(--red); white-space: nowrap; }
+  .flow-details-panel { background: var(--surface2); border-radius: 8px; margin: 0 0 6px 36px; padding: 14px; display: none; }
+  .flow-outcomes { margin-top: 20px; border-top: 2px solid var(--border); padding-top: 16px; }
+  .flow-outcomes-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+  .flow-outcomes-bar { height: 44px; display: flex; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+  .flow-outcome-seg { display: flex; align-items: center; justify-content: center; overflow: hidden; min-width: 0; }
+  .flow-outcome-label { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; padding: 0 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
   .session-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
   .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
   .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
@@ -424,34 +424,40 @@ function buildStepFunnel() {
     return { group, steps: combined };
   });
 
-  // Order using only non-end steps
-  const stepPositions = new Map();
-  for (const { steps } of sessionStepData) {
-    const nonEnd = steps.filter(s => !s.startsWith('end'));
-    nonEnd.forEach((step, i) => {
-      if (!stepPositions.has(step)) stepPositions.set(step, []);
-      stepPositions.get(step).push(nonEnd.length > 1 ? i / (nonEnd.length - 1) : 0.5);
-    });
+  // Build a map of non-end steps → sets of sessions that reached them
+  const stepMap = new Map();
+  for (const s of sessionStepData) {
+    for (const step of s.steps.filter(x => !x.startsWith('end'))) {
+      if (!stepMap.has(step)) stepMap.set(step, new Set());
+      stepMap.get(step).add(s);
+    }
   }
-  const sortedSteps = [...stepPositions.keys()].sort((a, b) =>
-    arrMedian(stepPositions.get(a)) - arrMedian(stepPositions.get(b))
-  );
 
-  const stepRows = sortedSteps.map(step => {
-    const reached = sessionStepData.filter(s => s.steps.includes(step));
-    const passedGroups  = reached.filter(s => s.steps.lastIndexOf(step) < s.steps.length - 1).map(s => s.group);
-    const stoppedGroups = reached.filter(s => s.steps.lastIndexOf(step) === s.steps.length - 1).map(s => s.group);
-    return {
-      step,
-      reached: reached.length,
-      cumulativePct: Math.round(reached.length / total * 100),
-      pct: reached.length ? Math.round(passedGroups.length / reached.length * 100) : 0,
-      passedGroups,
-      stoppedGroups,
-    };
-  });
+  // Sort by reached count descending → guarantees monotonically narrowing bars
+  const stepRows = [...stepMap.entries()]
+    .sort((a, b) => b[1].size - a[1].size)
+    .map(([step, reachedSet]) => {
+      const reached = [...reachedSet];
+      const stoppedGroups = reached
+        .filter(s => {
+          const nonEnd = s.steps.filter(x => !x.startsWith('end'));
+          return nonEnd[nonEnd.length - 1] === step;
+        })
+        .map(s => s.group);
+      return {
+        step,
+        reached: reached.length,
+        cumulativePct: Math.round(reached.length / total * 100),
+        stoppedGroups,
+      };
+    });
 
-  // Outcome groups (using all sessions)
+  // Sessions with no non-end steps at all
+  const withoutStepsGroups = sessionStepData
+    .filter(s => s.steps.filter(x => !x.startsWith('end')).length === 0)
+    .map(s => s.group);
+
+  // Outcomes
   const outcomeBuckets = { approve: [], failed: [], aborted: [] };
   for (const { group } of sessionStepData) {
     const o = normalizeOutcome(deriveOutcome(group[group.length - 1]));
@@ -459,7 +465,7 @@ function buildStepFunnel() {
     outcomeBuckets[bucket].push(group);
   }
 
-  return { stepRows, outcomeBuckets, total };
+  return { total, withoutStepsGroups, stepRows, outcomeBuckets };
 }
 
 function toggleStepsPanel() {
@@ -470,20 +476,12 @@ function toggleStepsPanel() {
   icon.classList.toggle('open', !isOpen);
 }
 
-function toggleStepDetails(idx) {
-  const el  = document.getElementById(`sd-${idx}`);
-  const btn = document.getElementById(`sdb-${idx}`);
+function toggleFlowDetails(id) {
+  const el  = document.getElementById(`fd-${id}`);
+  const btn = document.getElementById(`fdb-${id}`);
   const isOpen = el.style.display !== 'none';
   el.style.display = isOpen ? 'none' : 'block';
   btn.textContent = isOpen ? 'Details' : 'Close';
-}
-
-function toggleStepPassing(idx) {
-  const el  = document.getElementById(`sp-${idx}`);
-  const btn = document.getElementById(`spb-${idx}`);
-  const isOpen = el.style.display !== 'none';
-  el.style.display = isOpen ? 'none' : 'block';
-  btn.textContent = isOpen ? `Show passing sessions` : 'Hide passing sessions';
 }
 
 function renderSessionListItems(groups) {
@@ -501,8 +499,25 @@ function renderSessionListItems(groups) {
   }).join('');
 }
 
+function renderFlowConnector(count, groups, id) {
+  if (!count) {
+    return `<div class="flow-connector"><div class="flow-spine"></div></div>`;
+  }
+  return `<div class="flow-connector">
+    <div class="flow-spine"></div>
+    <div class="flow-branch">
+      <span class="flow-drop-badge">↘ ${count} dropped</span>
+      <button class="btn btn-ghost btn-sm" id="fdb-${id}" onclick="toggleFlowDetails('${id}')">Details</button>
+    </div>
+  </div>
+  <div class="flow-details-panel" id="fd-${id}">
+    <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:10px">${count} session${count !== 1 ? 's' : ''} dropped here</div>
+    <div class="session-list">${renderSessionListItems(groups)}</div>
+  </div>`;
+}
+
 function renderStepFunnel() {
-  const { stepRows, outcomeBuckets, total } = buildStepFunnel();
+  const { total, withoutStepsGroups, stepRows, outcomeBuckets } = buildStepFunnel();
   const n = stepRows.length;
   document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions`;
   const container = document.getElementById('stepsFunnel');
@@ -511,48 +526,48 @@ function renderStepFunnel() {
     return;
   }
 
-  const stepsHtml = stepRows.map((s, idx) => {
-    const color = s.pct >= 80 ? 'var(--green)' : s.pct >= 50 ? 'var(--yellow)' : 'var(--red)';
-    const num   = `${String(idx + 1).padStart(2, '0')}/${String(n).padStart(2, '0')}`;
-    return `<div class="funnel-row-wrap" style="--cum-pct:${s.cumulativePct}%">
-      <div class="funnel-row">
-        <span class="funnel-num">${num}</span>
-        <span class="funnel-step">${esc(s.step)}</span>
-        <span class="funnel-reached">${s.reached} / ${total}</span>
-        <div class="funnel-bar-wrap">
-          <div class="funnel-bar-bg"><div class="funnel-bar-inner" style="width:${s.pct}%;background:${color}"></div></div>
-        </div>
-        <span class="funnel-pct-val" style="color:${color}">${s.pct}%</span>
-        <span class="funnel-counts">${s.passedGroups.length} passed · <span class="funnel-stopped">${s.stoppedGroups.length} stopped</span></span>
-        <button class="btn btn-ghost btn-sm" id="sdb-${idx}" onclick="toggleStepDetails(${idx})">Details</button>
-      </div>
-      <div class="funnel-details-panel" id="sd-${idx}">
-        <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:10px">Stopped here — ${s.stoppedGroups.length} session${s.stoppedGroups.length !== 1 ? 's' : ''}</div>
-        <div class="session-list">${s.stoppedGroups.length ? renderSessionListItems(s.stoppedGroups) : '<div style="color:var(--muted);font-size:12px">None stopped here.</div>'}</div>
-        ${s.passedGroups.length ? `<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" id="spb-${idx}" onclick="toggleStepPassing(${idx})">Show passing sessions (${s.passedGroups.length})</button></div>
-        <div class="session-list" id="sp-${idx}" style="display:none;margin-top:8px">${renderSessionListItems(s.passedGroups)}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+  let html = `<div class="flow-funnel">`;
 
-  const approve = outcomeBuckets.approve.length;
-  const failed  = outcomeBuckets.failed.length;
-  const aborted = outcomeBuckets.aborted.length;
+  // Entry bar: 100%
+  html += `<div class="flow-bar-row"><div class="flow-bar entry" style="width:100%">
+    <span class="flow-bar-name">Start</span>
+    <span class="flow-bar-count">${total} sessions · 100%</span>
+  </div></div>`;
+
+  // Connector: sessions with no step data
+  html += renderFlowConnector(withoutStepsGroups.length, withoutStepsGroups, 'nostep');
+
+  // Step bars + connectors
+  stepRows.forEach((s, idx) => {
+    const num = `${String(idx + 1).padStart(2, '0')}/${String(n).padStart(2, '0')}`;
+    html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${s.cumulativePct}%">
+      <span class="flow-bar-name">
+        <span style="opacity:0.55;font-size:11px;font-family:monospace;flex-shrink:0">${num}</span>
+        <span>${esc(s.step)}</span>
+      </span>
+      <span class="flow-bar-count">${s.reached} · ${s.cumulativePct}%</span>
+    </div></div>`;
+    html += renderFlowConnector(s.stoppedGroups.length, s.stoppedGroups, `step${idx}`);
+  });
+
+  // Outcomes bar
+  const approve    = outcomeBuckets.approve.length;
+  const failed     = outcomeBuckets.failed.length;
+  const aborted    = outcomeBuckets.aborted.length;
   const approvePct = Math.round(approve / total * 100);
   const failedPct  = Math.round(failed  / total * 100);
   const abortedPct = 100 - approvePct - failedPct;
 
-  const outcomesHtml = `<div class="funnel-outcomes-row">
-    <span class="funnel-num">—</span>
-    <span class="funnel-step" style="color:var(--muted);font-size:12px">Outcomes</span>
-    <div class="funnel-outcomes-bar">
-      ${approvePct > 0 ? `<div class="funnel-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="funnel-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
-      ${failedPct  > 0 ? `<div class="funnel-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="funnel-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
-      ${abortedPct > 0 ? `<div class="funnel-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="funnel-outcome-label">${abortedPct}% aborted (${aborted})</span></div>` : ''}
+  html += `<div class="flow-outcomes">
+    <div class="flow-outcomes-label">Outcomes</div>
+    <div class="flow-outcomes-bar">
+      ${approvePct > 0 ? `<div class="flow-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="flow-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
+      ${failedPct  > 0 ? `<div class="flow-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="flow-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
+      ${abortedPct > 0 ? `<div class="flow-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="flow-outcome-label">${abortedPct}% aborted (${aborted})</span></div>` : ''}
     </div>
-  </div>`;
+  </div></div>`;
 
-  container.innerHTML = stepsHtml + outcomesHtml;
+  container.innerHTML = html;
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
