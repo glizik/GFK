@@ -340,14 +340,15 @@ function openEventsPanel() {
 
 function filterEvents() {
   const q = document.getElementById('eventsSearch').value.trim().toLowerCase();
+  const pool = q ? events : currentEventsForDisplay;
   const filtered = q
-    ? currentEventsForDisplay.filter(ev => {
+    ? pool.filter(ev => {
         const identifiers = [
           ev.session_event_key, ev.session_id_full, ev.session_id_base, ev.event_id
         ].join(' ').toLowerCase();
         return identifiers.includes(q);
       })
-    : currentEventsForDisplay;
+    : pool;
   renderEventsGrid(filtered);
 }
 
@@ -375,7 +376,7 @@ function renderEventsGrid(filtered) {
 
   const q = document.getElementById('eventsSearch').value.trim();
   if (q) {
-    countEl.textContent = `${filtered.length} of ${total} match`;
+    countEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''} across all ranks`;
   } else {
     countEl.textContent = '';
   }
@@ -398,7 +399,7 @@ function renderEventsGrid(filtered) {
 }
 
 function renderEventCard(ev, idx) {
-  const sib = currentEventsForDisplay.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
+  const sib = events.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
   const sameSession = sib.length > 1;
   const reportLabel = ev.session_id_full
     ? `Report ${ev.session_id_full.match(/DNE_\d+/)?.[0] || 'DNE_?'}`
