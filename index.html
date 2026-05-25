@@ -334,6 +334,7 @@ function selectRank(rank) {
   renderIssues();
   document.getElementById('eventsSearch').value = '';
   renderEvents(rank);
+  openEventsPanel();
   document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -394,6 +395,21 @@ function outcomeBadgeClass(outcome) {
   return 'badge-red';
 }
 
+function deriveLastStep(ev) {
+  if (ev.last_step && ev.last_step !== '—') return ev.last_step;
+  for (const log of [...ev.logs].reverse()) {
+    if (log.msg.includes('nextStep') && log.msg.includes('type: "')) {
+      return log.msg.split('type: "')[1].split('"')[0];
+    }
+  }
+  return '—';
+}
+
+function issueLabel(ev) {
+  const iss = issues.find(i => i.issue_id === ev.issue_id);
+  return iss ? `#${iss.rank} ${iss.issue_name}` : (ev.nserror_domain ? `${ev.nserror_domain} · ${ev.nserror_code}` : '');
+}
+
 function renderEvents(filterRank) {
   const issue = issues.find(i => i.rank === filterRank);
   currentEventsForDisplay = events.filter(ev => {
@@ -416,15 +432,17 @@ function renderEventsGrid(filtered) {
   const countEl = document.getElementById('searchMatchCount');
   const q = document.getElementById('eventsSearch').value.trim();
 
-  // Group by session_id_base
+  // Group by session_id_base — include ALL cross-rank events for each session
   const sessionMap = new Map();
   for (const ev of filtered) {
     const key = ev.session_id_base || ev.session_event_key || String(Math.random());
-    if (!sessionMap.has(key)) sessionMap.set(key, []);
-    sessionMap.get(key).push(ev);
-  }
-  for (const group of sessionMap.values()) {
-    group.sort((a, b) => (+a.report_index || 0) - (+b.report_index || 0));
+    if (!sessionMap.has(key)) {
+      const allForSession = ev.session_id_base
+        ? events.filter(e => e.session_id_base === ev.session_id_base)
+        : [ev];
+      allForSession.sort((a, b) => (+a.report_index || 0) - (+b.report_index || 0));
+      sessionMap.set(key, allForSession);
+    }
   }
   const sessions = [...sessionMap.values()];
 
@@ -469,25 +487,28 @@ function renderSessionCard(group, idx) {
     ? `Session ${primary.session_id_base.slice(0, 12)}…`
     : `Event ${idx + 1}`;
 
-  const subReportsHtml = isMulti ? `
+  const subReportsHtml = `
     <div class="subreports">
-      <div class="subreport-label">${group.length} reports in this session</div>
+      <div class="subreport-label">${group.length} report${group.length !== 1 ? 's' : ''} in this session</div>
       ${group.map(ev => {
         const repLabel = ev.session_id_full?.match(/DNE_\d+/)?.[0] || ev.event_id?.slice(0, 10) || '?';
         const repOutcome = deriveOutcome(ev);
+        const repStep = deriveLastStep(ev);
+        const repIssue = issueLabel(ev);
         return `<div class="subreport-item">
           <span class="subreport-key">${esc(repLabel)}</span>
           <span class="badge ${outcomeBadgeClass(repOutcome)}" style="font-size:10px">${esc(repOutcome)}</span>
-          <span style="font-size:11px;color:var(--muted)">${esc(ev.nserror_code ? ev.nserror_domain + ' · ' + ev.nserror_code : '')}</span>
+          ${repStep !== '—' ? `<span style="font-size:11px;color:var(--analytics)">→ ${esc(repStep)}</span>` : ''}
+          ${repIssue ? `<span style="font-size:10px;color:var(--muted);margin-left:2px">${esc(repIssue)}</span>` : ''}
           ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" class="subreport-link">Open ↗</a>` : ''}
         </div>`;
       }).join('')}
-    </div>` : '';
+    </div>`;
 
   return `<div class="event-card">
     <div class="event-card-header">
       <div>
-        <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span>${isMulti ? ` <span class="badge badge-yellow">${group.length} reports</span>` : ''}</h3>
+        <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span></h3>
         <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}</div>
       </div>
       ${!isMulti && primary.event_url ? `<a href="${escAttr(primary.event_url)}" target="_blank" style="font-size:11px;white-space:nowrap;flex-shrink:0">Open ↗</a>` : ''}
