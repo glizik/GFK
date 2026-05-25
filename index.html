@@ -551,20 +551,21 @@ function renderStepFunnel() {
     html += renderFlowConnector(s.stoppedGroups.length, s.stoppedGroups, `step${idx}`);
   });
 
-  // Outcomes bar
-  const approve    = outcomeBuckets.approve.length;
-  const failed     = outcomeBuckets.failed.length;
-  const aborted    = outcomeBuckets.aborted.length;
-  const approvePct = Math.round(approve / total * 100);
-  const failedPct  = Math.round(failed  / total * 100);
+  // Outcomes bar — approve + failed + aborted_rejected always sums to total
+  const approve  = outcomeBuckets.approve.length;
+  const failed   = outcomeBuckets.failed.length;
+  const aborted  = outcomeBuckets.aborted.length; // includes reject + other
+  const outcomeTotal = approve + failed + aborted; // must equal total
+  const approvePct = outcomeTotal ? Math.round(approve / outcomeTotal * 100) : 0;
+  const failedPct  = outcomeTotal ? Math.round(failed  / outcomeTotal * 100) : 0;
   const abortedPct = 100 - approvePct - failedPct;
 
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">Outcomes</div>
+    <div class="flow-outcomes-label">Outcomes — ${outcomeTotal} sessions total</div>
     <div class="flow-outcomes-bar">
       ${approvePct > 0 ? `<div class="flow-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="flow-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
       ${failedPct  > 0 ? `<div class="flow-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="flow-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
-      ${abortedPct > 0 ? `<div class="flow-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="flow-outcome-label">${abortedPct}% aborted (${aborted})</span></div>` : ''}
+      ${abortedPct > 0 ? `<div class="flow-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="flow-outcome-label">${abortedPct}% aborted / rejected (${aborted})</span></div>` : ''}
     </div>
   </div></div>`;
 
