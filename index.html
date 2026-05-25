@@ -498,6 +498,7 @@ function selectReport(cardId, repIdx) {
   card.querySelector('.event-tab-content[data-tab="summary"]').innerHTML = renderSummaryContent(ev);
   card.querySelector('.event-tab-content[data-tab="keys"]').innerHTML    = renderKeysContent(ev);
   card.querySelector('.event-tab-content[data-tab="timeline"]').innerHTML = renderTimelineContent(ev.logs);
+  card.querySelector('.event-tab[data-tab="timeline"]').textContent = `Timeline (${ev.logs.length})`;
 
   card.querySelectorAll('.subreport-item').forEach((el, i) => {
     el.classList.toggle('subreport-selected', i === repIdx);
