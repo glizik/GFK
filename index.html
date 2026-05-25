@@ -452,7 +452,14 @@ function renderEventsGrid(filtered) {
       const allForSession = ev.session_id_base
         ? events.filter(e => e.session_id_base === ev.session_id_base)
         : [ev];
-      allForSession.sort((a, b) => (+a.report_index || 0) - (+b.report_index || 0));
+      allForSession.sort((a, b) => {
+        const ri = (+a.report_index || 0) - (+b.report_index || 0);
+        if (ri !== 0) return ri;
+        // Tiebreak by event_id (Firebase nanosecond timestamp string) — lexicographic is correct since all same length
+        const ea = a.event_id || '';
+        const eb = b.event_id || '';
+        return ea < eb ? -1 : ea > eb ? 1 : 0;
+      });
       sessionMap.set(key, allForSession);
     }
   }
