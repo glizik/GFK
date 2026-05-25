@@ -335,8 +335,8 @@ async function loadData() {
       new Date(last).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
     hideError();
-    renderStats();
     activeIssueIds = new Set(issues.map(i => String(i.rank)));
+    renderStats();
     renderIssueChips();
     renderIssuesTable();
     renderAnalytics();
