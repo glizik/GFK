@@ -182,7 +182,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge" style="font-family:monospace;letter-spacing:0.02em">v4f1b2c8</span>
+      <span class="ro-badge" style="font-family:monospace;letter-spacing:0.02em">v7a3d91e</span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -393,7 +393,8 @@ function extractStepSequence(logs) {
     let name;
     if (msg.includes('end(')) {
       const status = msg.includes('status: "') ? msg.split('status: "')[1].split('"')[0] : '';
-      name = status ? `end · ${status}` : 'end';
+      const reason = msg.includes('reason = "') ? msg.split('reason = "')[1].split('"')[0] : '';
+      name = status ? (reason ? `end · ${status} · ${reason}` : `end · ${status}`) : 'end';
     } else if (msg.includes('type: "')) {
       name = msg.split('type: "')[1].split('"')[0];
     } else {
@@ -568,6 +569,17 @@ function deriveSessionOutcome(group) {
   return outcomes.find(o => o !== 'other') || 'other';
 }
 
+function getEndReason(group) {
+  for (const ev of group) {
+    for (const log of ev.logs) {
+      const msg = log.msg || '';
+      if (!msg.includes('FaceKom nextStep:') || !msg.includes('end(')) continue;
+      if (msg.includes('reason = "')) return msg.split('reason = "')[1].split('"')[0];
+    }
+  }
+  return null;
+}
+
 function detectDocType(group) {
   for (const ev of group) {
     for (const log of ev.logs) {
@@ -589,9 +601,11 @@ function renderSessionListItems(groups) {
     const norm    = deriveSessionOutcome(group);
     const sessId  = primary.session_id_base || primary.session_event_key || '?';
     const url     = group.find(ev => ev.event_url)?.event_url || '';
+    const reason  = norm === 'failed' ? getEndReason(group) : null;
     return `<div class="session-list-item">
       <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
       <span class="badge ${outcomeBadgeClass(norm)}" style="font-size:10px">${esc(outcomeLabel(norm))}</span>
+      ${reason ? `<span style="font-size:10px;color:var(--yellow);font-family:monospace">${esc(reason)}</span>` : ''}
       ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
       <span style="flex:1"></span>
       ${sessId !== '?' ? `<button class="btn btn-ghost btn-sm session-list-link" onclick="showSessionInEvents('${escAttr(sessId)}')">Show</button>` : ''}
