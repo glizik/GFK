@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #0f1117; --surface: #1a1d27; --surface2: #222535; --border: #2e3250;
-    --accent: #5b7fff; --accent2: #a78bfa; --green: #22c55e; --yellow: #f59e0b;
+    --accent: #5b7fff; --accent2: #a78bfa; --purple: #a78bfa; --green: #22c55e; --yellow: #f59e0b;
     --red: #ef4444; --orange: #f97316; --text: #e2e8f0; --muted: #64748b;
     --analytics: #38bdf8; --crashlytics: #fb923c;
   }
@@ -453,24 +453,33 @@ function buildStepFunnel() {
     }));
 
   // Outcomes — primary source: FaceKom nextStep: end(status: "...") in combined step sequence
-  const outcomeBuckets = { approve: [], failed: [], aborted: [] };
+  // 'retry' = approved but also had an earlier failure/abort in the same session
+  const outcomeBuckets = { approve: [], retry: [], failed: [], aborted: [] };
   for (const { group, steps } of sessionStepData) {
     const endStep = steps.find(s => s.startsWith('end'));
-    let bucket;
+    let isApprove = false, bucket;
     if (endStep && endStep.includes('finished')) {
-      bucket = 'approve';
+      isApprove = true;
     } else if (endStep && endStep.includes('failed')) {
       bucket = 'failed';
     } else if (endStep) {
       bucket = 'aborted';
     } else {
-      // No end step in logs — scan all events in group; approve wins over failed wins over aborted
+      // No end step in logs — scan all events in group
       bucket = 'aborted';
       for (const ev of group) {
         const o = normalizeOutcome(deriveOutcome(ev));
-        if (o === 'approve') { bucket = 'approve'; break; }
+        if (o === 'approve') { isApprove = true; break; }
         if (o === 'failed') bucket = 'failed';
       }
+    }
+    if (isApprove) {
+      // If the session also logged a failure/abort event → retry/recovered
+      const hadFailure = group.some(ev => {
+        const o = normalizeOutcome(deriveOutcome(ev));
+        return o === 'aborted' || o === 'failed';
+      });
+      bucket = hadFailure ? 'retry' : 'approve';
     }
     outcomeBuckets[bucket].push(group);
   }
@@ -494,15 +503,23 @@ function toggleFlowDetails(id) {
   btn.textContent = isOpen ? 'Details' : 'Close';
 }
 
+function outcomeLabel(norm) {
+  if (norm === 'approve') return 'approved';
+  if (norm === 'failed')  return 'failed';
+  if (norm === 'aborted') return 'aborted';
+  if (norm === 'reject')  return 'rejected';
+  return norm || '—';
+}
+
 function renderSessionListItems(groups) {
   return groups.map(group => {
     const primary = group[group.length - 1];
-    const outcome = deriveOutcome(primary);
+    const norm    = normalizeOutcome(deriveOutcome(primary));
     const sessId  = primary.session_id_base || primary.session_event_key || '?';
     const url     = group.find(ev => ev.event_url)?.event_url || '';
     return `<div class="session-list-item">
       <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
-      <span class="badge ${outcomeBadgeClass(outcome)}" style="font-size:10px">${esc(outcome)}</span>
+      <span class="badge ${outcomeBadgeClass(norm)}" style="font-size:10px">${esc(outcomeLabel(norm))}</span>
       ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
       <span style="flex:1"></span>
       ${sessId !== '?' ? `<button class="btn btn-ghost btn-sm session-list-link" onclick="showSessionInEvents('${escAttr(sessId)}')">Show</button>` : ''}
@@ -567,19 +584,22 @@ function renderStepFunnel() {
     html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
   });
 
-  // Outcomes bar — approve + failed + aborted_rejected always sums to total
-  const approve  = outcomeBuckets.approve.length;
-  const failed   = outcomeBuckets.failed.length;
-  const aborted  = outcomeBuckets.aborted.length; // includes reject + other
-  const outcomeTotal = approve + failed + aborted; // must equal total
+  // Outcomes bar: approve · retry (approved after earlier failure) · failed · aborted
+  const approve      = outcomeBuckets.approve.length;
+  const retry        = outcomeBuckets.retry.length;
+  const failed       = outcomeBuckets.failed.length;
+  const aborted      = outcomeBuckets.aborted.length;
+  const outcomeTotal = approve + retry + failed + aborted;
   const approvePct = outcomeTotal ? Math.round(approve / outcomeTotal * 100) : 0;
+  const retryPct   = outcomeTotal ? Math.round(retry   / outcomeTotal * 100) : 0;
   const failedPct  = outcomeTotal ? Math.round(failed  / outcomeTotal * 100) : 0;
-  const abortedPct = 100 - approvePct - failedPct;
+  const abortedPct = 100 - approvePct - retryPct - failedPct;
 
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">All session outcomes — all ${outcomeTotal} sessions regardless of steps reached</div>
+    <div class="flow-outcomes-label">All session outcomes — all ${outcomeTotal} sessions</div>
     <div class="flow-outcomes-bar">
       ${approvePct > 0 ? `<div class="flow-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="flow-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
+      ${retryPct   > 0 ? `<div class="flow-outcome-seg" style="width:${retryPct}%;background:var(--purple)"><span class="flow-outcome-label">${retryPct}% retry (${retry})</span></div>` : ''}
       ${failedPct  > 0 ? `<div class="flow-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="flow-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
       ${abortedPct > 0 ? `<div class="flow-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="flow-outcome-label">${abortedPct}% aborted / rejected (${aborted})</span></div>` : ''}
     </div>
@@ -613,7 +633,7 @@ function renderStats() {
   document.getElementById('statSessions').textContent  = uniqueSess || '—';
   document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
   document.getElementById('statInsight').textContent   = uniqueSess
-    ? `${approved} of ${uniqueSess} sessions ended approved · ${recovered} recovered after an earlier failure or abort in the same session`
+    ? `${approved + recovered} of ${uniqueSess} sessions approved (${recovered} as retry — completed after an earlier failure or abort)`
     : '';
 }
 
