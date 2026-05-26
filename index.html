@@ -542,10 +542,19 @@ function outcomeLabel(norm) {
   return norm || '—';
 }
 
+function deriveSessionOutcome(group) {
+  // Session-level: approve wins over everything, then failed, then aborted
+  const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
+  if (outcomes.includes('approve')) return 'approve';
+  if (outcomes.includes('failed'))  return 'failed';
+  if (outcomes.includes('aborted')) return 'aborted';
+  return outcomes.find(o => o !== 'other') || 'other';
+}
+
 function renderSessionListItems(groups) {
   return groups.map(group => {
     const primary = group[group.length - 1];
-    const norm    = normalizeOutcome(deriveOutcome(primary));
+    const norm    = deriveSessionOutcome(group);
     const sessId  = primary.session_id_base || primary.session_event_key || '?';
     const url     = group.find(ev => ev.event_url)?.event_url || '';
     return `<div class="session-list-item">
@@ -745,7 +754,7 @@ function renderAnalytics() {
   const categorized = allSessions.map(group => ({
     group,
     type: categorizeSession(group),
-    outcome: normalizeOutcome(deriveOutcome(group[group.length - 1])),
+    outcome: deriveSessionOutcome(group),
   }));
 
   const typeCounts = { unique: 0, continuous: 0, 'multi-try': 0, mixed: 0 };
@@ -1108,7 +1117,7 @@ function renderSessionCard(group, idx) {
   sessionGroups.set(cardId, group);
   const primary = group[group.length - 1];
   const defaultRepIdx = group.length - 1;
-  const outcome = deriveOutcome(primary);
+  const outcome = deriveSessionOutcome(group);
   const title = primary.session_id_base
     ? `Session ${primary.session_id_base.slice(0, 12)}…`
     : `Event ${idx + 1}`;
