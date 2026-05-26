@@ -435,30 +435,17 @@ function buildStepFunnel() {
   }
 
   // Sort by reached count descending → guarantees monotonically narrowing bars
+  // Keep reachedSet on each row so connectors can diff adjacent sets
   const stepRows = [...stepMap.entries()]
     .sort((a, b) => b[1].size - a[1].size)
-    .map(([step, reachedSet]) => {
-      const reached = [...reachedSet];
-      const stoppedGroups = reached
-        .filter(s => {
-          const nonEnd = s.steps.filter(x => !x.startsWith('end'));
-          return nonEnd[nonEnd.length - 1] === step;
-        })
-        .map(s => s.group);
-      return {
-        step,
-        reached: reached.length,
-        cumulativePct: Math.round(reached.length / total * 100),
-        stoppedGroups,
-      };
-    });
+    .map(([step, reachedSet]) => ({
+      step,
+      reached: reachedSet.size,
+      reachedSet,
+      cumulativePct: Math.round(reachedSet.size / total * 100),
+    }));
 
-  // Sessions with no non-end steps at all
-  const withoutStepsGroups = sessionStepData
-    .filter(s => s.steps.filter(x => !x.startsWith('end')).length === 0)
-    .map(s => s.group);
-
-  // Outcomes
+  // Outcomes (all sessions)
   const outcomeBuckets = { approve: [], failed: [], aborted: [] };
   for (const { group } of sessionStepData) {
     const o = normalizeOutcome(deriveOutcome(group[group.length - 1]));
@@ -466,7 +453,7 @@ function buildStepFunnel() {
     outcomeBuckets[bucket].push(group);
   }
 
-  return { total, withoutStepsGroups, stepRows, outcomeBuckets };
+  return { total, sessionStepData, stepRows, outcomeBuckets };
 }
 
 function toggleStepsPanel() {
@@ -518,7 +505,7 @@ function renderFlowConnector(count, groups, id) {
 }
 
 function renderStepFunnel() {
-  const { total, withoutStepsGroups, stepRows, outcomeBuckets } = buildStepFunnel();
+  const { total, sessionStepData, stepRows, outcomeBuckets } = buildStepFunnel();
   const n = stepRows.length;
   document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions`;
   const container = document.getElementById('stepsFunnel');
@@ -535,10 +522,13 @@ function renderStepFunnel() {
     <span class="flow-bar-count">${total} sessions · 100%</span>
   </div></div>`;
 
-  // Connector: sessions with no step data
-  html += renderFlowConnector(withoutStepsGroups.length, withoutStepsGroups, 'nostep');
+  // First connector: sessions NOT in the first step's reached set (set diff vs total)
+  const firstNotReached = stepRows.length > 0
+    ? sessionStepData.filter(s => !stepRows[0].reachedSet.has(s)).map(s => s.group)
+    : sessionStepData.map(s => s.group);
+  html += renderFlowConnector(firstNotReached.length, firstNotReached, 'nostep');
 
-  // Step bars + connectors
+  // Step bars + connectors (each connector = set diff between adjacent steps)
   stepRows.forEach((s, idx) => {
     const num = `${String(idx + 1).padStart(2, '0')}/${String(n).padStart(2, '0')}`;
     html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${s.cumulativePct}%">
@@ -548,7 +538,9 @@ function renderStepFunnel() {
       </span>
       <span class="flow-bar-count">${s.reached} · ${s.cumulativePct}%</span>
     </div></div>`;
-    html += renderFlowConnector(s.stoppedGroups.length, s.stoppedGroups, `step${idx}`);
+    const nextSet = idx < stepRows.length - 1 ? stepRows[idx + 1].reachedSet : new Set();
+    const droppedHere = [...s.reachedSet].filter(sd => !nextSet.has(sd)).map(sd => sd.group);
+    html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
   });
 
   // Outcomes bar — approve + failed + aborted_rejected always sums to total
@@ -561,7 +553,7 @@ function renderStepFunnel() {
   const abortedPct = 100 - approvePct - failedPct;
 
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">Outcomes — ${outcomeTotal} sessions total</div>
+    <div class="flow-outcomes-label">All session outcomes — all ${outcomeTotal} sessions regardless of steps reached</div>
     <div class="flow-outcomes-bar">
       ${approvePct > 0 ? `<div class="flow-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="flow-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
       ${failedPct  > 0 ? `<div class="flow-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="flow-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
