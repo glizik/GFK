@@ -649,13 +649,13 @@ function renderStepFunnel() {
 
   // Note: approved sessions with no breadcrumbs — counted in outcomes bar, not in step rows
   if (approvedNoSteps.length) {
-    html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px">
-      <span style="color:var(--green)">✓</span>
+    html += `<div style="font-size:11px;color:var(--yellow);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <span style="color:var(--yellow)">⚠</span>
       <span>${approvedNoSteps.length} session${approvedNoSteps.length !== 1 ? 's' : ''} approved without step logs (no breadcrumbs) — counted in outcomes bar only</span>
       <button class="btn btn-ghost btn-sm" id="fdb-nolog" onclick="toggleFlowDetails('nolog')" style="margin-left:4px">Details</button>
     </div>
     <div class="flow-details-panel" id="fd-nolog">
-      <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px">${approvedNoSteps.length} approved · no step logs available</div>
+      <div style="font-size:12px;font-weight:600;color:var(--yellow);margin-bottom:10px">${approvedNoSteps.length} approved · no step logs available</div>
       <div class="session-list">${renderSessionListItems(approvedNoSteps)}</div>
     </div>`;
   }
@@ -691,13 +691,13 @@ function renderStepFunnel() {
       const dtLabel = Object.entries(docTypeCounts).map(([dt, cnt]) => `${cnt} ${dt}`).join(', ');
       const skipGroups = [...s.skippedSessData].map(sd => sd.group);
       const skipId = `skip${idx}`;
-      html += `<div style="font-size:11px;color:var(--muted);margin:2px 0 4px 8px;display:flex;align-items:center;gap:6px">
-        <span style="color:var(--accent2)">↳</span>
+      html += `<div style="font-size:11px;color:var(--yellow);margin:2px 0 4px 8px;display:flex;align-items:center;gap:6px">
+        <span style="color:var(--yellow)">↳</span>
         <span>${s.skippedSessData.size} skipped this step (${dtLabel})</span>
         <button class="btn btn-ghost btn-sm" id="fdb-${skipId}" onclick="toggleFlowDetails('${skipId}')">Details</button>
       </div>
       <div class="flow-details-panel" id="fd-${skipId}">
-        <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">${s.skippedSessData.size} session${s.skippedSessData.size !== 1 ? 's' : ''} skipped — ${dtLabel}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--yellow);margin-bottom:10px">${s.skippedSessData.size} session${s.skippedSessData.size !== 1 ? 's' : ''} skipped — ${dtLabel}</div>
         <div class="session-list">${renderSessionListItems(skipGroups, detectDocType)}</div>
       </div>`;
     }

@@ -6,90 +6,74 @@
 <title>GFK — FaceKom Dashboard</title>
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #222535;
-    --border: #2e3250;
-    --accent: #5b7fff;
-    --accent2: #a78bfa;
-    --green: #22c55e;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --orange: #f97316;
-    --text: #e2e8f0;
-    --muted: #64748b;
-    --analytics: #38bdf8;
-    --crashlytics: #fb923c;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #222535; --border: #2e3250;
+    --accent: #5b7fff; --accent2: #a78bfa; --purple: #a78bfa; --green: #22c55e; --yellow: #f59e0b;
+    --red: #ef4444; --orange: #f97316; --text: #e2e8f0; --muted: #64748b;
+    --analytics: #38bdf8; --crashlytics: #fb923c;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; padding-bottom: 60px; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-
   .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
 
-  /* Header */
   .header { margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
   .header-left h1 { font-size: 24px; font-weight: 700; color: #fff; }
   .header-left p { color: var(--muted); margin-top: 4px; font-size: 13px; }
-  .header-actions { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
 
-  /* Buttons */
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; white-space: nowrap; }
-  .btn:active { transform: scale(0.97); }
-  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: #4a6ef0; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s; white-space: nowrap; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   .btn-ghost:hover:not(:disabled) { background: #2a2e45; }
   .btn-sm { padding: 5px 10px; font-size: 12px; }
-  .btn-collect { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.15s; white-space: nowrap; }
-  .btn-collect:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(91,127,255,0.08); }
-  .btn-collect:disabled { opacity: 0.4; cursor: not-allowed; }
-  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Badges */
   .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-  .badge-blue { background: #1e3a8a; color: #93c5fd; }
   .badge-green { background: #14532d; color: #86efac; }
   .badge-yellow { background: #713f12; color: #fde68a; }
   .badge-red { background: #7f1d1d; color: #fca5a5; }
   .badge-gray { background: #1e293b; color: #94a3b8; }
 
-  /* Section */
   .section { margin-bottom: 36px; }
   .section-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
   .section-title .count { color: var(--muted); font-weight: 400; font-size: 13px; }
 
-  /* Stats */
   .stat-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; flex: 1; min-width: 130px; }
   .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
   .stat-value { font-size: 24px; font-weight: 700; color: #fff; margin-top: 4px; }
   .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  /* Issues table */
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
-  .issues-table { width: 100%; border-collapse: collapse; min-width: 860px; }
-  .issues-table th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .issues-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; }
+  .issue-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .issue-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; cursor: pointer; user-select: none; transition: border-color 0.15s, opacity 0.2s; min-width: 160px; flex: 1; }
+  .issue-chip:hover { border-color: var(--accent); }
+  .issue-chip.inactive { opacity: 0.35; filter: grayscale(1); }
+  .chip-rank { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .chip-name { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-domain { font-size: 11px; color: var(--muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 8px; }
+  .chip-progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .chip-bar { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .chip-bar-fill { height: 100%; border-radius: 2px; background: var(--green); }
+  .chip-events { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .issues-panel { }
+  .issues-panel.collapsed { display: none; }
+
+  .table-wrap { overflow-x: auto; margin-top: 16px; }
+  .issues-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .issues-table th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .issues-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   .issues-table tr:last-child td { border-bottom: none; }
-  .issues-table tr.clickable:hover td { background: var(--surface2); cursor: pointer; }
-  .issues-table tr.active-rank td { background: rgba(91,127,255,0.08); }
-  .rank-num { color: var(--muted); font-size: 12px; }
-  .issue-name { font-weight: 500; color: #fff; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .issue-domain { font-size: 11px; color: var(--muted); font-family: monospace; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issues-table tr:hover td { background: var(--surface2); }
+  .issue-name { font-weight: 500; color: #fff; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-domain { font-family: monospace; font-size: 11px; color: var(--muted); }
   .progress-wrap { display: flex; align-items: center; gap: 8px; }
-  .progress-bar { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 60px; }
-  .progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
-  .fill-blue { background: var(--accent); }
+  .progress-bar { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .progress-fill { height: 100%; border-radius: 3px; }
   .fill-green { background: var(--green); }
   .fill-none { background: var(--border); }
   .progress-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
-  .num { font-variant-numeric: tabular-nums; }
 
-  /* Event cards */
   .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
   .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -102,14 +86,12 @@
   .event-tab-content { display: none; padding: 14px 18px; }
   .event-tab-content.active { display: block; }
 
-  /* Key-value */
   .kv-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
   .kv-key { color: var(--muted); font-size: 11px; font-weight: 500; white-space: nowrap; align-self: start; padding-top: 1px; }
   .kv-val { font-size: 12px; color: var(--text); word-break: break-all; font-family: monospace; }
   .kv-val.highlight { color: var(--red); font-weight: 600; }
   .kv-val.ok { color: var(--green); }
 
-  /* Timeline */
   .timeline { position: relative; padding-left: 20px; }
   .timeline::before { content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--border); border-radius: 2px; }
   .tl-item { position: relative; margin-bottom: 8px; }
@@ -125,58 +107,70 @@
   .tl-msg.ok { color: var(--green); }
   .tl-msg.muted { color: var(--muted); }
 
-  /* Analysis */
-  .analysis-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-  .finding { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
-  .finding-icon { font-size: 16px; flex-shrink: 0; }
-  .finding-text { font-size: 13px; color: var(--text); }
-  .finding-text strong { color: #fff; }
-  .finding-text code { background: var(--surface2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
-
-  /* Empty state */
   .empty { color: var(--muted); padding: 32px 16px; text-align: center; font-size: 13px; }
-
-  /* Error banner */
   .error-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px; color: var(--red); font-size: 13px; margin-bottom: 20px; display: none; }
+  .loading { color: var(--muted); text-align: center; padding: 48px; font-size: 13px; }
+  .ro-badge { display: inline-flex; align-items: center; gap: 5px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
 
-  /* Terminal panel */
-  .terminal-panel {
-    position: fixed; bottom: 0; left: 0; right: 0;
-    background: #0a0c12;
-    border-top: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    transform: translateY(100%);
-    transition: transform 0.25s ease;
-    max-height: 40vh;
-    z-index: 100;
-  }
-  .terminal-panel.open { transform: translateY(0); }
-  .term-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
-    background: #111320;
-    flex-shrink: 0;
-  }
-  .term-label { font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; }
-  .term-label .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-  .term-label .dot.running { background: var(--green); animation: pulse 1s ease-in-out infinite; }
-  .term-label .dot.done-ok { background: var(--green); }
-  .term-label .dot.done-err { background: var(--red); }
-  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-  .term-actions { display: flex; gap: 6px; }
-  .term-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 3px 10px; font-size: 11px; border-radius: 5px; cursor: pointer; }
-  .term-btn:hover { color: var(--text); border-color: #4a5080; }
-  .term-output {
-    flex: 1; overflow-y: auto; padding: 10px 16px;
-    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.5;
-    color: #c9d1d9;
-    scroll-behavior: smooth;
-  }
-  .term-line { margin-bottom: 1px; white-space: pre-wrap; word-break: break-all; }
-  .term-line.err { color: #f87171; }
-  .term-line.info { color: var(--muted); font-style: italic; }
-  .term-line.success { color: var(--green); }
+  .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; cursor: pointer; user-select: none; }
+  .section-header:hover .section-title { color: var(--accent); }
+  .toggle-icon { font-size: 10px; color: var(--muted); transition: transform 0.2s; display: inline-block; margin-right: 6px; }
+  .toggle-icon.open { transform: rotate(90deg); }
+  .events-panel { display: none; }
+  .events-panel.open { display: block; }
+  .search-bar { margin-bottom: 14px; }
+  .search-input { width: 100%; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; transition: border-color 0.15s; }
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus { border-color: var(--accent); }
+  .search-match-count { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .subreports { border-top: 1px solid var(--border); padding: 10px 18px; }
+  .subreport-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .subreport-item { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; margin: 0 -8px; border-radius: 6px; cursor: pointer; flex-wrap: wrap; row-gap: 4px; }
+  .subreport-item + .subreport-item { border-top: 1px solid var(--border); border-radius: 0; }
+  .subreport-item:hover { background: var(--surface2); }
+  .subreport-item.subreport-selected { background: rgba(91,127,255,0.12); border-color: transparent !important; border-radius: 6px !important; }
+  .subreport-key { color: var(--muted); font-family: monospace; font-size: 11px; flex-shrink: 0; }
+  .subreport-link { margin-left: auto; font-size: 11px; flex-shrink: 0; }
+
+  .analytics-panel { }
+  .analytics-panel.collapsed { display: none; }
+  .filter-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; min-width: 80px; }
+  .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .filter-btn.btn-green { border-color: rgba(34,197,94,0.35); color: var(--green); }
+  .filter-btn.btn-green:hover { border-color: var(--green); }
+  .filter-btn.btn-green.active { background: var(--green); border-color: var(--green); color: #fff; }
+  .filter-btn.btn-red { border-color: rgba(239,68,68,0.35); color: var(--red); }
+  .filter-btn.btn-red:hover { border-color: var(--red); }
+  .filter-btn.btn-red.active { background: var(--red); border-color: var(--red); color: #fff; }
+  .filter-btn.btn-yellow { border-color: rgba(245,158,11,0.35); color: var(--yellow); }
+  .filter-btn.btn-yellow:hover { border-color: var(--yellow); }
+  .filter-btn.btn-yellow.active { background: var(--yellow); border-color: var(--yellow); color: #000; }
+
+  .steps-panel { }
+  .steps-panel.collapsed { display: none; }
+  .flow-funnel { padding: 4px 0; }
+  .flow-bar-row { margin-bottom: 0; }
+  .flow-bar { height: 44px; background: linear-gradient(90deg, #5b7fff, rgba(91,127,255,0.55)); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: #fff; font-size: 13px; font-weight: 600; overflow: hidden; min-width: 80px; box-shadow: 0 2px 10px rgba(91,127,255,0.3); transition: width 0.5s ease; }
+  .flow-bar.entry { background: linear-gradient(90deg, #7c9fff, #5b7fff); }
+  .flow-bar-name { display: flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .flow-bar-count { white-space: nowrap; font-size: 12px; opacity: 0.85; margin-left: 12px; flex-shrink: 0; }
+  .flow-connector { display: flex; align-items: stretch; min-height: 32px; }
+  .flow-spine { width: 2px; background: var(--border); flex-shrink: 0; margin-left: 21px; }
+  .flow-branch { display: flex; align-items: center; gap: 8px; padding: 7px 0 7px 12px; }
+  .flow-drop-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 20px; padding: 3px 12px; font-size: 12px; color: var(--red); white-space: nowrap; }
+  .flow-details-panel { background: var(--surface2); border-radius: 8px; margin: 0 0 6px 36px; padding: 14px; display: none; }
+  .flow-outcomes { margin-top: 20px; border-top: 2px solid var(--border); padding-top: 16px; }
+  .flow-outcomes-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+  .flow-outcomes-bar { height: 44px; display: flex; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+  .flow-outcome-seg { display: flex; align-items: center; justify-content: center; overflow: hidden; min-width: 0; }
+  .flow-outcome-label { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; padding: 0 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  .session-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
+  .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
+  .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .session-list-link { font-size: 11px; margin-left: auto; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -184,18 +178,18 @@
 
   <div class="header">
     <div class="header-left">
-      <h1>GFK — FaceKom Crashlytics Dashboard</h1>
+      <h1>GFK — FaceKom Crashlytics</h1>
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <button class="btn btn-ghost btn-sm" onclick="loadStatus()" id="refreshBtn">↺ Refresh</button>
-      <button class="btn btn-primary" id="discoverBtn" onclick="runDiscover()">Discover Issues</button>
+      <span class="ro-badge"><span style="font-weight:600">v46</span><span style="opacity:0.45;font-size:10px;font-family:monospace;margin-left:6px">v9c2e04f</span></span>
+      <span class="ro-badge">👁 Read-only</span>
+      <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
   </div>
 
   <div class="error-banner" id="errorBanner"></div>
 
-  <!-- Stats -->
   <div class="stat-row">
     <div class="stat-card">
       <div class="stat-label">Issues</div>
@@ -205,12 +199,17 @@
     <div class="stat-card">
       <div class="stat-label">Total Events</div>
       <div class="stat-value" id="statEvents">—</div>
-      <div class="stat-sub">across all issues</div>
+      <div class="stat-sub">Firebase reported</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Collected</div>
+      <div class="stat-label">Raw Collected</div>
       <div class="stat-value" id="statCollected" style="color:var(--green)">—</div>
-      <div class="stat-sub">events downloaded</div>
+      <div class="stat-sub">incl. cross-rank dupes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Unique Sessions</div>
+      <div class="stat-value" id="statSessions" style="color:var(--accent)">—</div>
+      <div class="stat-sub">distinct user sessions</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Coverage</div>
@@ -218,118 +217,115 @@
       <div class="stat-sub">of total events</div>
     </div>
   </div>
+  <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
-  <!-- Issues -->
   <div class="section">
-    <div class="section-title">Issue Types <span class="count">— click a row to filter events below</span></div>
-    <div class="table-wrap">
-      <table class="issues-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Issue</th>
-            <th>Domain · Code</th>
-            <th style="text-align:right" title="Distinct crash signatures grouped under this issue">Variants</th>
-            <th style="text-align:right">Events</th>
-            <th style="text-align:right">Users</th>
-            <th style="min-width:140px">Progress</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="issuesBody"></tbody>
-      </table>
+    <div class="section-header" onclick="toggleIssuesPanel()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="issuesToggleIcon">▶</span>Issue Types <span class="count" id="issuesSubtitle"></span>
+      </div>
+    </div>
+    <div class="issues-panel" id="issuesPanel">
+      <div class="issue-chips" id="issueChips"><div class="loading">Loading…</div></div>
+      <div class="table-wrap">
+        <table class="issues-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Issue</th>
+              <th>Domain · Code</th>
+              <th style="text-align:right" title="Distinct crash signatures">Variants</th>
+              <th style="text-align:right">Events</th>
+              <th style="text-align:right">Users</th>
+              <th style="min-width:140px">Progress</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="issuesBody"><tr><td colspan="8" class="loading">Loading…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
-  <!-- Events -->
+  <div class="section" id="analyticsSection">
+    <div class="section-header" onclick="toggleAnalytics()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="analyticsToggleIcon">▶</span>Analytics <span class="count" id="analyticsSubtitle"></span>
+      </div>
+    </div>
+    <div class="analytics-panel" id="analyticsPanel">
+      <div class="stat-row" id="analyticsStatsRow"></div>
+      <div class="filter-group">
+        <span class="filter-label">Session type</span>
+        <div id="analyticsTypeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Outcome</span>
+        <div id="analyticsOutcomeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div id="analyticsGrid"></div>
+    </div>
+  </div>
+
+  <div class="section" id="stepsSection">
+    <div class="section-header" onclick="toggleStepsPanel()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="stepsToggleIcon">▶</span>Step Funnel <span class="count" id="stepsSubtitle"></span>
+      </div>
+    </div>
+    <div class="steps-panel" id="stepsPanel">
+      <div id="stepsFunnel"></div>
+    </div>
+  </div>
+
   <div class="section" id="eventsSection">
-    <div class="section-title">Collected Events <span class="count" id="eventsSubtitle"></span></div>
-    <div id="eventsGrid"></div>
-  </div>
-
-  <!-- Analysis -->
-  <div class="section" id="analysisSection" style="display:none">
-    <div class="section-title">Analysis — <span id="analysisIssue" style="color:var(--accent2)"></span></div>
-    <div class="analysis-box" id="analysisBox"></div>
-  </div>
-
-</div>
-
-<!-- Terminal panel -->
-<div class="terminal-panel" id="termPanel">
-  <div class="term-header">
-    <div class="term-label">
-      <div class="dot" id="termDot"></div>
-      <span id="termLabel">Idle</span>
+    <div class="section-header" onclick="toggleEvents()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon" id="eventsToggleIcon">▶</span>Collected Events <span class="count" id="eventsSubtitle"></span>
+      </div>
     </div>
-    <div class="term-actions">
-      <button class="term-btn" onclick="clearTerm()">Clear</button>
-      <button class="term-btn" onclick="closeTerm()">✕ Close</button>
+    <div class="events-panel" id="eventsPanel">
+      <div class="search-bar">
+        <input type="text" class="search-input" id="eventsSearch" placeholder="Filter by session / event identifier…" oninput="filterEvents()">
+        <div class="search-match-count" id="searchMatchCount"></div>
+      </div>
+      <div id="eventsGrid"></div>
     </div>
   </div>
-  <div class="term-output" id="termOutput"></div>
+
 </div>
 
 <script>
-// ── State ─────────────────────────────────────────────────────────────────────
-let issues = [], events = [];
-let activeRank = null;
-let currentSSE = null;
-let isBusy = false;
-
-// ── Init ──────────────────────────────────────────────────────────────────────
-loadStatus();
-
-async function loadStatus() {
-  document.getElementById('refreshBtn').disabled = true;
-  try {
-    const data = await fetch('/api/status').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-    hideError();
-    issues = data.issues.map(i => ({
-      ...i,
-      rank: +i.rank || 0,
-      variants_total: +i.variants_total || 0,
-      events_total: +i.events_total || 0,
-      users_total: +i.users_total || 0,
-      processed_events: +i.processed_events || 0,
-    }));
-    events = data.events.map(ev => ({
-      ...ev,
-      logs: ev.log ? processLogs(ev.log.logs_and_breadcrumbs) : [],
-    }));
-    const d = new Date(data.ts);
-    document.getElementById('updated').textContent =
-      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' +
-      d.toLocaleDateString([], { day: 'numeric', month: 'short' });
-    renderStats();
-    renderIssues();
-    if (activeRank !== null) {
-      renderEvents(activeRank);
-      renderAnalysis(activeRank);
-    } else {
-      // Default: select rank with most collected events, or last rank
-      const bestRank = [...issues].sort((a,b) => b.processed_events - a.processed_events)[0];
-      if (bestRank) selectRank(bestRank.rank);
-    }
-  } catch (e) {
-    showError('Cannot reach GFK server at http://localhost:3737 — is it running?');
+// ── CSV parser ────────────────────────────────────────────────────────────────
+function parseCsv(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = splitLine(lines[0]);
+  return lines.slice(1).filter(Boolean).map(line => {
+    const vals = splitLine(line);
+    return Object.fromEntries(headers.map((h, i) => [h.trim(), (vals[i] ?? '').trim()]));
+  });
+}
+function splitLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (const c of line) {
+    if (c === '"') inQ = !inQ;
+    else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
+    else cur += c;
   }
-  document.getElementById('refreshBtn').disabled = false;
+  out.push(cur); return out;
 }
 
 // ── Log processing ────────────────────────────────────────────────────────────
-function fmtTs(tsStr) {
-  const d = new Date(tsStr);
+function fmtTs(ts) {
+  const d = new Date(ts);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 function pad(n) { return String(n).padStart(2, '0'); }
-
-function processLogs(rawItems) {
-  return (rawItems || []).map(item => {
-    if (item.name === 'screen_view') {
+function processLogs(items) {
+  return (items || []).map(item => {
+    if (item.name === 'screen_view')
       return { ts: fmtTs(item.timestamp), type: 'screen', msg: item.params?.firebase_screen_class || '?' };
-    }
     const msg = item.message || '';
     let type = 'log';
     if (/error|failed|abort/i.test(msg) && !/success/i.test(msg)) type = 'error';
@@ -338,83 +334,552 @@ function processLogs(rawItems) {
   });
 }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
-function renderStats() {
-  const totalEv    = issues.reduce((s, i) => s + i.events_total, 0);
-  const collected  = issues.reduce((s, i) => s + i.processed_events, 0);
-  const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
-  document.getElementById('statIssues').textContent    = issues.length;
-  document.getElementById('statEvents').textContent    = totalEv || '—';
-  document.getElementById('statCollected').textContent = collected;
-  document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
+// ── State ─────────────────────────────────────────────────────────────────────
+let issues = [], events = [], currentEventsForDisplay = [];
+let activeIssueIds = new Set();
+let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all';
+const sessionGroups = new Map(); // cardId → group array
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const [issuesCsv, eventsCsv] = await Promise.all([
+      fetch(`data/issues_3.7.0.csv?_=${Date.now()}`).then(r => { if (!r.ok) throw r; return r.text(); }),
+      fetch(`data/events_3.7.0.csv?_=${Date.now()}`).then(r => { if (!r.ok) throw r; return r.text(); }),
+    ]);
+
+    issues = parseCsv(issuesCsv).map(i => ({
+      ...i,
+      rank: +i.rank || 0,
+      variants_total: +i.variants_total || 0,
+      events_total: +i.events_total || 0,
+      users_total: +i.users_total || 0,
+      processed_events: +i.processed_events || 0,
+    }));
+
+    const rawEvents = parseCsv(eventsCsv);
+    events = await Promise.all(rawEvents.map(async ev => {
+      const eventId = (ev.session_event_key || '').split('_').pop();
+      const log = eventId
+        ? await fetch(`data/logs/${eventId}.log?_=${Date.now()}`).then(r => r.json()).catch(() => null)
+        : null;
+      return { ...ev, logs: log ? processLogs(log.logs_and_breadcrumbs) : [] };
+    }));
+
+    const last = issues.map(i => i.last_scraped).filter(Boolean).sort().pop();
+    if (last) document.getElementById('updated').textContent =
+      new Date(last).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+    hideError();
+    activeIssueIds = new Set(issues.map(i => String(i.rank)));
+    renderStats();
+    renderIssueChips();
+    renderIssuesTable();
+    renderAnalytics();
+    renderStepFunnel();
+    renderEventsFromActiveIssues();
+  } catch (e) {
+    showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
+    console.error(e);
+  }
 }
 
-// ── Issues table ──────────────────────────────────────────────────────────────
-function renderIssues() {
-  const tbody = document.getElementById('issuesBody');
-  tbody.innerHTML = issues.map(issue => {
-    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
-    const isActive = issue.rank === activeRank;
-    const hasData = issue.processed_events > 0;
-    const statusBadge = hasData
-      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total || '?'} collected</span>`
-      : `<span class="badge badge-gray">Pending</span>`;
-    const issueTypeEsc = escAttr(issue.issue_name);
-    return `<tr class="clickable ${isActive ? 'active-rank' : ''}" onclick="selectRank(${issue.rank})">
-      <td class="rank-num num">${issue.rank}</td>
-      <td><div class="issue-name" title="${escAttr(issue.issue_name)}">${esc(issue.issue_name)}</div></td>
-      <td><span class="issue-domain" title="${escAttr(issue.nserror_domain)}">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
-      <td class="num" style="text-align:right;color:var(--muted)">${issue.variants_total || '—'}</td>
-      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total || '—'}</td>
-      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total || '—'}</td>
-      <td>
-        <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
-          <span class="progress-label">${pct}%</span>
-        </div>
-      </td>
-      <td>${statusBadge}</td>
-      <td onclick="event.stopPropagation()">
-        <button class="btn-collect" ${isBusy ? 'disabled' : ''} onclick="runCollect('${issueTypeEsc}', ${issue.rank})">
-          Collect
-        </button>
-      </td>
-    </tr>`;
+// ── Step Funnel ───────────────────────────────────────────────────────────────
+function extractStepSequence(logs) {
+  const steps = [];
+  for (const log of logs) {
+    const msg = log.msg || '';
+    if (!msg.includes('FaceKom nextStep:')) continue;
+    let name;
+    if (msg.includes('end(')) {
+      const status = msg.includes('status: "') ? msg.split('status: "')[1].split('"')[0] : '';
+      const reason = msg.includes('reason = "') ? msg.split('reason = "')[1].split('"')[0] : '';
+      name = status ? (reason ? `end · ${status} · ${reason}` : `end · ${status}`) : 'end';
+    } else if (msg.includes('type: "')) {
+      name = msg.split('type: "')[1].split('"')[0];
+    } else {
+      const after = msg.split('nextStep:')[1]?.trim() || '';
+      name = after.split('(')[0].trim();
+    }
+    if (name && (steps.length === 0 || steps[steps.length - 1] !== name)) steps.push(name);
+  }
+  return steps;
+}
+
+function arrMedian(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function buildStepFunnel() {
+  const allSessions = buildAllSessions();
+  const total = allSessions.length;
+
+  const sessionStepData = allSessions.map(group => {
+    const combined = [];
+    for (const ev of group) {
+      for (const s of extractStepSequence(ev.logs)) {
+        if (combined.length === 0 || combined[combined.length - 1] !== s) combined.push(s);
+      }
+    }
+    return { group, steps: combined };
+  });
+
+  // Build a map of non-end steps → sets of sessions that reached them
+  const stepMap = new Map();
+  for (const s of sessionStepData) {
+    for (const step of s.steps.filter(x => !x.startsWith('end'))) {
+      if (!stepMap.has(step)) stepMap.set(step, new Set());
+      stepMap.get(step).add(s);
+    }
+  }
+
+  // Known step order per FaceKom flow — unknown steps go after, sorted by count
+  const STEP_ORDER = ['voice-liveness-check', 'deepfake-detection', 'customerPortrait', 'idFront', 'idBack', 'hologram', 'id-back-video'];
+  const stepRows = [...stepMap.entries()]
+    .sort((a, b) => {
+      const ia = STEP_ORDER.indexOf(a[0]), ib = STEP_ORDER.indexOf(b[0]);
+      if (ia >= 0 && ib >= 0) return ia - ib;
+      if (ia >= 0) return -1;
+      if (ib >= 0) return 1;
+      return b[1].size - a[1].size; // both unknown: by count DESC
+    })
+    .map(([step, reachedSet]) => ({
+      step,
+      reached: reachedSet.size,
+      reachedSet,
+      cumulativePct: Math.round(reachedSet.size / total * 100),
+    }));
+
+  // Temporarily compute approved-no-step sessions so we can inflate step counts with them.
+  // We run a quick pre-pass: a session is "approved" if any event has finished with state: finished.
+  // Full outcome bucketing happens below; this is just for the inflation step.
+  const preApprovedSessData = new Set(
+    sessionStepData.filter(s =>
+      s.steps.some(x => x === 'end · finished') ||
+      s.group.some(ev => (ev.nslocalized_description || '').includes('finished with state: finished'))
+    )
+  );
+  const noStepApproved = [...preApprovedSessData].filter(
+    s => s.steps.filter(x => !x.startsWith('end')).length === 0
+  );
+  // Add them to every step's reachedSet so they inflate counts like any other approved session
+  for (const s of noStepApproved) {
+    for (const row of stepRows) {
+      row.reachedSet.add(s);
+    }
+  }
+  // Recompute reached counts and pcts after inflation
+  for (const row of stepRows) {
+    row.reached    = row.reachedSet.size;
+    row.cumulativePct = Math.round(row.reachedSet.size / total * 100);
+  }
+
+  // Enforce monotonicity: backward union pass.
+  // Sessions that reached step N+1 but skipped step N are added to step N's reachedSet.
+  // Track them separately so the UI can annotate "N counted via skip (passport)".
+  for (let i = stepRows.length - 2; i >= 0; i--) {
+    const skipped = new Set();
+    for (const sd of stepRows[i + 1].reachedSet) {
+      if (!stepRows[i].reachedSet.has(sd)) {
+        stepRows[i].reachedSet.add(sd);
+        skipped.add(sd);
+      }
+    }
+    stepRows[i].skippedSessData = skipped;
+    stepRows[i].reached = stepRows[i].reachedSet.size;
+    stepRows[i].cumulativePct = Math.round(stepRows[i].reachedSet.size / total * 100);
+  }
+  stepRows[stepRows.length - 1].skippedSessData = new Set();
+
+  // Outcomes — primary source: FaceKom nextStep: end(status: "...") in combined step sequence
+  // 'retry' = approved but also had an earlier failure/abort in the same session
+  const outcomeBuckets = { approve: [], retry: [], failed: [], aborted: [] };
+  for (const { group, steps } of sessionStepData) {
+    // Use ALL end steps — a retry session has end·aborted first, end·finished second.
+    // Approve wins over any earlier failure, consistent with deriveSessionOutcome.
+    const endSteps = steps.filter(s => s.startsWith('end'));
+    let isApprove = false, bucket;
+    if (endSteps.some(s => s.includes('finished'))) {
+      isApprove = true;
+    } else if (endSteps.some(s => s.includes('failed'))) {
+      bucket = 'failed';
+    } else if (endSteps.length > 0) {
+      bucket = 'aborted';
+    } else {
+      // No end step in logs — scan all events in group
+      bucket = 'aborted';
+      for (const ev of group) {
+        const o = normalizeOutcome(deriveOutcome(ev));
+        if (o === 'approve') { isApprove = true; break; }
+        if (o === 'failed') bucket = 'failed';
+      }
+    }
+    if (isApprove) {
+      // If the session also logged a failure/abort event → retry/recovered
+      const hadFailure = group.some(ev => {
+        const o = normalizeOutcome(deriveOutcome(ev));
+        return o === 'aborted' || o === 'failed';
+      });
+      bucket = hadFailure ? 'retry' : 'approve';
+    }
+    outcomeBuckets[bucket].push(group);
+  }
+
+  // Sessions that are approved/retry should never appear in drop connectors
+  const approvedGroupSet = new Set([...outcomeBuckets.approve, ...outcomeBuckets.retry]);
+  const approvedSessData = new Set(sessionStepData.filter(s => approvedGroupSet.has(s.group)));
+
+  // Approved sessions with no process steps — noted above the funnel (already inflated into step counts)
+  const approvedNoSteps = noStepApproved.map(s => s.group);
+
+  return { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps };
+}
+
+function toggleStepsPanel() {
+  const panel = document.getElementById('stepsPanel');
+  const icon  = document.getElementById('stepsToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function toggleFlowDetails(id) {
+  const el  = document.getElementById(`fd-${id}`);
+  const btn = document.getElementById(`fdb-${id}`);
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? 'Details' : 'Close';
+}
+
+function outcomeLabel(norm) {
+  if (norm === 'approve') return 'approved';
+  if (norm === 'failed')  return 'failed';
+  if (norm === 'aborted') return 'aborted';
+  if (norm === 'reject')  return 'rejected';
+  return norm || '—';
+}
+
+function deriveSessionOutcome(group) {
+  // Session-level: approve wins over everything, then failed, then aborted
+  const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
+  if (outcomes.includes('approve')) return 'approve';
+  if (outcomes.includes('failed'))  return 'failed';
+  if (outcomes.includes('aborted')) return 'aborted';
+  return outcomes.find(o => o !== 'other') || 'other';
+}
+
+function getEndReason(group) {
+  for (const ev of group) {
+    for (const log of ev.logs) {
+      const msg = log.msg || '';
+      if (!msg.includes('FaceKom nextStep:') || !msg.includes('end(')) continue;
+      if (msg.includes('reason = "')) return msg.split('reason = "')[1].split('"')[0];
+    }
+  }
+  return null;
+}
+
+function detectDocType(group) {
+  for (const ev of group) {
+    for (const log of ev.logs) {
+      const m = log.msg.match(/IDCardType\.(\w+)/);
+      if (!m) continue;
+      const t = m[1].toLowerCase();
+      if (t.includes('passport')) return 'passport';
+      if (t.includes('driving') || t.includes('licence') || t.includes('license')) return 'driving licence';
+      if (t.includes('identity') || t.includes('card')) return 'identity card';
+      return m[1];
+    }
+  }
+  return null;
+}
+
+function renderSessionListItems(groups, labelFn) {
+  return groups.map(group => {
+    const primary = group[group.length - 1];
+    const norm    = deriveSessionOutcome(group);
+    const sessId  = primary.session_id_base || primary.session_event_key || '?';
+    const url     = group.find(ev => ev.event_url)?.event_url || '';
+    const reason  = norm === 'failed' ? getEndReason(group) : null;
+    const extra   = labelFn ? labelFn(group) : null;
+    return `<div class="session-list-item">
+      <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
+      <span class="badge ${outcomeBadgeClass(norm)}" style="font-size:10px">${esc(outcomeLabel(norm))}</span>
+      ${reason ? `<span style="font-size:10px;color:var(--yellow);font-family:monospace">${esc(reason)}</span>` : ''}
+      ${extra  ? `<span style="font-size:10px;color:var(--accent2);font-family:monospace">${esc(extra)}</span>` : ''}
+      ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
+      <span style="flex:1"></span>
+      ${sessId !== '?' ? `<button class="btn btn-ghost btn-sm session-list-link" onclick="showSessionInEvents('${escAttr(sessId)}')">Show</button>` : ''}
+      ${url ? `<a href="${escAttr(url)}" target="_blank" class="session-list-link">Open ↗</a>` : ''}
+    </div>`;
   }).join('');
 }
 
-function selectRank(rank) {
-  activeRank = rank;
-  renderIssues();
-  renderEvents(rank);
-  renderAnalysis(rank);
-  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+function renderFlowConnector(count, groups, id) {
+  if (!count) {
+    return `<div class="flow-connector"><div class="flow-spine"></div></div>`;
+  }
+  return `<div class="flow-connector">
+    <div class="flow-spine"></div>
+    <div class="flow-branch">
+      <span class="flow-drop-badge">↘ ${count} dropped</span>
+      <button class="btn btn-ghost btn-sm" id="fdb-${id}" onclick="toggleFlowDetails('${id}')">Details</button>
+    </div>
+  </div>
+  <div class="flow-details-panel" id="fd-${id}">
+    <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:10px">${count} session${count !== 1 ? 's' : ''} dropped here</div>
+    <div class="session-list">${renderSessionListItems(groups)}</div>
+  </div>`;
 }
 
-// ── Events ────────────────────────────────────────────────────────────────────
-function renderEvents(filterRank) {
-  const issue = issues.find(i => i.rank === filterRank);
-  const filtered = events.filter(ev => {
-    if (!issue) return true;
-    if (issue.issue_id && ev.issue_id && issue.issue_id === ev.issue_id) return true;
-    return ev.nserror_code === issue.nserror_code;
-  });
-
-  const sub = document.getElementById('eventsSubtitle');
-  sub.textContent = issue
-    ? `— ${issue.issue_name} · ${filtered.length} event${filtered.length !== 1 ? 's' : ''} collected`
-    : `— ${events.length} total`;
-
-  const grid = document.getElementById('eventsGrid');
-  if (filtered.length === 0) {
-    grid.innerHTML = `<div class="empty">No events collected yet for this issue type.<br><br>
-      <button class="btn btn-ghost btn-sm" onclick="runCollect('${escAttr(issue?.issue_name || '')}', ${filterRank})">Collect now</button>
-    </div>`;
+function renderStepFunnel() {
+  const { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps } = buildStepFunnel();
+  const n = stepRows.length;
+  document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions`;
+  const container = document.getElementById('stepsFunnel');
+  if (!n) {
+    container.innerHTML = `<div class="empty">No step data found in session logs.</div>`;
     return;
   }
 
-  grid.innerHTML = `<div class="events-grid">${filtered.map((ev, idx) => renderEventCard(ev, idx)).join('')}</div>`;
+  let html = `<div class="flow-funnel">`;
 
+  // Note: approved sessions with no breadcrumbs — counted in outcomes bar, not in step rows
+  if (approvedNoSteps.length) {
+    html += `<div style="font-size:11px;color:var(--yellow);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <span style="color:var(--yellow)">⚠</span>
+      <span>${approvedNoSteps.length} session${approvedNoSteps.length !== 1 ? 's' : ''} approved without step logs (no breadcrumbs) — counted in outcomes bar only</span>
+      <button class="btn btn-ghost btn-sm" id="fdb-nolog" onclick="toggleFlowDetails('nolog')" style="margin-left:4px">Details</button>
+    </div>
+    <div class="flow-details-panel" id="fd-nolog">
+      <div style="font-size:12px;font-weight:600;color:var(--yellow);margin-bottom:10px">${approvedNoSteps.length} approved · no step logs available</div>
+      <div class="session-list">${renderSessionListItems(approvedNoSteps)}</div>
+    </div>`;
+  }
+
+  // Entry bar: 100%
+  html += `<div class="flow-bar-row"><div class="flow-bar entry" style="width:100%">
+    <span class="flow-bar-name">Start</span>
+    <span class="flow-bar-count">${total} sessions · 100%</span>
+  </div></div>`;
+
+  // First connector: sessions not in first step AND not approved (approved flow to outcomes bar directly)
+  const firstNotReached = stepRows.length > 0
+    ? sessionStepData.filter(s => !stepRows[0].reachedSet.has(s) && !approvedSessData.has(s)).map(s => s.group)
+    : sessionStepData.filter(s => !approvedSessData.has(s)).map(s => s.group);
+  html += renderFlowConnector(firstNotReached.length, firstNotReached, 'nostep');
+
+  // Step bars + connectors (each connector = set diff between adjacent steps, excluding approved)
+  stepRows.forEach((s, idx) => {
+    const num = `${String(idx + 1).padStart(2, '0')}/${String(n).padStart(2, '0')}`;
+    html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${s.cumulativePct}%">
+      <span class="flow-bar-name">
+        <span style="opacity:0.55;font-size:11px;font-family:monospace;flex-shrink:0">${num}</span>
+        <span>${esc(s.step)}</span>
+      </span>
+      <span class="flow-bar-count">${s.reached} · ${s.cumulativePct}%</span>
+    </div></div>`;
+    if (s.skippedSessData && s.skippedSessData.size > 0) {
+      const docTypeCounts = {};
+      for (const sd of s.skippedSessData) {
+        const dt = detectDocType(sd.group) || 'unknown';
+        docTypeCounts[dt] = (docTypeCounts[dt] || 0) + 1;
+      }
+      const dtLabel = Object.entries(docTypeCounts).map(([dt, cnt]) => `${cnt} ${dt}`).join(', ');
+      const skipGroups = [...s.skippedSessData].map(sd => sd.group);
+      const skipId = `skip${idx}`;
+      html += `<div style="font-size:11px;color:var(--yellow);margin:2px 0 4px 8px;display:flex;align-items:center;gap:6px">
+        <span style="color:var(--yellow)">↳</span>
+        <span>${s.skippedSessData.size} skipped this step (${dtLabel})</span>
+        <button class="btn btn-ghost btn-sm" id="fdb-${skipId}" onclick="toggleFlowDetails('${skipId}')">Details</button>
+      </div>
+      <div class="flow-details-panel" id="fd-${skipId}">
+        <div style="font-size:12px;font-weight:600;color:var(--yellow);margin-bottom:10px">${s.skippedSessData.size} session${s.skippedSessData.size !== 1 ? 's' : ''} skipped — ${dtLabel}</div>
+        <div class="session-list">${renderSessionListItems(skipGroups, detectDocType)}</div>
+      </div>`;
+    }
+    const nextSet = idx < stepRows.length - 1 ? stepRows[idx + 1].reachedSet : new Set();
+    const droppedHere = [...s.reachedSet].filter(sd => !nextSet.has(sd) && !approvedSessData.has(sd)).map(sd => sd.group);
+    html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
+  });
+
+  // Outcomes bar: approve · retry (approved after earlier failure) · failed · aborted
+  const approve      = outcomeBuckets.approve.length;
+  const retry        = outcomeBuckets.retry.length;
+  const failed       = outcomeBuckets.failed.length;
+  const aborted      = outcomeBuckets.aborted.length;
+  const outcomeTotal = approve + retry + failed + aborted;
+  const approvePct = outcomeTotal ? Math.round(approve / outcomeTotal * 100) : 0;
+  const retryPct   = outcomeTotal ? Math.round(retry   / outcomeTotal * 100) : 0;
+  const failedPct  = outcomeTotal ? Math.round(failed  / outcomeTotal * 100) : 0;
+  const abortedPct = 100 - approvePct - retryPct - failedPct;
+
+  html += `<div class="flow-outcomes">
+    <div class="flow-outcomes-label">All session outcomes — all ${outcomeTotal} sessions</div>
+    <div class="flow-outcomes-bar">
+      ${approvePct > 0 ? `<div class="flow-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="flow-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
+      ${retryPct   > 0 ? `<div class="flow-outcome-seg" style="width:${retryPct}%;background:var(--purple)"><span class="flow-outcome-label">${retryPct}% retry (${retry})</span></div>` : ''}
+      ${failedPct  > 0 ? `<div class="flow-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="flow-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
+      ${abortedPct > 0 ? `<div class="flow-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="flow-outcome-label">${abortedPct}% aborted / rejected (${aborted})</span></div>` : ''}
+    </div>
+  </div></div>`;
+
+  container.innerHTML = html;
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const activeIssues = issues.filter(i => activeIssueIds.has(String(i.rank)));
+  const totalEv    = activeIssues.reduce((s, i) => s + i.events_total, 0);
+  const collected  = activeIssues.reduce((s, i) => s + i.processed_events, 0);
+  const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
+  const allSessions = buildAllSessions();
+  const uniqueSess  = allSessions.length;
+
+  // Per-session outcome: approve wins; also count sessions that recovered after a failure
+  let approved = 0, recovered = 0;
+  for (const group of allSessions) {
+    const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
+    const hasApprove = outcomes.includes('approve');
+    const hasFailure = outcomes.some(o => o === 'aborted' || o === 'failed');
+    if (hasApprove) approved++;
+    if (hasApprove && hasFailure) recovered++;
+  }
+
+  document.getElementById('statIssues').textContent    = activeIssues.length;
+  document.getElementById('statEvents').textContent    = totalEv || '—';
+  document.getElementById('statCollected').textContent = collected;
+  document.getElementById('statSessions').textContent  = uniqueSess || '—';
+  document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
+  document.getElementById('statInsight').textContent   = uniqueSess
+    ? `${approved + recovered} of ${uniqueSess} sessions approved (${recovered} as retry — completed after an earlier failure or abort)`
+    : '';
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+function buildAllSessions() {
+  const sessionMap = new Map();
+  for (const ev of events) {
+    const key = ev.session_id_base || ev.session_event_key || ev.event_id;
+    if (!sessionMap.has(key)) {
+      const group = ev.session_id_base
+        ? events.filter(e => e.session_id_base === ev.session_id_base)
+        : [ev];
+      group.sort((a, b) => {
+        const ri = (+a.report_index || 0) - (+b.report_index || 0);
+        if (ri !== 0) return ri;
+        const ea = a.event_id || '', eb = b.event_id || '';
+        return ea < eb ? -1 : ea > eb ? 1 : 0;
+      });
+      sessionMap.set(key, group);
+    }
+  }
+  return [...sessionMap.values()];
+}
+
+function categorizeSession(group) {
+  if (group.length === 1) return 'unique';
+  const codeCounts = {};
+  for (const ev of group) codeCounts[ev.nserror_code] = (codeCounts[ev.nserror_code] || 0) + 1;
+  const crossRank = Object.keys(codeCounts).length > 1;
+  const multiTry  = Object.values(codeCounts).some(c => c > 1);
+  if (crossRank && multiTry) return 'mixed';
+  if (crossRank) return 'continuous';
+  return 'multi-try';
+}
+
+function normalizeOutcome(outcome) {
+  if (outcome === 'approve' || outcome === 'finished') return 'approve';
+  if (outcome === 'reject') return 'reject';
+  if (outcome === 'aborted' || outcome === 'user closed') return 'aborted';
+  if (outcome === 'failed') return 'failed';
+  return 'other';
+}
+
+function toggleAnalytics() {
+  const panel = document.getElementById('analyticsPanel');
+  const icon  = document.getElementById('analyticsToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function setTypeFilter(type) {
+  analyticsTypeFilter = type;
+  renderAnalytics();
+}
+
+function setOutcomeFilter(outcome) {
+  analyticsOutcomeFilter = outcome;
+  renderAnalytics();
+}
+
+function renderAnalytics() {
+  const allSessions = buildAllSessions();
+
+  const categorized = allSessions.map(group => ({
+    group,
+    type: categorizeSession(group),
+    outcome: deriveSessionOutcome(group),
+  }));
+
+  const typeCounts = { unique: 0, continuous: 0, 'multi-try': 0, mixed: 0 };
+  const outcomeCounts = { approve: 0, reject: 0, aborted: 0, failed: 0, other: 0 };
+  for (const s of categorized) {
+    typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
+    outcomeCounts[s.outcome] = (outcomeCounts[s.outcome] || 0) + 1;
+  }
+
+  let filtered = categorized;
+  if (analyticsTypeFilter !== 'all')    filtered = filtered.filter(s => s.type === analyticsTypeFilter);
+  if (analyticsOutcomeFilter !== 'all') filtered = filtered.filter(s => s.outcome === analyticsOutcomeFilter);
+
+  // Stats row
+  document.getElementById('analyticsStatsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Sessions</div><div class="stat-value" style="color:var(--accent)">${allSessions.length}</div><div class="stat-sub">unique session IDs</div></div>
+    <div class="stat-card"><div class="stat-label">Single Report</div><div class="stat-value" style="color:var(--green)">${typeCounts.unique}</div><div class="stat-sub">one event only</div></div>
+    <div class="stat-card"><div class="stat-label">Continued</div><div class="stat-value" style="color:var(--accent)">${typeCounts.continuous}</div><div class="stat-sub">left &amp; came back</div></div>
+    <div class="stat-card"><div class="stat-label">Multi-try</div><div class="stat-value" style="color:var(--yellow)">${typeCounts['multi-try']}</div><div class="stat-sub">retried same flow</div></div>
+    <div class="stat-card"><div class="stat-label">Mixed</div><div class="stat-value" style="color:var(--orange)">${typeCounts.mixed}</div><div class="stat-sub">retried + cross-rank</div></div>
+  `;
+
+  // Type filter buttons
+  const typeOpts = [
+    { key: 'all',        label: `All (${allSessions.length})` },
+    { key: 'unique',     label: `Single (${typeCounts.unique})` },
+    { key: 'continuous', label: `Continued (${typeCounts.continuous})` },
+    { key: 'multi-try',  label: `Multi-try (${typeCounts['multi-try']})` },
+    { key: 'mixed',      label: `Mixed (${typeCounts.mixed})` },
+  ];
+  document.getElementById('analyticsTypeFilters').innerHTML = typeOpts.map(o =>
+    `<button class="filter-btn${analyticsTypeFilter === o.key ? ' active' : ''}" onclick="setTypeFilter('${o.key}')">${o.label}</button>`
+  ).join('');
+
+  // Outcome filter buttons
+  const outcomeOpts = [
+    { key: 'all',     label: 'All',                                cls: '' },
+    { key: 'approve', label: `Approved (${outcomeCounts.approve})`, cls: 'btn-green' },
+    { key: 'reject',  label: `Rejected (${outcomeCounts.reject})`,  cls: 'btn-red' },
+    { key: 'aborted', label: `Aborted (${outcomeCounts.aborted})`,  cls: 'btn-red' },
+    { key: 'failed',  label: `Failed (${outcomeCounts.failed})`,    cls: 'btn-yellow' },
+    { key: 'other',   label: `Other (${outcomeCounts.other})`,      cls: 'btn-yellow' },
+  ];
+  document.getElementById('analyticsOutcomeFilters').innerHTML = outcomeOpts.map(o =>
+    `<button class="filter-btn${o.cls ? ' ' + o.cls : ''}${analyticsOutcomeFilter === o.key ? ' active' : ''}" onclick="setOutcomeFilter('${o.key}')">${o.label}</button>`
+  ).join('');
+
+  document.getElementById('analyticsSubtitle').textContent = `— ${filtered.length} of ${allSessions.length} sessions`;
+
+  // Session grid
+  const grid = document.getElementById('analyticsGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty">No sessions match the selected filters.</div>`;
+    return;
+  }
+  grid.innerHTML = `<div class="events-grid">${filtered.map((s, idx) => renderSessionCard(s.group, `a${idx}`)).join('')}</div>`;
   grid.querySelectorAll('.event-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const card = tab.closest('.event-card');
@@ -426,241 +891,351 @@ function renderEvents(filterRank) {
   });
 }
 
-function renderEventCard(ev, idx) {
-  const sib = events.filter(e => e.session_id_base && e.session_id_base === ev.session_id_base);
-  const sameSession = sib.length > 1;
-  const reportLabel = ev.session_id_full
-    ? `Report ${ev.session_id_full.match(/DNE_\d+/)?.[0] || 'DNE_?'}`
-    : `Event ${idx + 1}`;
+// ── Issues chips ──────────────────────────────────────────────────────────────
+function renderIssuesTable() {
+  document.getElementById('issuesBody').innerHTML = issues.map(issue => {
+    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
+    const hasData = issue.processed_events > 0;
+    const statusBadge = hasData
+      ? `<span class="badge badge-green">${issue.processed_events}/${issue.events_total || '?'} collected</span>`
+      : `<span class="badge badge-gray">Pending</span>`;
+    return `<tr>
+      <td class="num" style="color:var(--muted);font-size:12px">${issue.rank}</td>
+      <td><div class="issue-name" title="${esc(issue.issue_name)}">${esc(issue.issue_name)}</div></td>
+      <td><span class="issue-domain">${esc(issue.nserror_domain)} · <strong style="color:var(--text)">${esc(issue.nserror_code)}</strong></span></td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.variants_total || '—'}</td>
+      <td class="num" style="text-align:right;color:#fff;font-weight:600">${issue.events_total || '—'}</td>
+      <td class="num" style="text-align:right;color:var(--muted)">${issue.users_total || '—'}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill ${hasData ? 'fill-green' : 'fill-none'}" style="width:${pct}%"></div></div>
+          <span class="progress-label">${pct}%</span>
+        </div>
+      </td>
+      <td>${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
 
-  const times = ev.logs.map(l => {
-    const [h, m, s] = l.ts.split(':').map(Number);
-    return h * 3600 + m * 60 + s;
+function toggleIssuesPanel() {
+  const panel = document.getElementById('issuesPanel');
+  const icon  = document.getElementById('issuesToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function renderIssueChips() {
+  const el = document.getElementById('issueChips');
+  const subtitle = document.getElementById('issuesSubtitle');
+  if (subtitle) subtitle.textContent = `— ${activeIssueIds.size}/${issues.length} active`;
+  el.innerHTML = issues.map(issue => {
+    const pct = issue.events_total ? Math.round(issue.processed_events / issue.events_total * 100) : 0;
+    const isActive = activeIssueIds.has(String(issue.rank));
+    const domainCode = [issue.nserror_domain, issue.nserror_code].filter(Boolean).join(' · ');
+    return `<div class="issue-chip${isActive ? '' : ' inactive'}" data-issue-id="${issue.rank}" onclick="toggleIssue(this.dataset.issueId)">
+      <div class="chip-rank">Rank ${issue.rank}</div>
+      <div class="chip-name" title="${esc(issue.issue_name)}">${esc(issue.issue_name)}</div>
+      ${domainCode ? `<div class="chip-domain" title="${esc(domainCode)}">${esc(domainCode)}</div>` : ''}
+      <div class="chip-progress-wrap">
+        <div class="chip-bar"><div class="chip-bar-fill" style="width:${pct}%"></div></div>
+        <span class="chip-events">${issue.processed_events}/${issue.events_total || '?'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleIssue(issueId) {
+  if (activeIssueIds.has(issueId)) {
+    activeIssueIds.delete(issueId);
+  } else {
+    activeIssueIds.add(issueId);
+  }
+  renderIssueChips();
+  renderStats();
+  document.getElementById('eventsSearch').value = '';
+  renderEventsFromActiveIssues();
+}
+
+function toggleEvents() {
+  const panel = document.getElementById('eventsPanel');
+  const icon  = document.getElementById('eventsToggleIcon');
+  const isOpen = panel.classList.toggle('open');
+  icon.classList.toggle('open', isOpen);
+}
+
+function openEventsPanel() {
+  const panel = document.getElementById('eventsPanel');
+  const icon  = document.getElementById('eventsToggleIcon');
+  panel.classList.add('open');
+  icon.classList.add('open');
+}
+
+function showSessionInEvents(sessId) {
+  openEventsPanel();
+  const input = document.getElementById('eventsSearch');
+  input.value = sessId;
+  filterEvents();
+  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function filterEvents() {
+  const q = document.getElementById('eventsSearch').value.trim().toLowerCase();
+  const pool = q ? events : currentEventsForDisplay;
+  const filtered = q
+    ? pool.filter(ev => {
+        const identifiers = [
+          ev.session_event_key, ev.session_id_full, ev.session_id_base, ev.event_id
+        ].join(' ').toLowerCase();
+        return identifiers.includes(q);
+      })
+    : pool;
+  renderEventsGrid(filtered);
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+function renderEventsFromActiveIssues() {
+  const activeCodes = new Set(
+    issues.filter(i => activeIssueIds.has(String(i.rank))).map(i => i.nserror_code)
+  );
+  currentEventsForDisplay = events.filter(ev => !ev.nserror_code || activeCodes.has(ev.nserror_code));
+  const uniqueSess = new Set(currentEventsForDisplay.map(ev => ev.session_id_base).filter(Boolean)).size;
+  document.getElementById('eventsSubtitle').textContent =
+    `— ${currentEventsForDisplay.length} events · ${uniqueSess} sessions`;
+  document.getElementById('searchMatchCount').textContent = '';
+  renderEventsGrid(currentEventsForDisplay);
+}
+
+function deriveOutcome(ev) {
+  const csvVal = (ev.outcome || '').trim();
+  if (csvVal && csvVal !== '—') return csvVal;
+  // nslocalized_description from SelfServiceRuntimeError.sessionFinished (present even without breadcrumbs)
+  const desc = (ev.nslocalized_description || '').trim();
+  if (desc.includes('finished with state: finished')) return 'finished';
+  if (desc.includes('finished with state: aborted')) return 'aborted';
+  if (desc.includes('finished with state: expired')) return 'failed';
+  if (desc.includes('finished with state: failed')) return 'failed';
+  // Fallback: breadcrumb log scanning
+  let outcome = '';
+  for (const log of ev.logs) {
+    const msg = log.msg;
+    if (msg.includes('finished with type:')) {
+      outcome = msg.split('finished with type:')[1].trim();
+    } else if (!outcome && msg.includes('finished with state: finished')) {
+      outcome = 'finished';
+    } else if (!outcome && msg.includes('finished with state: aborted')) {
+      outcome = 'aborted';
+    } else if (!outcome && msg.includes('finished with state: failed')) {
+      outcome = 'failed';
+    } else if (!outcome && msg.includes('user initiated closing')) {
+      outcome = 'user closed';
+    }
+  }
+  return outcome || '—';
+}
+
+function outcomeBadgeClass(outcome) {
+  if (outcome === 'approve') return 'badge-green';
+  if (outcome === 'finished') return 'badge-green';
+  if (outcome === '—') return 'badge-gray';
+  return 'badge-red';
+}
+
+function deriveLastStep(ev) {
+  if (ev.last_step && ev.last_step !== '—') return ev.last_step;
+  for (const log of [...ev.logs].reverse()) {
+    const msg = log.msg;
+    if (!msg.includes('FaceKom nextStep:')) continue;
+    if (msg.includes('end(')) {
+      const status = msg.includes('status: "') ? msg.split('status: "')[1].split('"')[0] : '';
+      return status ? `end · ${status}` : 'end';
+    }
+    if (msg.includes('type: "')) {
+      return msg.split('type: "')[1].split('"')[0];
+    }
+    const after = msg.split('nextStep:')[1]?.trim() || '';
+    const step = after.split('(')[0].trim();
+    if (step) return step;
+  }
+  return '—';
+}
+
+function issueLabel(ev) {
+  const iss = issues.find(i => i.issue_id === ev.issue_id);
+  return iss ? `#${iss.rank} ${iss.issue_name}` : (ev.nserror_domain ? `${ev.nserror_domain} · ${ev.nserror_code}` : '');
+}
+
+function renderEventsGrid(filtered) {
+  const grid = document.getElementById('eventsGrid');
+  const countEl = document.getElementById('searchMatchCount');
+  const q = document.getElementById('eventsSearch').value.trim();
+
+  // Group by session_id_base — include ALL cross-rank events for each session
+  const sessionMap = new Map();
+  for (const ev of filtered) {
+    const key = ev.session_id_base || ev.session_event_key || String(Math.random());
+    if (!sessionMap.has(key)) {
+      const allForSession = ev.session_id_base
+        ? events.filter(e => e.session_id_base === ev.session_id_base)
+        : [ev];
+      allForSession.sort((a, b) => {
+        const ri = (+a.report_index || 0) - (+b.report_index || 0);
+        if (ri !== 0) return ri;
+        // Tiebreak by event_id (Firebase nanosecond timestamp string) — lexicographic is correct since all same length
+        const ea = a.event_id || '';
+        const eb = b.event_id || '';
+        return ea < eb ? -1 : ea > eb ? 1 : 0;
+      });
+      sessionMap.set(key, allForSession);
+    }
+  }
+  const sessions = [...sessionMap.values()];
+
+  if (q) {
+    countEl.textContent = `${filtered.length} event${filtered.length !== 1 ? 's' : ''} · ${sessions.length} session${sessions.length !== 1 ? 's' : ''} across all ranks`;
+  } else {
+    countEl.textContent = '';
+  }
+
+  if (sessions.length === 0) {
+    grid.innerHTML = `<div class="empty">${q ? 'No events match that identifier.' : 'No events collected yet for this issue type.'}</div>`;
+    return;
+  }
+
+  grid.innerHTML = `<div class="events-grid">${sessions.map((group, idx) => renderSessionCard(group, idx)).join('')}</div>`;
+  grid.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
   });
-  const elapsed = times.length ? Math.max(...times) - Math.min(...times) : 0;
-  const nErrors = ev.logs.filter(l => l.type === 'error').length;
-  const nScreens = ev.logs.filter(l => l.type === 'screen').length;
-  const firstTs = ev.logs[0]?.ts || '—';
-  const lastTs = ev.logs[ev.logs.length - 1]?.ts || '—';
+}
 
-  const outcome = ev.outcome || '—';
-  const reason = ev.reason || '—';
-  const lastStep = ev.last_step || '—';
-  const bStatus = ev.breadcrumbs_status || 'unknown';
-  const hasLogs = ev.logs.length > 0;
+function selectReport(cardId, repIdx) {
+  const group = sessionGroups.get(cardId);
+  if (!group) return;
+  const ev = group[repIdx];
+  const card = document.getElementById(cardId);
+  if (!card) return;
 
-  return `<div class="event-card">
-    <div class="event-card-header">
-      <div>
-        <h3>
-          ${esc(reportLabel)}
-          <span class="badge badge-red">${esc(outcome)}</span>
-          ${sameSession ? '<span class="badge badge-yellow">same session</span>' : ''}
-        </h3>
-        <div class="meta">${esc(ev.date)} &nbsp;·&nbsp; ${esc(ev.model)} &nbsp;·&nbsp; ${esc(ev.os_version)}</div>
-      </div>
-      ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" style="font-size:11px;color:var(--accent);white-space:nowrap;flex-shrink:0">Open ↗</a>` : ''}
-    </div>
+  card.querySelector('.event-tab-content[data-tab="summary"]').innerHTML = renderSummaryContent(ev);
+  card.querySelector('.event-tab-content[data-tab="keys"]').innerHTML    = renderKeysContent(ev);
+  card.querySelector('.event-tab-content[data-tab="timeline"]').innerHTML = renderTimelineContent(ev.logs);
+  card.querySelector('.event-tab[data-tab="timeline"]').textContent = `Timeline (${ev.logs.length})`;
 
-    <div class="event-tabs">
-      <div class="event-tab active" data-tab="summary">Summary</div>
-      <div class="event-tab" data-tab="keys">Keys</div>
-      <div class="event-tab" data-tab="timeline">Timeline (${ev.logs.length})</div>
-    </div>
+  card.querySelectorAll('.subreport-item').forEach((el, i) => {
+    el.classList.toggle('subreport-selected', i === repIdx);
+  });
+}
 
-    <div class="event-tab-content active" data-tab="summary">
-      <div class="kv-grid">
-        <span class="kv-key">Session</span>
-        <span class="kv-val" style="font-size:10px">${esc(ev.session_id_full || ev.session_id_base || '—')}</span>
-        <span class="kv-key">Event ID</span>
-        <span class="kv-val">${esc(ev.event_id || '—')}</span>
-        <span class="kv-key">Device</span>
-        <span class="kv-val">${esc(ev.model)} · ${esc(ev.os_version)}</span>
-        <span class="kv-key">Duration</span>
-        <span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
-        <span class="kv-key">Outcome</span>
-        <span class="kv-val highlight">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
-        <span class="kv-key">Last step</span>
-        <span class="kv-val highlight">${esc(lastStep)}</span>
-        <span class="kv-key">Screens</span>
-        <span class="kv-val">${nScreens} screen views</span>
-        <span class="kv-key">Errors</span>
-        <span class="kv-val highlight">${nErrors} error events</span>
-        <span class="kv-key">Breadcrumbs</span>
-        <span class="kv-val ${hasLogs ? 'ok' : ''}">${bStatus}${hasLogs ? ' ✓' : ''}</span>
-      </div>
-    </div>
-
-    <div class="event-tab-content" data-tab="keys">
-      <div class="kv-grid">
-        <span class="kv-key">nserror_domain</span>
-        <span class="kv-val">${esc(ev.nserror_domain || '—')}</span>
-        <span class="kv-key">nserror_code</span>
-        <span class="kv-val highlight">${esc(ev.nserror_code || '—')}</span>
-        <span class="kv-key">crash_kind</span>
-        <span class="kv-val">${esc(ev.crash_kind || '—')}</span>
-        <span class="kv-key">source</span>
-        <span class="kv-val">${esc(ev.source || '—')}</span>
-        <span class="kv-key">configuration</span>
-        <span class="kv-val">${esc(ev.configuration || '—')}</span>
-        <span class="kv-key">app_version</span>
-        <span class="kv-val">${esc(ev.app_version || '—')}</span>
-        <span class="kv-key">issue_id</span>
-        <span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
-      </div>
-    </div>
-
-    <div class="event-tab-content" data-tab="timeline">
-      ${ev.logs.length === 0
-        ? `<div class="empty" style="padding:16px">No breadcrumbs downloaded for this event.</div>`
-        : `<div class="timeline">${ev.logs.map(l => {
-            let dotClass = 'analytics', msgClass = 'screen';
-            if (l.type === 'error')    { dotClass = 'error'; msgClass = 'error'; }
-            else if (l.type === 'log-ok') { dotClass = 'ok'; msgClass = 'ok'; }
-            else if (l.type === 'log')    { dotClass = 'crashlytics'; msgClass = 'muted'; }
-            return `<div class="tl-item">
-              <div class="tl-dot ${dotClass}"></div>
-              <div class="tl-time">${esc(l.ts)}</div>
-              <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
-            </div>`;
-          }).join('')}</div>`
-      }
-    </div>
+function renderSummaryContent(ev) {
+  const logs = ev.logs;
+  const times = logs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
+  const elapsed  = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  const nErrors  = logs.filter(l => l.type === 'error').length;
+  const nScreens = logs.filter(l => l.type === 'screen').length;
+  const firstTs  = logs[0]?.ts || '—';
+  const lastTs   = logs[logs.length-1]?.ts || '—';
+  const outcome  = deriveOutcome(ev);
+  const reason   = ev.reason || '—';
+  const lastStep = deriveLastStep(ev);
+  const hasLogs  = logs.length > 0;
+  return `<div class="kv-grid">
+    <span class="kv-key">Session</span><span class="kv-val" style="font-size:10px">${esc(ev.session_id_base || '—')}</span>
+    <span class="kv-key">Outcome</span><span class="kv-val ${outcome === 'approve' || outcome === 'finished' ? 'ok' : 'highlight'}">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
+    <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
+    <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
+    <span class="kv-key">Screens</span><span class="kv-val">${nScreens} screen views</span>
+    <span class="kv-key">Errors</span><span class="kv-val highlight">${nErrors} error events</span>
+    <span class="kv-key">Breadcrumbs</span><span class="kv-val ${hasLogs ? 'ok' : ''}">${esc(ev.breadcrumbs_status || '—')}${hasLogs ? ' ✓' : ''}</span>
   </div>`;
 }
 
-// ── Analysis ──────────────────────────────────────────────────────────────────
-function renderAnalysis(rank) {
-  const issue = issues.find(i => i.rank === rank);
-  const section = document.getElementById('analysisSection');
-  if (!issue || issue.processed_events === 0) { section.style.display = 'none'; return; }
-
-  const filtered = events.filter(ev => ev.nserror_code === issue.nserror_code);
-  const reasons = [...new Set(filtered.map(e => e.reason).filter(Boolean))];
-  const steps   = [...new Set(filtered.map(e => e.last_step).filter(Boolean))];
-  const devices = [...new Set(filtered.map(e => e.model).filter(Boolean))];
-  const sessions = [...new Set(filtered.map(e => e.session_id_base).filter(Boolean))];
-
-  section.style.display = '';
-  document.getElementById('analysisIssue').textContent = issue.issue_name;
-
-  const findings = [];
-  findings.push({ icon: '📊', html: `<strong>${filtered.length} event${filtered.length!==1?'s':''} collected</strong> out of ${issue.events_total} total for this issue type. Coverage: ${Math.round(filtered.length/issue.events_total*100)}%.` });
-  if (sessions.length < filtered.length) findings.push({ icon: '👥', html: `<strong>${sessions.length} unique session${sessions.length!==1?'s':''}</strong> across ${filtered.length} events — some sessions generated multiple Crashlytics reports.` });
-  if (reasons.length) findings.push({ icon: '🔍', html: `<strong>Failure reason${reasons.length>1?'s':''}: ${reasons.map(r=>`<code>${r}</code>`).join(', ')}</strong>.` });
-  if (steps.length) findings.push({ icon: '📍', html: `<strong>Last step${steps.length>1?'s':''}: ${steps.map(s=>`<code>${s}</code>`).join(', ')}</strong> — where the flow aborted.` });
-  if (devices.length) findings.push({ icon: '📱', html: `<strong>Devices:</strong> ${devices.join(', ')}.` });
-
-  // Issue-specific analysis for known patterns
-  if (issue.nserror_code === '43' && issue.nserror_domain.includes('FaceKomError')) {
-    findings.push({ icon: '⚡', html: `<strong>Error 43 = stopAndClear via invalidToken.</strong> Socket connects successfully, then auth is rejected server-side. Not a network issue — the backend rejects the token before any video step begins.` });
-  }
-
-  document.getElementById('analysisBox').innerHTML = findings.map(f =>
-    `<div class="finding"><span class="finding-icon">${f.icon}</span><div class="finding-text">${f.html}</div></div>`
-  ).join('');
+function renderKeysContent(ev) {
+  return `<div class="kv-grid">
+    <span class="kv-key">nserror_domain</span><span class="kv-val">${esc(ev.nserror_domain || '—')}</span>
+    <span class="kv-key">nserror_code</span><span class="kv-val highlight">${esc(ev.nserror_code || '—')}</span>
+    <span class="kv-key">crash_kind</span><span class="kv-val">${esc(ev.crash_kind || '—')}</span>
+    <span class="kv-key">source</span><span class="kv-val">${esc(ev.source || '—')}</span>
+    <span class="kv-key">configuration</span><span class="kv-val">${esc(ev.configuration || '—')}</span>
+    <span class="kv-key">app_version</span><span class="kv-val">${esc(ev.app_version || '—')}</span>
+    <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
+  </div>`;
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-function runDiscover() { runSSE('/api/discover', 'Discovering issues…'); }
-
-function runCollect(issueType, rank) {
-  const url = issueType ? `/api/collect?issueType=${encodeURIComponent(issueType)}` : '/api/collect';
-  const label = issueType ? `Collecting: ${issueType}` : 'Collecting events…';
-  runSSE(url, label, rank);
+function renderTimelineContent(logs) {
+  if (!logs.length) return `<div class="empty" style="padding:16px">No breadcrumbs for this event.</div>`;
+  return `<div class="timeline">${logs.map(l => {
+    let dotClass = 'analytics', msgClass = 'screen';
+    if (l.type === 'error')       { dotClass = 'error';       msgClass = 'error'; }
+    else if (l.type === 'log-ok') { dotClass = 'ok';          msgClass = 'ok'; }
+    else if (l.type === 'log')    { dotClass = 'crashlytics'; msgClass = 'muted'; }
+    return `<div class="tl-item">
+      <div class="tl-dot ${dotClass}"></div>
+      <div class="tl-time">${esc(l.ts)}</div>
+      <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
-function runSSE(url, label, refreshRank) {
-  if (currentSSE) { currentSSE.close(); currentSSE = null; }
+function renderSessionCard(group, idx) {
+  const cardId  = `card-${idx}`;
+  sessionGroups.set(cardId, group);
+  const primary = group[group.length - 1];
+  const defaultRepIdx = group.length - 1;
+  const outcome = deriveSessionOutcome(group);
+  const title = primary.session_id_base
+    ? `Session ${primary.session_id_base.slice(0, 12)}…`
+    : `Event ${idx + 1}`;
 
-  isBusy = true;
-  renderIssues();
-  document.getElementById('discoverBtn').disabled = true;
-  openTerm(label, 'running');
-  termLine(`▶ ${label}`, 'info');
+  const subReportsHtml = `
+    <div class="subreports">
+      <div class="subreport-label">${group.length} report${group.length !== 1 ? 's' : ''} — click to inspect</div>
+      ${group.map((ev, repIdx) => {
+        const repLabel   = ev.session_id_full?.match(/DNE_\d+/)?.[0] || ev.event_id?.slice(0, 10) || '?';
+        const repOutcome = deriveOutcome(ev);
+        const repStep    = deriveLastStep(ev);
+        const repIssue   = issueLabel(ev);
+        const isSelected = repIdx === defaultRepIdx;
+        return `<div class="subreport-item${isSelected ? ' subreport-selected' : ''}" onclick="selectReport('${cardId}', ${repIdx})">
+          <span class="subreport-key">${esc(repLabel)}</span>
+          <span class="badge ${outcomeBadgeClass(repOutcome)}" style="font-size:10px">${esc(repOutcome)}</span>
+          ${repStep !== '—' ? `<span style="font-size:11px;color:var(--analytics)">→ ${esc(repStep)}</span>` : ''}
+          ${repIssue ? `<span style="font-size:10px;color:var(--muted)">${esc(repIssue)}</span>` : ''}
+          ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" class="subreport-link" onclick="event.stopPropagation()">Open ↗</a>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
 
-  const sse = new EventSource(url);
-  currentSSE = sse;
-
-  sse.addEventListener('output', e => {
-    const { text, err } = JSON.parse(e.data);
-    text.split('\n').forEach(line => { if (line) termLine(line, err ? 'err' : ''); });
-  });
-
-  sse.addEventListener('progress', () => {
-    loadStatus().then(() => { if (refreshRank != null) renderEvents(refreshRank); });
-  });
-
-  sse.addEventListener('done', e => {
-    const { code } = JSON.parse(e.data);
-    const ok = code === 0;
-    termLine(ok ? `✓ Finished (exit 0)` : `✗ Exited with code ${code}`, ok ? 'success' : 'err');
-    setTermState(ok ? 'done-ok' : 'done-err', ok ? 'Done' : `Failed (${code})`);
-    sse.close(); currentSSE = null;
-    isBusy = false;
-    document.getElementById('discoverBtn').disabled = false;
-    loadStatus().then(() => { if (refreshRank != null) selectRank(refreshRank); });
-  });
-
-  sse.onerror = () => {
-    if (!isBusy) return;
-    termLine('Connection closed.', 'err');
-    setTermState('done-err', 'Error');
-    sse.close(); currentSSE = null;
-    isBusy = false;
-    document.getElementById('discoverBtn').disabled = false;
-    renderIssues();
-  };
-}
-
-// ── Terminal ──────────────────────────────────────────────────────────────────
-function openTerm(label, state) {
-  document.getElementById('termPanel').classList.add('open');
-  setTermState(state, label);
-  document.getElementById('termOutput').innerHTML = '';
-}
-
-function setTermState(state, label) {
-  const dot = document.getElementById('termDot');
-  dot.className = `dot ${state}`;
-  document.getElementById('termLabel').textContent = label;
-}
-
-function termLine(text, cls) {
-  const out = document.getElementById('termOutput');
-  const line = document.createElement('div');
-  line.className = `term-line${cls ? ' ' + cls : ''}`;
-  line.textContent = text;
-  out.appendChild(line);
-  out.scrollTop = out.scrollHeight;
-}
-
-function clearTerm() { document.getElementById('termOutput').innerHTML = ''; }
-
-function closeTerm() {
-  document.getElementById('termPanel').classList.remove('open');
-  if (currentSSE && isBusy) {
-    currentSSE.close(); currentSSE = null;
-    isBusy = false;
-    document.getElementById('discoverBtn').disabled = false;
-    renderIssues();
-    termLine('Cancelled.', 'info');
-  }
+  return `<div class="event-card" id="${cardId}">
+    <div class="event-card-header">
+      <div>
+        <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span></h3>
+        <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}</div>
+      </div>
+    </div>
+    <div class="event-tabs">
+      <div class="event-tab active" data-tab="summary">Summary</div>
+      <div class="event-tab" data-tab="keys">Keys</div>
+      <div class="event-tab" data-tab="timeline">Timeline (${primary.logs.length})</div>
+    </div>
+    <div class="event-tab-content active" data-tab="summary">${renderSummaryContent(primary)}</div>
+    <div class="event-tab-content" data-tab="keys">${renderKeysContent(primary)}</div>
+    <div class="event-tab-content" data-tab="timeline">${renderTimelineContent(primary.logs)}</div>
+    ${subReportsHtml}
+  </div>`;
 }
 
 // ── Util ──────────────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function escAttr(s) {
-  return String(s ?? '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s??'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function showError(msg) { const b=document.getElementById('errorBanner'); b.textContent=msg; b.style.display='block'; }
+function hideError() { document.getElementById('errorBanner').style.display='none'; }
 
-function showError(msg) {
-  const b = document.getElementById('errorBanner');
-  b.textContent = msg; b.style.display = 'block';
-}
-function hideError() { document.getElementById('errorBanner').style.display = 'none'; }
+loadData();
 </script>
 </body>
 </html>
