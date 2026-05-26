@@ -434,10 +434,16 @@ function buildStepFunnel() {
     }
   }
 
-  // Sort by reached count descending → guarantees monotonically narrowing bars
-  // Keep reachedSet on each row so connectors can diff adjacent sets
+  // Known step order per FaceKom flow — unknown steps go after, sorted by count
+  const STEP_ORDER = ['voice-liveness-check', 'deepfake-detection', 'customerPortrait', 'idFront', 'idBack', 'hologram', 'id-back-video'];
   const stepRows = [...stepMap.entries()]
-    .sort((a, b) => b[1].size - a[1].size)
+    .sort((a, b) => {
+      const ia = STEP_ORDER.indexOf(a[0]), ib = STEP_ORDER.indexOf(b[0]);
+      if (ia >= 0 && ib >= 0) return ia - ib;
+      if (ia >= 0) return -1;
+      if (ib >= 0) return 1;
+      return b[1].size - a[1].size; // both unknown: by count DESC
+    })
     .map(([step, reachedSet]) => ({
       step,
       reached: reachedSet.size,
@@ -445,11 +451,22 @@ function buildStepFunnel() {
       cumulativePct: Math.round(reachedSet.size / total * 100),
     }));
 
-  // Outcomes (all sessions)
+  // Outcomes — primary source: FaceKom nextStep: end(status: "...") in combined step sequence
   const outcomeBuckets = { approve: [], failed: [], aborted: [] };
-  for (const { group } of sessionStepData) {
-    const o = normalizeOutcome(deriveOutcome(group[group.length - 1]));
-    const bucket = o === 'approve' ? 'approve' : (o === 'failed' ? 'failed' : 'aborted');
+  for (const { group, steps } of sessionStepData) {
+    const endStep = steps.find(s => s.startsWith('end'));
+    let bucket;
+    if (endStep && endStep.includes('finished')) {
+      bucket = 'approve';
+    } else if (endStep && endStep.includes('failed')) {
+      bucket = 'failed';
+    } else if (endStep) {
+      bucket = 'aborted';
+    } else {
+      // No end step in logs — fall back to event-level outcome detection
+      const o = normalizeOutcome(deriveOutcome(group[group.length - 1]));
+      bucket = o === 'approve' ? 'approve' : (o === 'failed' ? 'failed' : 'aborted');
+    }
     outcomeBuckets[bucket].push(group);
   }
 
@@ -482,6 +499,7 @@ function renderSessionListItems(groups) {
       <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
       <span class="badge ${outcomeBadgeClass(outcome)}" style="font-size:10px">${esc(outcome)}</span>
       ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
+      ${sessId !== '?' ? `<button class="btn btn-ghost btn-sm session-list-link" onclick="showSessionInEvents('${escAttr(sessId)}')">Show</button>` : ''}
       ${url ? `<a href="${escAttr(url)}" target="_blank" class="session-list-link">Open ↗</a>` : ''}
     </div>`;
   }).join('');
@@ -791,6 +809,14 @@ function openEventsPanel() {
   const icon  = document.getElementById('eventsToggleIcon');
   panel.classList.add('open');
   icon.classList.add('open');
+}
+
+function showSessionInEvents(sessId) {
+  openEventsPanel();
+  const input = document.getElementById('eventsSearch');
+  input.value = sessId;
+  filterEvents();
+  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth' });
 }
 
 function filterEvents() {
