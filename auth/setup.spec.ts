@@ -11,7 +11,21 @@ test('Save Firebase session', async ({ page, context }) => {
   }
 
   await page.goto('https://console.firebase.google.com');
-  console.log('⏸️  Log in manually, then click ▶ Resume in the Playwright Inspector');
+
+  // ── Email step ──────────────────────────────────────────────────────────────
+  const emailInput = page.locator('input[type="email"]');
+  await emailInput.waitFor({ timeout: 15_000 });
+  await emailInput.fill(process.env.GOOGLE_EMAIL ?? '');
+  await page.locator('button:has-text("Next"), [jsname="LgbsSe"]').first().click();
+
+  // ── Password step ───────────────────────────────────────────────────────────
+  const passwordInput = page.locator('input[type="password"]');
+  await passwordInput.waitFor({ timeout: 10_000 });
+  await passwordInput.fill(process.env.GOOGLE_PASSWORD ?? '');
+  await page.locator('button:has-text("Next"), [jsname="LgbsSe"]').first().click();
+
+  // ── 2FA / OTP — pause here for manual entry ─────────────────────────────────
+  console.log('⏸️  Enter the one-time password in the browser, then click ▶ Resume in the Playwright Inspector.');
   await page.pause();
 
   const dir = path.dirname(SESSION_PATH);
