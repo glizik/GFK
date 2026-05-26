@@ -463,9 +463,13 @@ function buildStepFunnel() {
     } else if (endStep) {
       bucket = 'aborted';
     } else {
-      // No end step in logs — fall back to event-level outcome detection
-      const o = normalizeOutcome(deriveOutcome(group[group.length - 1]));
-      bucket = o === 'approve' ? 'approve' : (o === 'failed' ? 'failed' : 'aborted');
+      // No end step in logs — scan all events in group; approve wins over failed wins over aborted
+      bucket = 'aborted';
+      for (const ev of group) {
+        const o = normalizeOutcome(deriveOutcome(ev));
+        if (o === 'approve') { bucket = 'approve'; break; }
+        if (o === 'failed') bucket = 'failed';
+      }
     }
     outcomeBuckets[bucket].push(group);
   }
@@ -499,6 +503,7 @@ function renderSessionListItems(groups) {
       <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
       <span class="badge ${outcomeBadgeClass(outcome)}" style="font-size:10px">${esc(outcome)}</span>
       ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
+      <span style="flex:1"></span>
       ${sessId !== '?' ? `<button class="btn btn-ghost btn-sm session-list-link" onclick="showSessionInEvents('${escAttr(sessId)}')">Show</button>` : ''}
       ${url ? `<a href="${escAttr(url)}" target="_blank" class="session-list-link">Open ↗</a>` : ''}
     </div>`;
@@ -588,10 +593,7 @@ function renderStats() {
   const totalEv    = activeIssues.reduce((s, i) => s + i.events_total, 0);
   const collected  = activeIssues.reduce((s, i) => s + i.processed_events, 0);
   const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
-  const activeCodes = new Set(activeIssues.map(i => i.nserror_code));
-  const uniqueSess = new Set(
-    events.filter(e => activeCodes.has(e.nserror_code)).map(e => e.session_id_base).filter(Boolean)
-  ).size;
+  const uniqueSess = buildAllSessions().length;
   document.getElementById('statIssues').textContent    = activeIssues.length;
   document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = collected;
@@ -849,6 +851,13 @@ function renderEventsFromActiveIssues() {
 function deriveOutcome(ev) {
   const csvVal = (ev.outcome || '').trim();
   if (csvVal && csvVal !== '—') return csvVal;
+  // nslocalized_description from SelfServiceRuntimeError.sessionFinished (present even without breadcrumbs)
+  const desc = (ev.nslocalized_description || '').trim();
+  if (desc.includes('finished with state: finished')) return 'finished';
+  if (desc.includes('finished with state: aborted')) return 'aborted';
+  if (desc.includes('finished with state: expired')) return 'failed';
+  if (desc.includes('finished with state: failed')) return 'failed';
+  // Fallback: breadcrumb log scanning
   let outcome = '';
   for (const log of ev.logs) {
     const msg = log.msg;
