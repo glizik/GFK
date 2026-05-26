@@ -182,7 +182,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge" style="font-family:monospace;letter-spacing:0.02em">v2e9aaae</span>
+      <span class="ro-badge" style="font-family:monospace;letter-spacing:0.02em">v4f1b2c8</span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -476,6 +476,23 @@ function buildStepFunnel() {
     row.cumulativePct = Math.round(row.reachedSet.size / total * 100);
   }
 
+  // Enforce monotonicity: backward union pass.
+  // Sessions that reached step N+1 but skipped step N are added to step N's reachedSet.
+  // Track them separately so the UI can annotate "N counted via skip (passport)".
+  for (let i = stepRows.length - 2; i >= 0; i--) {
+    const skipped = new Set();
+    for (const sd of stepRows[i + 1].reachedSet) {
+      if (!stepRows[i].reachedSet.has(sd)) {
+        stepRows[i].reachedSet.add(sd);
+        skipped.add(sd);
+      }
+    }
+    stepRows[i].skippedSessData = skipped;
+    stepRows[i].reached = stepRows[i].reachedSet.size;
+    stepRows[i].cumulativePct = Math.round(stepRows[i].reachedSet.size / total * 100);
+  }
+  stepRows[stepRows.length - 1].skippedSessData = new Set();
+
   // Outcomes — primary source: FaceKom nextStep: end(status: "...") in combined step sequence
   // 'retry' = approved but also had an earlier failure/abort in the same session
   const outcomeBuckets = { approve: [], retry: [], failed: [], aborted: [] };
@@ -549,6 +566,21 @@ function deriveSessionOutcome(group) {
   if (outcomes.includes('failed'))  return 'failed';
   if (outcomes.includes('aborted')) return 'aborted';
   return outcomes.find(o => o !== 'other') || 'other';
+}
+
+function detectDocType(group) {
+  for (const ev of group) {
+    for (const log of ev.logs) {
+      const m = log.msg.match(/IDCardType\.(\w+)/);
+      if (!m) continue;
+      const t = m[1].toLowerCase();
+      if (t.includes('passport')) return 'passport';
+      if (t.includes('driving') || t.includes('licence') || t.includes('license')) return 'driving licence';
+      if (t.includes('identity') || t.includes('card')) return 'identity card';
+      return m[1];
+    }
+  }
+  return null;
 }
 
 function renderSessionListItems(groups) {
@@ -632,6 +664,25 @@ function renderStepFunnel() {
       </span>
       <span class="flow-bar-count">${s.reached} · ${s.cumulativePct}%</span>
     </div></div>`;
+    if (s.skippedSessData && s.skippedSessData.size > 0) {
+      const docTypeCounts = {};
+      for (const sd of s.skippedSessData) {
+        const dt = detectDocType(sd.group) || 'unknown';
+        docTypeCounts[dt] = (docTypeCounts[dt] || 0) + 1;
+      }
+      const dtLabel = Object.entries(docTypeCounts).map(([dt, cnt]) => `${cnt} ${dt}`).join(', ');
+      const skipGroups = [...s.skippedSessData].map(sd => sd.group);
+      const skipId = `skip${idx}`;
+      html += `<div style="font-size:11px;color:var(--muted);margin:2px 0 4px 8px;display:flex;align-items:center;gap:6px">
+        <span style="color:var(--accent2)">↳</span>
+        <span>${s.skippedSessData.size} skipped this step (${dtLabel})</span>
+        <button class="btn btn-ghost btn-sm" id="fdb-${skipId}" onclick="toggleFlowDetails('${skipId}')">Details</button>
+      </div>
+      <div class="flow-details-panel" id="fd-${skipId}">
+        <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">${s.skippedSessData.size} session${s.skippedSessData.size !== 1 ? 's' : ''} skipped — ${dtLabel}</div>
+        <div class="session-list">${renderSessionListItems(skipGroups)}</div>
+      </div>`;
+    }
     const nextSet = idx < stepRows.length - 1 ? stepRows[idx + 1].reachedSet : new Set();
     const droppedHere = [...s.reachedSet].filter(sd => !nextSet.has(sd) && !approvedSessData.has(sd)).map(sd => sd.group);
     html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
