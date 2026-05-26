@@ -149,6 +149,23 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Serve static files from the data/ directory (CSVs, logs)
+  if (pathname.startsWith('/data/')) {
+    const filePath = path.join(ROOT, pathname);
+    try {
+      const ext = path.extname(filePath);
+      const mime = ext === '.csv' ? 'text/csv' : ext === '.log' ? 'application/json' : 'application/octet-stream';
+      const content = fs.readFileSync(filePath);
+      cors(res);
+      res.writeHead(200, { 'Content-Type': mime });
+      res.end(content);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+    }
+    return;
+  }
+
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not found');
 });
