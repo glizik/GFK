@@ -760,6 +760,31 @@ function renderStats() {
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
+function getEvTimeRange(ev) {
+  if (!ev.logs.length) return null;
+  const times = ev.logs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
+  return { start: Math.min(...times), end: Math.max(...times) };
+}
+
+function deduplicateGroupEvents(group) {
+  if (group.length < 2) return group;
+  const removed = new Set();
+  for (let i = 0; i < group.length; i++) {
+    if (removed.has(i)) continue;
+    for (let j = i + 1; j < group.length; j++) {
+      if (removed.has(j)) continue;
+      const ri = getEvTimeRange(group[i]), rj = getEvTimeRange(group[j]);
+      if (!ri || !rj) continue;
+      if (Math.max(ri.start, rj.start) >= Math.min(ri.end, rj.end)) continue;
+      if (extractStepSequence(group[i].logs).join('|') !== extractStepSequence(group[j].logs).join('|')) continue;
+      // Overlapping + identical steps: drop the less complete one
+      if (group[j].logs.length >= group[i].logs.length) { removed.add(i); break; }
+      else removed.add(j);
+    }
+  }
+  return group.filter((_, idx) => !removed.has(idx));
+}
+
 function buildAllSessions() {
   const sessionMap = new Map();
   for (const ev of events) {
@@ -774,7 +799,7 @@ function buildAllSessions() {
         const ea = a.event_id || '', eb = b.event_id || '';
         return ea < eb ? -1 : ea > eb ? 1 : 0;
       });
-      sessionMap.set(key, group);
+      sessionMap.set(key, deduplicateGroupEvents(group));
     }
   }
   return [...sessionMap.values()];
@@ -1086,7 +1111,7 @@ function renderEventsGrid(filtered) {
         const eb = b.event_id || '';
         return ea < eb ? -1 : ea > eb ? 1 : 0;
       });
-      sessionMap.set(key, allForSession);
+      sessionMap.set(key, deduplicateGroupEvents(allForSession));
     }
   }
   const sessions = [...sessionMap.values()];
