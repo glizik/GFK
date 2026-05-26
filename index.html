@@ -452,6 +452,30 @@ function buildStepFunnel() {
       cumulativePct: Math.round(reachedSet.size / total * 100),
     }));
 
+  // Temporarily compute approved-no-step sessions so we can inflate step counts with them.
+  // We run a quick pre-pass: a session is "approved" if any event has finished with state: finished.
+  // Full outcome bucketing happens below; this is just for the inflation step.
+  const preApprovedSessData = new Set(
+    sessionStepData.filter(s =>
+      s.steps.some(x => x === 'end · finished') ||
+      s.group.some(ev => (ev.nslocalized_description || '').includes('finished with state: finished'))
+    )
+  );
+  const noStepApproved = [...preApprovedSessData].filter(
+    s => s.steps.filter(x => !x.startsWith('end')).length === 0
+  );
+  // Add them to every step's reachedSet so they inflate counts like any other approved session
+  for (const s of noStepApproved) {
+    for (const row of stepRows) {
+      row.reachedSet.add(s);
+    }
+  }
+  // Recompute reached counts and pcts after inflation
+  for (const row of stepRows) {
+    row.reached    = row.reachedSet.size;
+    row.cumulativePct = Math.round(row.reachedSet.size / total * 100);
+  }
+
   // Outcomes — primary source: FaceKom nextStep: end(status: "...") in combined step sequence
   // 'retry' = approved but also had an earlier failure/abort in the same session
   const outcomeBuckets = { approve: [], retry: [], failed: [], aborted: [] };
@@ -488,10 +512,8 @@ function buildStepFunnel() {
   const approvedGroupSet = new Set([...outcomeBuckets.approve, ...outcomeBuckets.retry]);
   const approvedSessData = new Set(sessionStepData.filter(s => approvedGroupSet.has(s.group)));
 
-  // Approved sessions with no process steps (no breadcrumbs) — noted above the funnel
-  const approvedNoSteps = [...approvedSessData].filter(
-    s => s.steps.filter(x => !x.startsWith('end')).length === 0
-  ).map(s => s.group);
+  // Approved sessions with no process steps — noted above the funnel (already inflated into step counts)
+  const approvedNoSteps = noStepApproved.map(s => s.group);
 
   return { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps };
 }
