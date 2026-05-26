@@ -483,6 +483,19 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
 
   await page.goto('https://console.firebase.google.com');
   await waitForStable(page);
+
+  // If the session expired Google shows an account chooser — click through it.
+  const isChooser = await page.locator('text=Choose an account').isVisible().catch(() => false);
+  if (isChooser) {
+    const email = process.env.GOOGLE_EMAIL;
+    const accountBtn = email
+      ? page.locator(`[data-email="${email}"], li:has-text("${email}")`).first()
+      : page.locator('[data-authuser], li[tabindex]').first();
+    await accountBtn.click().catch(() => page.getByRole('listitem').filter({ hasText: '@' }).first().click());
+    await waitForStable(page);
+    await page.waitForTimeout(3000);
+  }
+
   const isLoginPage = await page
     .locator('input[type="email"], [data-identifier="email"]')
     .isVisible()
