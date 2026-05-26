@@ -182,7 +182,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge" style="font-family:monospace;letter-spacing:0.02em">v7a3d91e</span>
+      <span class="ro-badge" style="font-family:monospace;letter-spacing:0.02em">v9c2e04f</span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -498,13 +498,15 @@ function buildStepFunnel() {
   // 'retry' = approved but also had an earlier failure/abort in the same session
   const outcomeBuckets = { approve: [], retry: [], failed: [], aborted: [] };
   for (const { group, steps } of sessionStepData) {
-    const endStep = steps.find(s => s.startsWith('end'));
+    // Use ALL end steps — a retry session has end·aborted first, end·finished second.
+    // Approve wins over any earlier failure, consistent with deriveSessionOutcome.
+    const endSteps = steps.filter(s => s.startsWith('end'));
     let isApprove = false, bucket;
-    if (endStep && endStep.includes('finished')) {
+    if (endSteps.some(s => s.includes('finished'))) {
       isApprove = true;
-    } else if (endStep && endStep.includes('failed')) {
+    } else if (endSteps.some(s => s.includes('failed'))) {
       bucket = 'failed';
-    } else if (endStep) {
+    } else if (endSteps.length > 0) {
       bucket = 'aborted';
     } else {
       // No end step in logs — scan all events in group
@@ -595,17 +597,19 @@ function detectDocType(group) {
   return null;
 }
 
-function renderSessionListItems(groups) {
+function renderSessionListItems(groups, labelFn) {
   return groups.map(group => {
     const primary = group[group.length - 1];
     const norm    = deriveSessionOutcome(group);
     const sessId  = primary.session_id_base || primary.session_event_key || '?';
     const url     = group.find(ev => ev.event_url)?.event_url || '';
     const reason  = norm === 'failed' ? getEndReason(group) : null;
+    const extra   = labelFn ? labelFn(group) : null;
     return `<div class="session-list-item">
       <span class="session-list-id">${esc(sessId.slice(0, 16))}…</span>
       <span class="badge ${outcomeBadgeClass(norm)}" style="font-size:10px">${esc(outcomeLabel(norm))}</span>
       ${reason ? `<span style="font-size:10px;color:var(--yellow);font-family:monospace">${esc(reason)}</span>` : ''}
+      ${extra  ? `<span style="font-size:10px;color:var(--accent2);font-family:monospace">${esc(extra)}</span>` : ''}
       ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} reports</span>` : ''}
       <span style="flex:1"></span>
       ${sessId !== '?' ? `<button class="btn btn-ghost btn-sm session-list-link" onclick="showSessionInEvents('${escAttr(sessId)}')">Show</button>` : ''}
@@ -694,7 +698,7 @@ function renderStepFunnel() {
       </div>
       <div class="flow-details-panel" id="fd-${skipId}">
         <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">${s.skippedSessData.size} session${s.skippedSessData.size !== 1 ? 's' : ''} skipped — ${dtLabel}</div>
-        <div class="session-list">${renderSessionListItems(skipGroups)}</div>
+        <div class="session-list">${renderSessionListItems(skipGroups, detectDocType)}</div>
       </div>`;
     }
     const nextSet = idx < stepRows.length - 1 ? stepRows[idx + 1].reachedSet : new Set();
