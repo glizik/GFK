@@ -27,6 +27,7 @@ const FIREBASE_BASE =
   `/crashlytics/app/${process.env.FIREBASE_APP}/issues`;
 
 const ISSUE_BASE         = process.env.ISSUE_BASE          ?? 'FaceKom';
+const ISSUE_DIRECT_ID    = process.env.ISSUE_DIRECT_ID     ?? '';
 const ISSUE_TYPES_LIST   = (process.env.ISSUE_TYPES_LIST   ?? '').split(',').map(s => s.trim()).filter(Boolean);
 const EVENTS_CSV         = path.resolve(process.env.EVENTS_CSV  ?? './data/events_3.7.0.csv');
 const ISSUES_CSV         = path.resolve(process.env.ISSUES_CSV  ?? './data/issues_3.7.0.csv');
@@ -308,15 +309,34 @@ async function collectIssueType(
     has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE }),
   }).filter({ hasText: issueType }).first();
 
+  let usedDirectNav = false;
   try {
     await issueLink.waitFor({ timeout: 10_000 });
+    await issueLink.click();
+    await waitForStable(page);
   } catch {
-    console.log(`⚠️  Issue "${issueType}" not found on page. Skipping.`);
-    return 0;
+    if (ISSUE_DIRECT_ID) {
+      console.log(`⚠️  Not found on list — navigating directly (ISSUE_DIRECT_ID=${ISSUE_DIRECT_ID})`);
+      const directParams = new URLSearchParams({ time: ISSUE_TIME_DEFAULT, versions: BASE_QUERY.versions, types: '' });
+      await page.goto(`${FIREBASE_BASE}/${ISSUE_DIRECT_ID}?${directParams.toString()}`);
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(5000);
+      // Crashlytics issue overview doesn't auto-select an event — click the first session row.
+      const sessionLink = page.locator('a[href*="sessionEventKey"]').first();
+      const hasSessionLink = await sessionLink.isVisible({ timeout: 10_000 }).catch(() => false);
+      if (hasSessionLink) {
+        console.log(`🖱️  Clicking first session row from issue overview`);
+        await sessionLink.click();
+        await waitForStable(page);
+      } else {
+        console.log(`❓ No sessionEventKey link found — current URL: ${page.url().slice(-120)}`);
+      }
+      usedDirectNav = true;
+    } else {
+      console.log(`⚠️  Issue "${issueType}" not found on page. Skipping.`);
+      return 0;
+    }
   }
-
-  await issueLink.click();
-  await waitForStable(page);
 
   // Wait for sessionEventKey to appear in the URL (Angular router updates it asynchronously).
   for (let ms = 0; ms < 10_000; ms += 300) {
