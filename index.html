@@ -217,6 +217,7 @@
       <div class="stat-sub">of total events</div>
     </div>
   </div>
+  <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
   <div class="section">
     <div class="section-header" onclick="toggleIssuesPanel()">
@@ -593,12 +594,27 @@ function renderStats() {
   const totalEv    = activeIssues.reduce((s, i) => s + i.events_total, 0);
   const collected  = activeIssues.reduce((s, i) => s + i.processed_events, 0);
   const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
-  const uniqueSess = buildAllSessions().length;
+  const allSessions = buildAllSessions();
+  const uniqueSess  = allSessions.length;
+
+  // Per-session outcome: approve wins; also count sessions that recovered after a failure
+  let approved = 0, recovered = 0;
+  for (const group of allSessions) {
+    const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
+    const hasApprove = outcomes.includes('approve');
+    const hasFailure = outcomes.some(o => o === 'aborted' || o === 'failed');
+    if (hasApprove) approved++;
+    if (hasApprove && hasFailure) recovered++;
+  }
+
   document.getElementById('statIssues').textContent    = activeIssues.length;
   document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = collected;
   document.getElementById('statSessions').textContent  = uniqueSess || '—';
   document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
+  document.getElementById('statInsight').textContent   = uniqueSess
+    ? `${approved} of ${uniqueSess} sessions ended approved · ${recovered} recovered after an earlier failure or abort in the same session`
+    : '';
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
