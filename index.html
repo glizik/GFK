@@ -488,7 +488,12 @@ function buildStepFunnel() {
   const approvedGroupSet = new Set([...outcomeBuckets.approve, ...outcomeBuckets.retry]);
   const approvedSessData = new Set(sessionStepData.filter(s => approvedGroupSet.has(s.group)));
 
-  return { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData };
+  // Approved sessions with no process steps (no breadcrumbs) — noted above the funnel
+  const approvedNoSteps = [...approvedSessData].filter(
+    s => s.steps.filter(x => !x.startsWith('end')).length === 0
+  ).map(s => s.group);
+
+  return { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps };
 }
 
 function toggleStepsPanel() {
@@ -550,7 +555,7 @@ function renderFlowConnector(count, groups, id) {
 }
 
 function renderStepFunnel() {
-  const { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData } = buildStepFunnel();
+  const { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps } = buildStepFunnel();
   const n = stepRows.length;
   document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions`;
   const container = document.getElementById('stepsFunnel');
@@ -560,6 +565,19 @@ function renderStepFunnel() {
   }
 
   let html = `<div class="flow-funnel">`;
+
+  // Note: approved sessions with no breadcrumbs — counted in outcomes bar, not in step rows
+  if (approvedNoSteps.length) {
+    html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <span style="color:var(--green)">✓</span>
+      <span>${approvedNoSteps.length} session${approvedNoSteps.length !== 1 ? 's' : ''} approved without step logs (no breadcrumbs) — counted in outcomes bar only</span>
+      <button class="btn btn-ghost btn-sm" id="fdb-nolog" onclick="toggleFlowDetails('nolog')" style="margin-left:4px">Details</button>
+    </div>
+    <div class="flow-details-panel" id="fd-nolog">
+      <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:10px">${approvedNoSteps.length} approved · no step logs available</div>
+      <div class="session-list">${renderSessionListItems(approvedNoSteps)}</div>
+    </div>`;
+  }
 
   // Entry bar: 100%
   html += `<div class="flow-bar-row"><div class="flow-bar entry" style="width:100%">
