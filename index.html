@@ -484,7 +484,11 @@ function buildStepFunnel() {
     outcomeBuckets[bucket].push(group);
   }
 
-  return { total, sessionStepData, stepRows, outcomeBuckets };
+  // Sessions that are approved/retry should never appear in drop connectors
+  const approvedGroupSet = new Set([...outcomeBuckets.approve, ...outcomeBuckets.retry]);
+  const approvedSessData = new Set(sessionStepData.filter(s => approvedGroupSet.has(s.group)));
+
+  return { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData };
 }
 
 function toggleStepsPanel() {
@@ -546,7 +550,7 @@ function renderFlowConnector(count, groups, id) {
 }
 
 function renderStepFunnel() {
-  const { total, sessionStepData, stepRows, outcomeBuckets } = buildStepFunnel();
+  const { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData } = buildStepFunnel();
   const n = stepRows.length;
   document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions`;
   const container = document.getElementById('stepsFunnel');
@@ -563,13 +567,13 @@ function renderStepFunnel() {
     <span class="flow-bar-count">${total} sessions · 100%</span>
   </div></div>`;
 
-  // First connector: sessions NOT in the first step's reached set (set diff vs total)
+  // First connector: sessions not in first step AND not approved (approved flow to outcomes bar directly)
   const firstNotReached = stepRows.length > 0
-    ? sessionStepData.filter(s => !stepRows[0].reachedSet.has(s)).map(s => s.group)
-    : sessionStepData.map(s => s.group);
+    ? sessionStepData.filter(s => !stepRows[0].reachedSet.has(s) && !approvedSessData.has(s)).map(s => s.group)
+    : sessionStepData.filter(s => !approvedSessData.has(s)).map(s => s.group);
   html += renderFlowConnector(firstNotReached.length, firstNotReached, 'nostep');
 
-  // Step bars + connectors (each connector = set diff between adjacent steps)
+  // Step bars + connectors (each connector = set diff between adjacent steps, excluding approved)
   stepRows.forEach((s, idx) => {
     const num = `${String(idx + 1).padStart(2, '0')}/${String(n).padStart(2, '0')}`;
     html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${s.cumulativePct}%">
@@ -580,7 +584,7 @@ function renderStepFunnel() {
       <span class="flow-bar-count">${s.reached} · ${s.cumulativePct}%</span>
     </div></div>`;
     const nextSet = idx < stepRows.length - 1 ? stepRows[idx + 1].reachedSet : new Set();
-    const droppedHere = [...s.reachedSet].filter(sd => !nextSet.has(sd)).map(sd => sd.group);
+    const droppedHere = [...s.reachedSet].filter(sd => !nextSet.has(sd) && !approvedSessData.has(sd)).map(sd => sd.group);
     html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
   });
 
