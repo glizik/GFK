@@ -138,7 +138,9 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname === '/api/discover') {
-    runWithSSE(res, 'npx', ['playwright', 'test', 'tests/discover-issues.spec.ts']);
+    const time = searchParams.get('time') || '';
+    const env = { HEADLESS: 'true', ...(time ? { ISSUE_TIME_DEFAULT: time } : {}) };
+    runWithSSE(res, 'npx', ['playwright', 'test', 'tests/discover-issues.spec.ts'], env);
     return;
   }
 
