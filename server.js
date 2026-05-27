@@ -146,7 +146,12 @@ const server = http.createServer((req, res) => {
 
   if (pathname === '/api/collect') {
     const issueType = searchParams.get('issueType') || '';
-    const env = issueType ? { ISSUE_TYPES_LIST: issueType } : {};
+    const time      = searchParams.get('time') || '';
+    const env = {
+      HEADLESS: 'true',
+      ...(issueType ? { ISSUE_TYPES_LIST: issueType } : {}),
+      ...(time      ? { ISSUE_TIME_DEFAULT: time }     : {}),
+    };
     runWithSSE(res, 'npx', ['playwright', 'test', 'tests/collect.spec.ts'], env);
     return;
   }
