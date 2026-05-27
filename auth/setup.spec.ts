@@ -13,68 +13,70 @@ test('Save Firebase session', async ({ page, context }) => {
   const email    = process.env.GOOGLE_EMAIL    ?? '';
   const password = process.env.GOOGLE_PASSWORD ?? '';
 
+  // page.goto follows HTTP redirects; networkidle lets the sign-in SPA render
   await page.goto('https://console.firebase.google.com');
+  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
 
-  // Firebase redirects to accounts.google.com — wait for that before doing anything
-  await page.waitForURL('**/accounts.google.com/**', { timeout: 15_000 }).catch(() => {});
-  await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(1500);
+  // Already logged in?
+  if (page.url().includes('console.firebase.google.com')) {
+    console.log('✅ Already at Firebase Console — saving session directly.');
+    fs.mkdirSync(path.dirname(SESSION_PATH), { recursive: true });
+    await context.storageState({ path: SESSION_PATH });
+    console.log(`💾 Session saved → ${SESSION_PATH}`);
+    return;
+  }
 
   // ── Account chooser ──────────────────────────────────────────────────────
   const isChooser = await page.locator('text=Choose an account').isVisible().catch(() => false);
   if (isChooser && email) {
-    console.log('👤 Account chooser detected — clicking matching account.');
-    const accountBtn = page.locator(`[data-email="${email}"], li:has-text("${email}")`).first();
-    await accountBtn.click().catch(() =>
-      page.getByRole('listitem').filter({ hasText: '@' }).first().click()
-    );
-    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    console.log('👤 Account chooser — clicking matching account.');
+    await page.locator(`[data-email="${email}"]`).first().click()
+      .catch(() => page.locator(`li:has-text("${email}")`).first().click())
+      .catch(() => page.getByRole('listitem').filter({ hasText: '@' }).first().click());
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(2000);
   }
 
   // ── Email step ───────────────────────────────────────────────────────────
-  const emailInput = page.locator('input[type="email"], input#identifierId, input[autocomplete="username"]').first();
+  const emailSel = 'input[type="email"], input#identifierId, input[name="identifier"], input[autocomplete="username"]';
   try {
-    await emailInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForSelector(emailSel, { state: 'visible', timeout: 15_000 });
     if (email) {
-      await emailInput.fill(email);
-      console.log(`📧 Email pre-filled (${email}).`);
+      await page.fill(emailSel, email);
+      console.log(`📧 Email filled (${email}).`);
     }
-    const nextBtn = page.locator('#identifierNext, button:has-text("Next"), [jsname="LgbsSe"]').first();
-    await nextBtn.waitFor({ state: 'visible', timeout: 5_000 });
-    await nextBtn.click();
-    console.log('➡️  Clicked Next (email step).');
-    await page.waitForTimeout(2000);
-  } catch {
-    console.log('⚠️  Email step not detected — continuing.');
+    await page.click('#identifierNext, button:has-text("Next"), [jsname="LgbsSe"]');
+    console.log('➡️  Next (email).');
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+  } catch (e: any) {
+    console.log('⚠️  Email step skipped:', e.message?.slice(0, 120));
   }
 
   // ── Password step ────────────────────────────────────────────────────────
-  const passwordInput = page.locator('input[type="password"], input[name="password"], input[autocomplete="current-password"]').first();
+  const pwSel = 'input[type="password"], input[name="password"], input[autocomplete="current-password"]';
   try {
-    await passwordInput.waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForSelector(pwSel, { state: 'visible', timeout: 10_000 });
     if (password) {
-      await passwordInput.fill(password);
-      console.log('🔑 Password pre-filled.');
+      await page.fill(pwSel, password);
+      console.log('🔑 Password filled.');
     }
-    const nextBtn = page.locator('#passwordNext, button:has-text("Next"), [jsname="LgbsSe"]').first();
-    await nextBtn.waitFor({ state: 'visible', timeout: 5_000 });
-    await nextBtn.click();
-    console.log('➡️  Clicked Next (password step).');
+    await page.click('#passwordNext, button:has-text("Next"), [jsname="LgbsSe"]');
+    console.log('➡️  Next (password).');
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
     await page.waitForTimeout(1000);
-  } catch {
-    console.log('⚠️  Password step not detected — continuing.');
+  } catch (e: any) {
+    console.log('⚠️  Password step skipped:', e.message?.slice(0, 120));
   }
 
-  // ── 2FA — user enters the code, script waits for Firebase Console ─────────
-  console.log('⏸️  Enter your 2FA code in the browser. Waiting for Firebase Console to load…');
-  await page.waitForURL('**/console.firebase.google.com/**', { timeout: 120_000 });
+  // ── 2FA — user enters code, script waits ─────────────────────────────────
+  console.log('⏸️  Enter your 2FA code in the browser…');
+  await page.waitForURL(url => url.href.includes('console.firebase.google.com'), { timeout: 120_000 });
   await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
   console.log('✅ Firebase Console loaded.');
 
   // ── Save session ─────────────────────────────────────────────────────────
-  const dir = path.dirname(SESSION_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.dirname(SESSION_PATH), { recursive: true });
   await context.storageState({ path: SESSION_PATH });
   console.log(`💾 Session saved → ${SESSION_PATH}`);
 });
