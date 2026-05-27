@@ -13,18 +13,11 @@ test('Save Firebase session', async ({ page, context }) => {
   const email    = process.env.GOOGLE_EMAIL    ?? '';
   const password = process.env.GOOGLE_PASSWORD ?? '';
 
-  // page.goto follows HTTP redirects; networkidle lets the sign-in SPA render
   await page.goto('https://console.firebase.google.com');
+  // networkidle lets the sign-in SPA fully render after any redirects
   await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
-
-  // Already logged in?
-  if (page.url().includes('console.firebase.google.com')) {
-    console.log('✅ Already at Firebase Console — saving session directly.');
-    fs.mkdirSync(path.dirname(SESSION_PATH), { recursive: true });
-    await context.storageState({ path: SESSION_PATH });
-    console.log(`💾 Session saved → ${SESSION_PATH}`);
-    return;
-  }
+  await page.waitForTimeout(2000);
+  console.log(`📍 Page: ${page.url().slice(0, 100)}`);
 
   // ── Account chooser ──────────────────────────────────────────────────────
   const isChooser = await page.locator('text=Choose an account').isVisible().catch(() => false);
@@ -40,7 +33,7 @@ test('Save Firebase session', async ({ page, context }) => {
   // ── Email step ───────────────────────────────────────────────────────────
   const emailSel = 'input[type="email"], input#identifierId, input[name="identifier"], input[autocomplete="username"]';
   try {
-    await page.waitForSelector(emailSel, { state: 'visible', timeout: 15_000 });
+    await page.waitForSelector(emailSel, { state: 'visible', timeout: 8_000 });
     if (email) {
       await page.fill(emailSel, email);
       console.log(`📧 Email filled (${email}).`);
@@ -56,7 +49,7 @@ test('Save Firebase session', async ({ page, context }) => {
   // ── Password step ────────────────────────────────────────────────────────
   const pwSel = 'input[type="password"], input[name="password"], input[autocomplete="current-password"]';
   try {
-    await page.waitForSelector(pwSel, { state: 'visible', timeout: 10_000 });
+    await page.waitForSelector(pwSel, { state: 'visible', timeout: 8_000 });
     if (password) {
       await page.fill(pwSel, password);
       console.log('🔑 Password filled.');
@@ -69,11 +62,15 @@ test('Save Firebase session', async ({ page, context }) => {
     console.log('⚠️  Password step skipped:', e.message?.slice(0, 120));
   }
 
-  // ── 2FA — user enters code, script waits ─────────────────────────────────
-  console.log('⏸️  Enter your 2FA code in the browser…');
-  await page.waitForURL(url => url.href.includes('console.firebase.google.com'), { timeout: 120_000 });
-  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
-  console.log('✅ Firebase Console loaded.');
+  // ── 2FA or already logged in — wait for Firebase Console ─────────────────
+  if (page.url().includes('console.firebase.google.com')) {
+    console.log('✅ Already at Firebase Console (no 2FA needed).');
+  } else {
+    console.log('⏸️  Enter your 2FA code in the browser…');
+    await page.waitForURL(url => url.href.includes('console.firebase.google.com'), { timeout: 120_000 });
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
+    console.log('✅ Firebase Console loaded.');
+  }
 
   // ── Save session ─────────────────────────────────────────────────────────
   fs.mkdirSync(path.dirname(SESSION_PATH), { recursive: true });
