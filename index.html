@@ -175,12 +175,14 @@
   /* ── Timeline section ────────────────────────────────────────────────── */
   .tl-section-panel { }
   .tl-section-panel.collapsed { display: none; }
-  .tl-day-row { display: flex; align-items: center; gap: 12px; padding: 5px 8px; border-radius: 6px; cursor: pointer; transition: background 0.1s; }
-  .tl-day-row:hover { background: var(--surface2); }
-  .tl-day-label { font-size: 12px; color: var(--muted); min-width: 120px; font-family: monospace; white-space: nowrap; }
-  .tl-bar-wrap { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; display: flex; }
-  .tl-bar-seg { height: 100%; }
-  .tl-day-stat { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 110px; text-align: right; }
+  .tl-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .tl-nav-title { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
+  .tl-scroll { max-height: 560px; overflow-y: auto; padding-right: 4px; }
+  .tl-day-row { display: flex; align-items: stretch; gap: 10px; padding: 3px 8px; border-radius: 8px; cursor: pointer; transition: background 0.1s; min-height: 50px; }
+  .tl-day-row:hover { background: rgba(255,255,255,0.04); }
+  .tl-day-label { font-size: 12px; color: var(--muted); min-width: 112px; font-family: monospace; white-space: nowrap; display: flex; flex-direction: column; justify-content: center; gap: 2px; flex-shrink: 0; }
+  .tl-bar-wrap { flex: 1; background: var(--surface2); border-radius: 6px; overflow: hidden; display: flex; align-items: stretch; }
+  .tl-bar-seg { display: flex; align-items: center; padding: 4px 10px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.92); overflow: hidden; white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,0.4); min-width: 0; }
   .tl-download-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
 
   /* ── Developer section ───────────────────────────────────────────────── */
@@ -219,7 +221,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v118</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);opacity:0.8">v8776f27</span></span>
+      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v119</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">v95e13cc</span></span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -412,6 +414,7 @@ let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all', analyticsVersio
 const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
 let attachMenuSessId = '';
+let tlPageDate = new Date();
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function loadData() {
@@ -1312,8 +1315,9 @@ function renderSessionCard(group, idx) {
   const taskBadgesHtml = attachedTasks.map(t =>
     `<span class="task-badge" onclick="scrollToTask('${escAttr(t.id)}')" title="${escAttr(t.title)}">${esc(t.title.length > 16 ? t.title.slice(0, 16) + '…' : t.title)}</span>`
   ).join(' ');
+  const hasAttached = attachedTasks.length > 0;
   const attachBtnHtml = primary.session_id_base
-    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="Attach to developer task">📎</button>`
+    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${hasAttached ? ';border-color:var(--accent2);color:var(--accent2);background:rgba(167,139,250,0.15)' : ''}" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="${hasAttached ? attachedTasks.length + ' task(s) attached' : 'Attach to developer task'}">📎</button>`
     : '';
 
   const subReportsHtml = `
@@ -1391,32 +1395,65 @@ const TL_EVENT_HEADERS = [
   'first_breadcrumb_ts','last_breadcrumb_ts','session_elapsed_s',
 ];
 
+function prevTimelinePage() {
+  tlPageDate = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth() - 1, 1);
+  renderTimeline();
+}
+
+function nextTimelinePage() {
+  tlPageDate = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth() + 1, 1);
+  renderTimeline();
+}
+
 function renderTimeline() {
+  const year  = tlPageDate.getFullYear();
+  const month = tlPageDate.getMonth(); // 0-based
+
   const dayMap = new Map();
   for (const ev of events) {
     const d = parseEventDate(ev);
-    if (!d) continue;
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!d || d.getFullYear() !== year || d.getMonth() !== month) continue;
+    const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (!dayMap.has(key)) dayMap.set(key, []);
     dayMap.get(key).push(ev);
   }
 
+  // Auto-navigate to the most recent month with data on first render
+  if (dayMap.size === 0 && events.length > 0) {
+    const latest = events.map(ev => parseEventDate(ev)).filter(Boolean).sort((a, b) => b - a)[0];
+    if (latest) {
+      tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), 1);
+      renderTimeline(); return;
+    }
+  }
+
+  const monthLabel = tlPageDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const now = new Date();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
   const days = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
   const subtitle = document.getElementById('timelineSubtitle');
-  if (subtitle) subtitle.textContent = `— ${days.length} day${days.length !== 1 ? 's' : ''}`;
+  if (subtitle) subtitle.textContent = `— ${days.length} day${days.length !== 1 ? 's' : ''} · ${monthLabel}`;
 
   const container = document.getElementById('tlChartContainer');
+
+  const navHtml = `<div class="tl-nav">
+    <button class="btn btn-ghost btn-sm" onclick="prevTimelinePage()">← Prev</button>
+    <span class="tl-nav-title">${esc(monthLabel)}</span>
+    <button class="btn btn-ghost btn-sm" onclick="nextTimelinePage()"${isCurrentMonth ? ' disabled' : ''}>Next →</button>
+  </div>`;
+
   if (!days.length) {
-    container.innerHTML = `<div class="empty">No events with parseable dates found.</div>`;
+    container.innerHTML = navHtml + `<div class="empty">No events in ${esc(monthLabel)}.</div>`;
     document.getElementById('tlDownloads').innerHTML = '';
     return;
   }
 
   const maxCount = Math.max(...days.map(([, evs]) => evs.length));
 
-  container.innerHTML = days.map(([dayKey, dayEvents]) => {
+  const rowsHtml = days.map(([dayKey, dayEvents]) => {
     const d = new Date(dayKey + 'T12:00:00');
-    const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
     const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0 };
     for (const ev of dayEvents) {
       const o = normalizeOutcome(deriveOutcome(ev));
@@ -1429,19 +1466,31 @@ function renderTimeline() {
     const pct = n => total ? Math.round(n / total * 100) : 0;
     const barWidth = Math.round(total / maxCount * 100);
     const sessIds = new Set(dayEvents.map(ev => ev.session_id_base).filter(Boolean));
-    return `<div class="tl-day-row" onclick="filterToDay('${escAttr(dayKey)}')" title="Filter events to ${esc(label)}">
-      <span class="tl-day-label">${esc(label)}</span>
-      <div class="tl-bar-wrap">
-        <div style="width:${barWidth}%;height:100%;display:flex">
-          ${pct(outcomes.approve)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.approve)}%;background:var(--green)"></div>`:''}
-          ${pct(outcomes.failed)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.failed)}%;background:var(--yellow)"></div>`:''}
-          ${pct(outcomes.aborted)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.aborted)}%;background:var(--red)"></div>`:''}
-          ${pct(outcomes.other)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.other)}%;background:var(--muted)"></div>`:''}
-        </div>
+
+    const SEGS = [
+      { key: 'approve', color: 'var(--green)',  label: 'Approved' },
+      { key: 'failed',  color: 'var(--yellow)', label: 'Failed' },
+      { key: 'aborted', color: 'var(--red)',     label: 'Aborted' },
+      { key: 'other',   color: 'var(--muted)',   label: 'Other' },
+    ];
+    const segsHtml = SEGS.filter(s => outcomes[s.key] > 0).map(s => {
+      const p = pct(outcomes[s.key]);
+      const text = p >= 15 ? `${s.label} ${p}% · ${outcomes[s.key]} ev.` : p >= 7 ? `${p}%` : '';
+      return `<div class="tl-bar-seg" style="width:${p}%;background:${s.color}">${text}</div>`;
+    }).join('');
+
+    return `<div class="tl-day-row" onclick="filterToDay('${escAttr(dayKey)}')" title="Filter to ${esc(dayLabel)}">
+      <div class="tl-day-label">
+        <span>${esc(dayLabel)}</span>
+        <span style="font-size:10px">${total} ev · ${sessIds.size} sess</span>
       </div>
-      <span class="tl-day-stat">${total} events · ${sessIds.size} sess.</span>
+      <div class="tl-bar-wrap">
+        <div style="width:${barWidth}%;display:flex;height:100%">${segsHtml}</div>
+      </div>
     </div>`;
   }).join('');
+
+  container.innerHTML = navHtml + `<div class="tl-scroll">${rowsHtml}</div>`;
 
   const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
   const dlEl = document.getElementById('tlDownloads');
