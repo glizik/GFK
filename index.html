@@ -231,7 +231,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v132</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">vc6df443</span></span>
+      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v133</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">v8430479</span></span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -1566,13 +1566,13 @@ function renderTimeline() {
     dlEl.innerHTML = `<div class="tl-download-row">
       <span style="font-size:11px;color:var(--muted);align-self:center">Download:</span>
       ${[
-        { label: 'Last 1h',  time: '1h',  ms: 3_600_000   },
-        { label: 'Last 12h', time: '12h', ms: 43_200_000  },
-        { label: 'Last 1d',  time: '1d',  ms: 86_400_000  },
-        { label: 'Last 3d',  time: '3d',  ms: 259_200_000 },
-        { label: 'Last 1w',  time: '7d',  ms: 604_800_000 },
-        { label: 'All',      time: '90d', ms: 0            },
-      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="triggerPipeline('${w.time}',${w.ms},'${w.label}')">⬇️ ${esc(w.label)}</button>`).join('')}
+        { label: 'Last 1h',  time: '1h'  },
+        { label: 'Last 12h', time: '12h' },
+        { label: 'Last 1d',  time: '1d'  },
+        { label: 'Last 3d',  time: '3d'  },
+        { label: 'Last 1w',  time: '7d'  },
+        { label: 'All',      time: '90d' },
+      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="triggerPipeline('${w.time}','${w.label}')">⬇️ ${esc(w.label)}</button>`).join('')}
     </div>`;
   } else {
     dlEl.innerHTML = '';
@@ -1602,7 +1602,7 @@ function _pipelineAppend(txt) {
   el.scrollTop = el.scrollHeight;
 }
 
-function triggerPipeline(timeParam, windowMs, label) {
+function triggerPipeline(timeParam, label) {
   const output = document.getElementById('discoverOutput');
   const title  = document.getElementById('discoverModalTitle');
   if (output) output.textContent = '';
@@ -1641,23 +1641,9 @@ function triggerPipeline(timeParam, windowMs, label) {
       _pipelineAppend(`\n\n══ Phase 3 / Download ══\n`);
       if (code2 !== 0) _pipelineAppend(`⚠️ Collect exited with code ${code2}.\n`);
 
-      try {
-        const text = await fetch('data/events_3.7.0.csv?_=' + Date.now()).then(r => r.text());
-        const rows = parseCsv(text);
-        const now2 = Date.now();
-        const filtered = windowMs === 0 ? rows : rows.filter(ev => {
-          const d = parseEventDate(ev); return d && now2 - d.getTime() <= windowMs;
-        });
-        if (!filtered.length) { _pipelineAppend(`No events found for ${label}.\n`); return; }
-        const csvQ = v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
-        const csv = [TL_EVENT_HEADERS.join(','), ...filtered.map(r => TL_EVENT_HEADERS.map(h => csvQ(r[h])).join(','))].join('\n') + '\n';
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = `events_${label}_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click(); URL.revokeObjectURL(a.href);
-        _pipelineAppend(`⬇️ Downloaded ${filtered.length} event(s).\n`);
-        loadData(); // refresh dashboard with fresh CSV data
-      } catch (err) { _pipelineAppend('⚠️ Download error: ' + err.message + '\n'); }
+      _pipelineAppend('Refreshing dashboard…\n');
+      await loadData();
+      _pipelineAppend('✅ Done.\n');
     });
 
     _discoverES.onerror = () => {
