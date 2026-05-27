@@ -179,7 +179,11 @@
   .tl-nav-title { font-size: 14px; font-weight: 700; color: #fff; flex: 1; }
   .tl-chart-outer { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
   .tl-chart { display: flex; align-items: flex-end; gap: 6px; padding: 0 2px; }
-  .tl-col { display: flex; flex-direction: column; align-items: stretch; width: 70px; flex-shrink: 0; cursor: pointer; }
+  .tl-col { display: flex; flex-direction: column; align-items: stretch; width: 82px; flex-shrink: 0; cursor: pointer; }
+  .tl-col-today { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .tl-grid-wrap { position: relative; }
+  .tl-grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(100,116,139,0.25); pointer-events: none; }
+  .tl-grid-label { font-size: 9px; color: var(--muted); position: absolute; right: 4px; bottom: 2px; opacity: 0.6; }
   .tl-col:hover .tl-col-bars { filter: brightness(1.18); }
   .tl-col-total { font-size: 11px; font-weight: 700; color: var(--text); text-align: center; margin-bottom: 3px; }
   .tl-col-bars { border-radius: 6px 6px 0 0; overflow: hidden; display: flex; flex-direction: column; }
@@ -227,7 +231,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v124</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">vde8e9aa</span></span>
+      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v125</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">v68ac5c5</span></span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -363,7 +367,8 @@
     <div class="dev-section-panel" id="devSectionPanel">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="addDevTask()">+ New Task</button>
-        <span style="font-size:12px;color:var(--muted)">Tasks stored in localStorage · attach sessions via 📎 on event cards · two-way binding</span>
+        <button class="btn btn-ghost btn-sm" id="devCsvConnectBtn" onclick="connectDevTasksCSV()" style="display:none">⇄ Connect CSV</button>
+        <span id="devCsvStatus" style="font-size:12px;color:var(--muted)">Tasks stored in localStorage · attach sessions via 📎 on event cards</span>
       </div>
       <div id="devTaskList"></div>
     </div>
@@ -421,6 +426,7 @@ const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
 let attachMenuSessId = '';
 let tlPageDate = new Date();
+let csvFileHandle = null;
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function loadData() {
@@ -462,6 +468,8 @@ async function loadData() {
     renderEventsFromActiveIssues();
     renderTimeline();
     renderDevTasks();
+    renderDevConnectBtn();
+    loadDevTasksFromCSV();
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
     console.error(e);
@@ -1420,51 +1428,63 @@ function isHuRedDay(date) {
 }
 
 function prevTimelinePage() {
-  tlPageDate = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth() - 1, 1);
+  tlPageDate = new Date(tlPageDate); tlPageDate.setDate(tlPageDate.getDate() - 14);
   renderTimeline();
 }
 
 function nextTimelinePage() {
-  tlPageDate = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth() + 1, 1);
+  tlPageDate = new Date(tlPageDate); tlPageDate.setDate(tlPageDate.getDate() + 14);
   renderTimeline();
 }
 
 function renderTimeline() {
-  const year  = tlPageDate.getFullYear();
-  const month = tlPageDate.getMonth();
+  const now = new Date();
+  const winStart = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth(), tlPageDate.getDate());
+  const winEnd   = new Date(winStart); winEnd.setDate(winEnd.getDate() + 13);
+
+  const allDates  = events.map(ev => parseEventDate(ev)).filter(Boolean);
+  const hasPrevData = allDates.some(d => d < winStart);
+  const nextStart   = new Date(winStart); nextStart.setDate(nextStart.getDate() + 14);
+  const isCurrentPeriod = nextStart > now;
+
+  // Auto-navigate to 2-week window containing most recent event
+  const windowHasData = events.some(ev => { const d = parseEventDate(ev); return d && d >= winStart && d <= winEnd; });
+  if (!windowHasData && events.length > 0) {
+    const latest = allDates.sort((a, b) => b - a)[0];
+    if (latest) {
+      tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate() - 13);
+      renderTimeline(); return;
+    }
+  }
 
   const dayMap = new Map();
   for (const ev of events) {
     const d = parseEventDate(ev);
-    if (!d || d.getFullYear() !== year || d.getMonth() !== month) continue;
-    const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (!dayMap.has(key)) dayMap.set(key, []);
-    dayMap.get(key).push(ev);
+    if (!d) continue;
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!dayMap.has(k)) dayMap.set(k, []); dayMap.get(k).push(ev);
   }
 
-  // Auto-navigate to most recent month with data
-  if (dayMap.size === 0 && events.length > 0) {
-    const latest = events.map(ev => parseEventDate(ev)).filter(Boolean).sort((a, b) => b - a)[0];
-    if (latest) { tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), 1); renderTimeline(); return; }
+  // Always generate all 14 days (including empty ones)
+  const days = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(winStart); d.setDate(d.getDate() + i);
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    days.push({ key: k, date: d, evs: dayMap.get(k) || [] });
   }
 
-  const allDates = events.map(ev => parseEventDate(ev)).filter(Boolean);
-  const firstOfMonth = new Date(year, month, 1);
-  const hasPrevData = allDates.some(d => d < firstOfMonth);
-  const now = new Date();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
-  const monthLabel = tlPageDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const days = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const rangeLabel = `${fmtDate(winStart)} – ${fmtDate(winEnd)}, ${winEnd.getFullYear()}`;
 
   const subtitle = document.getElementById('timelineSubtitle');
-  if (subtitle) subtitle.textContent = `— ${days.length} day${days.length !== 1 ? 's' : ''} · ${monthLabel}`;
+  if (subtitle) subtitle.textContent = `— ${rangeLabel}`;
 
   const container = document.getElementById('tlChartContainer');
 
   const navHtml = `<div class="tl-nav">
     <button class="btn btn-ghost btn-sm" onclick="prevTimelinePage()"${!hasPrevData ? ' disabled' : ''}>← Prev</button>
-    <span class="tl-nav-title">${esc(monthLabel)}</span>
-    <button class="btn btn-ghost btn-sm" onclick="nextTimelinePage()"${isCurrentMonth ? ' disabled' : ''}>Next →</button>
+    <span class="tl-nav-title">${esc(rangeLabel)}</span>
+    <button class="btn btn-ghost btn-sm" onclick="nextTimelinePage()"${isCurrentPeriod ? ' disabled' : ''}>Next →</button>
   </div>`;
 
   const legendHtml = `<div class="tl-legend">
@@ -1472,28 +1492,31 @@ function renderTimeline() {
       .map(l=>`<span class="tl-legend-item"><span class="tl-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}
   </div>`;
 
-  if (!days.length) {
-    container.innerHTML = navHtml + legendHtml + `<div class="empty">No events in ${esc(monthLabel)}.</div>`;
-    document.getElementById('tlDownloads').innerHTML = '';
-    return;
-  }
-
-  const maxCount = Math.max(...days.map(([, evs]) => evs.length));
-  const CHART_H = 260;
-  // Approved (green) last → renders at the bottom of the flex column (nearest x-axis)
+  const CHART_H = 260, DATE_H = 42;
+  const maxCount = Math.max(1, ...days.map(d => d.evs.length));
   const SEGS = [
-    { key: 'other',   color: 'var(--muted)',  },
-    { key: 'aborted', color: 'var(--red)',    },
-    { key: 'failed',  color: 'var(--yellow)', },
-    { key: 'approve', color: 'var(--green)',  },
+    { key: 'other',   color: 'var(--muted)'  },
+    { key: 'aborted', color: 'var(--red)'    },
+    { key: 'failed',  color: 'var(--yellow)' },
+    { key: 'approve', color: 'var(--green)'  },
   ];
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-  const colsHtml = days.map(([dayKey, dayEvents]) => {
-    const d        = new Date(dayKey + 'T12:00:00');
+  const colsHtml = days.map(({ key: dayKey, date: d, evs: dayEvents }) => {
     const redDay   = isHuRedDay(d);
+    const isToday  = dayKey === todayKey;
     const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekday   = d.toLocaleDateString('en-US', { weekday: 'short' });
-    const outcomes  = { approve: 0, failed: 0, aborted: 0, other: 0 };
+    const total = dayEvents.length;
+    const dateStyle = redDay ? ' style="color:var(--red);font-weight:700"' : '';
+    if (total === 0) {
+      return `<div class="tl-col${isToday ? ' tl-col-today' : ''}" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — no events">
+        <div class="tl-col-total" style="opacity:0.25">0</div>
+        <div class="tl-col-bars" style="height:4px;background:var(--surface2);border-radius:3px;opacity:0.35"></div>
+        <div class="tl-col-date"${dateStyle}>${esc(dateLabel)}<br>${esc(weekday)}</div>
+      </div>`;
+    }
+    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0 };
     for (const ev of dayEvents) {
       const o = normalizeOutcome(deriveOutcome(ev));
       if (o === 'approve') outcomes.approve++;
@@ -1501,23 +1524,29 @@ function renderTimeline() {
       else if (o === 'aborted') outcomes.aborted++;
       else outcomes.other++;
     }
-    const total = dayEvents.length;
-    const barH  = Math.round(total / maxCount * CHART_H);
-    const pct   = n => total ? Math.round(n / total * 100) : 0;
+    const barH = Math.round(total / maxCount * CHART_H);
+    const pct  = n => total ? Math.round(n / total * 100) : 0;
     const segsHtml = SEGS.filter(s => outcomes[s.key] > 0).map(s => {
-      const p    = pct(outcomes[s.key]);
-      const segH = Math.round(p / 100 * barH);
+      const p = pct(outcomes[s.key]); const segH = Math.round(p / 100 * barH);
       return `<div class="tl-col-seg" style="height:${segH}px;background:${s.color}">${segH >= 22 ? p + '%' : ''}</div>`;
     }).join('');
-    return `<div class="tl-col" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — ${total} events">
+    return `<div class="tl-col${isToday ? ' tl-col-today' : ''}" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — ${total} events">
       <div class="tl-col-total">${total}</div>
       <div class="tl-col-bars" style="height:${barH}px">${segsHtml}</div>
-      <div class="tl-col-date"${redDay ? ' style="color:var(--red);font-weight:700"' : ''}>${esc(dateLabel)}<br>${esc(weekday)}</div>
+      <div class="tl-col-date"${dateStyle}>${esc(dateLabel)}<br>${esc(weekday)}</div>
     </div>`;
   }).join('');
 
+  const gridLinesHtml = [50, 100, 150].filter(n => n < maxCount).map(n => {
+    const bot = DATE_H + Math.round(n / maxCount * CHART_H);
+    return `<div class="tl-grid-line" style="bottom:${bot}px"><span class="tl-grid-label">${n}</span></div>`;
+  }).join('');
+
   container.innerHTML = navHtml + legendHtml +
-    `<div class="tl-chart-outer"><div class="tl-chart" style="min-height:${CHART_H + 70}px">${colsHtml}</div></div>` +
+    `<div class="tl-grid-wrap">` +
+      `<div class="tl-chart-outer"><div class="tl-chart" style="min-height:${CHART_H + 70}px">${colsHtml}</div></div>` +
+      `<div style="position:absolute;bottom:0;left:0;right:0;height:${DATE_H + CHART_H}px;pointer-events:none">${gridLinesHtml}</div>` +
+    `</div>` +
     `<div class="tl-x-axis"></div>`;
 
   const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
@@ -1532,7 +1561,7 @@ function renderTimeline() {
         { label: 'Last 3d', ms: 259_200_000 },
         { label: 'Last 1w', ms: 604_800_000 },
         { label: 'All',     ms: 0 },
-      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="downloadEvents(${w.ms})">↓ ${esc(w.label)}</button>`).join('')}
+      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="downloadEvents(${w.ms})">⬇️ ${esc(w.label)}</button>`).join('')}
     </div>`;
   } else {
     dlEl.innerHTML = '';
@@ -1575,12 +1604,86 @@ function downloadEvents(windowMs) {
 }
 
 // ── Developer section ─────────────────────────────────────────────────────────
+function serializeDevTasksCSV() {
+  const q = v => { const s = String(v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const rows = ['id,title,priority,category,attachedSessions'];
+  for (const t of devTasks) rows.push([t.id, t.title, t.priority, t.category, (t.attachedSessions||[]).join('|')].map(q).join(','));
+  return rows.join('\n') + '\n';
+}
+
+function parseDevTasksFromCSV(text) {
+  return parseCsv(text).map(r => ({
+    id: r.id || '', title: r.title || 'Untitled', priority: r.priority || 'medium',
+    category: r.category || 'ios', attachedSessions: (r.attachedSessions || '').split('|').filter(Boolean),
+  })).filter(r => r.id);
+}
+
+async function loadDevTasksFromCSV() {
+  try {
+    const resp = await fetch('data/developer_tasks.csv?_=' + Date.now());
+    if (!resp.ok) return;
+    const tasks = parseDevTasksFromCSV(await resp.text());
+    if (tasks.length > 0) {
+      devTasks = tasks;
+      localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
+      renderDevTasks();
+    }
+  } catch {}
+}
+
+async function saveDevTasksToFile() {
+  if (!csvFileHandle) return;
+  try {
+    const w = await csvFileHandle.createWritable();
+    await w.write(serializeDevTasksCSV());
+    await w.close();
+  } catch (e) {
+    if (e.name === 'NotAllowedError') { csvFileHandle = null; renderDevConnectBtn(); }
+  }
+}
+
+async function connectDevTasksCSV() {
+  try {
+    [csvFileHandle] = await window.showOpenFilePicker({
+      types: [{ description: 'CSV Files', accept: { 'text/csv': ['.csv'] } }], multiple: false,
+    });
+    const text = await (await csvFileHandle.getFile()).text();
+    const tasks = parseDevTasksFromCSV(text);
+    if (tasks.length > 0) { devTasks = tasks; }
+    else if (devTasks.length > 0) { await saveDevTasksToFile(); }
+    localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
+    renderDevTasks();
+    renderDevConnectBtn();
+  } catch {}
+}
+
+function renderDevConnectBtn() {
+  const btn = document.getElementById('devCsvConnectBtn');
+  const status = document.getElementById('devCsvStatus');
+  if (!btn || !status) return;
+  const isLocal = ['localhost','127.0.0.1',''].includes(window.location.hostname);
+  if (isLocal && 'showOpenFilePicker' in window) {
+    btn.style.display = '';
+    if (csvFileHandle) {
+      btn.textContent = '⇄ CSV Connected'; btn.style.color = 'var(--green)'; btn.style.borderColor = 'var(--green)';
+      status.textContent = 'Auto-saving to developer_tasks.csv · attach sessions via 📎 on event cards';
+    } else {
+      btn.textContent = '⇄ Connect CSV'; btn.style.color = ''; btn.style.borderColor = '';
+      status.textContent = 'Connect CSV to auto-save tasks to file (then commit to sync) · attach sessions via 📎';
+    }
+  } else {
+    btn.style.display = 'none';
+    status.textContent = 'Tasks from developer_tasks.csv · attach sessions via 📎 on event cards';
+  }
+}
+
 function loadDevTasks() {
   try { devTasks = JSON.parse(localStorage.getItem('gfk_dev_tasks') || '[]'); } catch { devTasks = []; }
 }
 
 function saveDevTasks() {
   localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
+  saveDevTasksToFile();
 }
 
 function toggleDevSection() {
