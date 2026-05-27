@@ -472,8 +472,8 @@ async function collectIssueType(
       const isDisabled = await prevBtn.isDisabled().catch(() => true);
       if (!isDisabled) {
         await prevBtn.click();
-        await waitForStable(page);
-        await page.waitForTimeout(600);
+        if (!alreadySeen) await waitForStable(page);
+        await page.waitForTimeout(alreadySeen ? 200 : 600);
         navigated = true;
         break;
       }

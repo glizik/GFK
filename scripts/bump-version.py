@@ -7,8 +7,8 @@ version = subprocess.check_output(['git', 'rev-list', '--count', 'HEAD'], cwd=cw
 sha     = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],  cwd=cwd).decode().strip()
 
 PATTERN = (
-    r'(<span style="font-weight:600">)v\d+'
-    r'(</span><span style="opacity:0\.45;font-size:10px;font-family:monospace;margin-left:6px">)'
+    r'(<span [^>]*font-weight:600[^>]*>)v\d+'
+    r'(</span><span [^>]*font-family:monospace[^>]*>)'
     r'v[a-f0-9]+'
     r'(</span>)'
 )

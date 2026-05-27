@@ -171,6 +171,43 @@
   .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
   .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
   .session-list-link { font-size: 11px; margin-left: auto; flex-shrink: 0; }
+
+  /* ── Timeline section ────────────────────────────────────────────────── */
+  .tl-section-panel { }
+  .tl-section-panel.collapsed { display: none; }
+  .tl-day-row { display: flex; align-items: center; gap: 12px; padding: 5px 8px; border-radius: 6px; cursor: pointer; transition: background 0.1s; }
+  .tl-day-row:hover { background: var(--surface2); }
+  .tl-day-label { font-size: 12px; color: var(--muted); min-width: 120px; font-family: monospace; white-space: nowrap; }
+  .tl-bar-wrap { flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; display: flex; }
+  .tl-bar-seg { height: 100%; }
+  .tl-day-stat { font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 110px; text-align: right; }
+  .tl-download-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
+
+  /* ── Developer section ───────────────────────────────────────────────── */
+  .dev-section-panel { }
+  .dev-section-panel.collapsed { display: none; }
+  .dev-task { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .dev-task-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; flex-wrap: wrap; }
+  .dev-task-reorder { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+  .dev-task-btn { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); cursor: pointer; padding: 1px 5px; font-size: 10px; line-height: 1.4; }
+  .dev-task-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+  .dev-task-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .dev-task-title-input { flex: 1; min-width: 160px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 5px 10px; font-size: 13px; font-weight: 600; outline: none; }
+  .dev-task-title-input:focus { border-color: var(--accent); }
+  .dev-task-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 5px 8px; font-size: 12px; cursor: pointer; }
+  .dev-prio-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dev-task-sessions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); min-height: 36px; align-items: center; }
+  .dev-sess-chip { background: rgba(91,127,255,0.12); border: 1px solid rgba(91,127,255,0.3); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .dev-sess-chip:hover { border-color: var(--accent); }
+
+  /* ── Task badge + attach menu ────────────────────────────────────────── */
+  .task-badge { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35); color: var(--accent2); border-radius: 10px; padding: 2px 7px; font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .task-badge:hover { border-color: var(--accent2); }
+  .attach-backdrop { position: fixed; inset: 0; z-index: 199; }
+  .attach-menu { position: fixed; z-index: 200; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; min-width: 210px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .attach-menu-item { padding: 8px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .attach-menu-item:hover { background: var(--border); }
+  .attach-menu-item.attached { color: var(--accent2); }
 </style>
 </head>
 <body>
@@ -182,7 +219,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge"><span style="font-weight:600">v116</span><span style="opacity:0.45;font-size:10px;font-family:monospace;margin-left:6px">v341aed1</span></span>
+      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v117</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);opacity:0.8">vf006266</span></span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -222,10 +259,10 @@
   <div class="section">
     <div class="section-header" onclick="toggleIssuesPanel()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="issuesToggleIcon">▶</span>Issue Types <span class="count" id="issuesSubtitle"></span>
+        <span class="toggle-icon" id="issuesToggleIcon">▶</span>Issue Types <span class="count" id="issuesSubtitle"></span>
       </div>
     </div>
-    <div class="issues-panel" id="issuesPanel">
+    <div class="issues-panel collapsed" id="issuesPanel">
       <div class="issue-chips" id="issueChips"><div class="loading">Loading…</div></div>
       <div class="table-wrap">
         <table class="issues-table">
@@ -250,10 +287,10 @@
   <div class="section" id="analyticsSection">
     <div class="section-header" onclick="toggleAnalytics()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="analyticsToggleIcon">▶</span>Analytics <span class="count" id="analyticsSubtitle"></span>
+        <span class="toggle-icon" id="analyticsToggleIcon">▶</span>Analytics <span class="count" id="analyticsSubtitle"></span>
       </div>
     </div>
-    <div class="analytics-panel" id="analyticsPanel">
+    <div class="analytics-panel collapsed" id="analyticsPanel">
       <div class="stat-row" id="analyticsStatsRow"></div>
       <div class="filter-group">
         <span class="filter-label">Session type</span>
@@ -263,6 +300,10 @@
         <span class="filter-label">Outcome</span>
         <div id="analyticsOutcomeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
+      <div class="filter-group">
+        <span class="filter-label">Version</span>
+        <div id="analyticsVersionFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
       <div id="analyticsGrid"></div>
     </div>
   </div>
@@ -270,10 +311,10 @@
   <div class="section" id="stepsSection">
     <div class="section-header" onclick="toggleStepsPanel()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="stepsToggleIcon">▶</span>Step Funnel <span class="count" id="stepsSubtitle"></span>
+        <span class="toggle-icon" id="stepsToggleIcon">▶</span>Step Funnel <span class="count" id="stepsSubtitle"></span>
       </div>
     </div>
-    <div class="steps-panel" id="stepsPanel">
+    <div class="steps-panel collapsed" id="stepsPanel">
       <div id="stepsFunnel"></div>
     </div>
   </div>
@@ -292,6 +333,36 @@
       <div id="eventsGrid"></div>
     </div>
   </div>
+
+  <div class="section" id="timelineSection">
+    <div class="section-header" onclick="toggleTimeline()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="timelineToggleIcon">▶</span>Timeline <span class="count" id="timelineSubtitle"></span>
+      </div>
+    </div>
+    <div class="tl-section-panel" id="tlSectionPanel">
+      <div id="tlChartContainer"></div>
+      <div id="tlDownloads"></div>
+    </div>
+  </div>
+
+  <div class="section" id="devSection">
+    <div class="section-header" onclick="toggleDevSection()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="devToggleIcon">▶</span>Developer <span class="count" id="devSubtitle"></span>
+      </div>
+    </div>
+    <div class="dev-section-panel" id="devSectionPanel">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="addDevTask()">+ New Task</button>
+        <span style="font-size:12px;color:var(--muted)">Tasks stored in localStorage · attach sessions via 📎 on event cards · two-way binding</span>
+      </div>
+      <div id="devTaskList"></div>
+    </div>
+  </div>
+
+  <div id="attachBackdrop" class="attach-backdrop" style="display:none" onclick="closeAttachMenu()"></div>
+  <div id="attachMenu" class="attach-menu" style="display:none"></div>
 
 </div>
 
@@ -337,8 +408,10 @@ function processLogs(items) {
 // ── State ─────────────────────────────────────────────────────────────────────
 let issues = [], events = [], currentEventsForDisplay = [];
 let activeIssueIds = new Set();
-let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all';
+let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all', analyticsVersionFilter = 'all';
 const sessionGroups = new Map(); // cardId → group array
+let devTasks = [];
+let attachMenuSessId = '';
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function loadData() {
@@ -378,6 +451,8 @@ async function loadData() {
     renderAnalytics();
     renderStepFunnel();
     renderEventsFromActiveIssues();
+    renderTimeline();
+    renderDevTasks();
   } catch (e) {
     showError('Could not load data. Make sure the CSV files are committed to the repo and GitHub Pages is enabled.');
     console.error(e);
@@ -858,9 +933,17 @@ function renderAnalytics() {
     outcomeCounts[s.outcome] = (outcomeCounts[s.outcome] || 0) + 1;
   }
 
+  // Version counts
+  const versionCounts = {};
+  for (const s of categorized) {
+    const v = s.group[0]?.app_version || 'unknown';
+    versionCounts[v] = (versionCounts[v] || 0) + 1;
+  }
+
   let filtered = categorized;
   if (analyticsTypeFilter !== 'all')    filtered = filtered.filter(s => s.type === analyticsTypeFilter);
   if (analyticsOutcomeFilter !== 'all') filtered = filtered.filter(s => s.outcome === analyticsOutcomeFilter);
+  if (analyticsVersionFilter !== 'all') filtered = filtered.filter(s => (s.group[0]?.app_version || 'unknown') === analyticsVersionFilter);
 
   // Stats row
   document.getElementById('analyticsStatsRow').innerHTML = `
@@ -894,6 +977,15 @@ function renderAnalytics() {
   ];
   document.getElementById('analyticsOutcomeFilters').innerHTML = outcomeOpts.map(o =>
     `<button class="filter-btn${o.cls ? ' ' + o.cls : ''}${analyticsOutcomeFilter === o.key ? ' active' : ''}" onclick="setOutcomeFilter('${o.key}')">${o.label}</button>`
+  ).join('');
+
+  // Version filter buttons
+  const versionOpts = [
+    { key: 'all', label: `All (${allSessions.length})` },
+    ...Object.entries(versionCounts).sort((a, b) => b[1] - a[1]).map(([v, cnt]) => ({ key: v, label: `${v} (${cnt})` })),
+  ];
+  document.getElementById('analyticsVersionFilters').innerHTML = versionOpts.map(o =>
+    `<button class="filter-btn${analyticsVersionFilter === o.key ? ' active' : ''}" onclick="setVersionFilter('${escAttr(o.key)}')">${esc(o.label)}</button>`
   ).join('');
 
   document.getElementById('analyticsSubtitle').textContent = `— ${filtered.length} of ${allSessions.length} sessions`;
@@ -1216,6 +1308,14 @@ function renderSessionCard(group, idx) {
     ? `Session ${primary.session_id_base.slice(0, 12)}…`
     : `Event ${idx + 1}`;
 
+  const attachedTasks = getTasksForSession(primary.session_id_base);
+  const taskBadgesHtml = attachedTasks.map(t =>
+    `<span class="task-badge" onclick="scrollToTask('${escAttr(t.id)}')" title="${escAttr(t.title)}">${esc(t.title.length > 16 ? t.title.slice(0, 16) + '…' : t.title)}</span>`
+  ).join(' ');
+  const attachBtnHtml = primary.session_id_base
+    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="Attach to developer task">📎</button>`
+    : '';
+
   const subReportsHtml = `
     <div class="subreports">
       <div class="subreport-label">${group.length} report${group.length !== 1 ? 's' : ''} — click to inspect</div>
@@ -1237,10 +1337,11 @@ function renderSessionCard(group, idx) {
 
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
-      <div>
-        <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span></h3>
+      <div style="flex:1;min-width:0">
+        <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
         <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}</div>
       </div>
+      ${attachBtnHtml}
     </div>
     <div class="event-tabs">
       <div class="event-tab active" data-tab="summary">Summary</div>
@@ -1260,6 +1361,308 @@ function escAttr(s) { return String(s??'').replace(/"/g,'&quot;').replace(/'/g,'
 function showError(msg) { const b=document.getElementById('errorBanner'); b.textContent=msg; b.style.display='block'; }
 function hideError() { document.getElementById('errorBanner').style.display='none'; }
 
+// ── Analytics version filter ──────────────────────────────────────────────────
+function setVersionFilter(v) {
+  analyticsVersionFilter = v;
+  renderAnalytics();
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+function toggleTimeline() {
+  const panel = document.getElementById('tlSectionPanel');
+  const icon  = document.getElementById('timelineToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function parseEventDate(ev) {
+  if (!ev.date) return null;
+  const d = new Date(ev.date);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+const TL_EVENT_HEADERS = [
+  'event_url','issue_id','session_event_key','session_id_full','session_id_base','report_index','event_id',
+  'user_id_base','user_id_suffix','identification_link','app_version','os_version','os_major_version','model','date',
+  'crash_kind','nserror_code','nserror_domain','source','status','configuration',
+  'breadcrumbs_status','nslocalized_description','orientation_device','ram_free_mib','jailbroken','orientation_os',
+  'outcome','reason','last_step','steps_reached','screen_views','n_status_changes',
+  'first_breadcrumb_ts','last_breadcrumb_ts','session_elapsed_s',
+];
+
+function renderTimeline() {
+  const dayMap = new Map();
+  for (const ev of events) {
+    const d = parseEventDate(ev);
+    if (!d) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!dayMap.has(key)) dayMap.set(key, []);
+    dayMap.get(key).push(ev);
+  }
+
+  const days = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const subtitle = document.getElementById('timelineSubtitle');
+  if (subtitle) subtitle.textContent = `— ${days.length} day${days.length !== 1 ? 's' : ''}`;
+
+  const container = document.getElementById('tlChartContainer');
+  if (!days.length) {
+    container.innerHTML = `<div class="empty">No events with parseable dates found.</div>`;
+    document.getElementById('tlDownloads').innerHTML = '';
+    return;
+  }
+
+  const maxCount = Math.max(...days.map(([, evs]) => evs.length));
+
+  container.innerHTML = days.map(([dayKey, dayEvents]) => {
+    const d = new Date(dayKey + 'T12:00:00');
+    const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0 };
+    for (const ev of dayEvents) {
+      const o = normalizeOutcome(deriveOutcome(ev));
+      if (o === 'approve') outcomes.approve++;
+      else if (o === 'failed') outcomes.failed++;
+      else if (o === 'aborted') outcomes.aborted++;
+      else outcomes.other++;
+    }
+    const total = dayEvents.length;
+    const pct = n => total ? Math.round(n / total * 100) : 0;
+    const barWidth = Math.round(total / maxCount * 100);
+    const sessIds = new Set(dayEvents.map(ev => ev.session_id_base).filter(Boolean));
+    return `<div class="tl-day-row" onclick="filterToDay('${escAttr(dayKey)}')" title="Filter events to ${esc(label)}">
+      <span class="tl-day-label">${esc(label)}</span>
+      <div class="tl-bar-wrap">
+        <div style="width:${barWidth}%;height:100%;display:flex">
+          ${pct(outcomes.approve)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.approve)}%;background:var(--green)"></div>`:''}
+          ${pct(outcomes.failed)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.failed)}%;background:var(--yellow)"></div>`:''}
+          ${pct(outcomes.aborted)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.aborted)}%;background:var(--red)"></div>`:''}
+          ${pct(outcomes.other)>0?`<div class="tl-bar-seg" style="width:${pct(outcomes.other)}%;background:var(--muted)"></div>`:''}
+        </div>
+      </div>
+      <span class="tl-day-stat">${total} events · ${sessIds.size} sess.</span>
+    </div>`;
+  }).join('');
+
+  const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
+  const dlEl = document.getElementById('tlDownloads');
+  if (isLocal) {
+    dlEl.innerHTML = `<div class="tl-download-row">
+      <span style="font-size:11px;color:var(--muted);align-self:center">Download events CSV:</span>
+      ${[
+        { label: 'Last 1h', ms: 3_600_000 },
+        { label: 'Last 8h', ms: 28_800_000 },
+        { label: 'Last 1d', ms: 86_400_000 },
+        { label: 'Last 3d', ms: 259_200_000 },
+        { label: 'Last 1w', ms: 604_800_000 },
+        { label: 'All',     ms: 0 },
+      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="downloadEvents(${w.ms})">${esc(w.label)}</button>`).join('')}
+    </div>`;
+  } else {
+    dlEl.innerHTML = '';
+  }
+}
+
+function filterToDay(dayKey) {
+  const dayEvents = events.filter(ev => {
+    const d = parseEventDate(ev);
+    if (!d) return false;
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return k === dayKey;
+  });
+  openEventsPanel();
+  document.getElementById('eventsSearch').value = '';
+  renderEventsGrid(dayEvents);
+  document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function downloadEvents(windowMs) {
+  const now = Date.now();
+  const filtered = windowMs === 0 ? events : events.filter(ev => {
+    const d = parseEventDate(ev);
+    if (!d) return false;
+    return now - d.getTime() <= windowMs;
+  });
+  const rows = [
+    TL_EVENT_HEADERS.join(','),
+    ...filtered.map(ev => TL_EVENT_HEADERS.map(h => {
+      const v = String(ev[h] ?? '');
+      return (v.includes(',') || v.includes('"') || v.includes('\n')) ? `"${v.replace(/"/g, '""')}"` : v;
+    }).join(',')),
+  ];
+  const a = document.createElement('a');
+  const label = windowMs === 0 ? 'all' : `${windowMs / 3_600_000}h`;
+  a.download = `events_${label}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Developer section ─────────────────────────────────────────────────────────
+function loadDevTasks() {
+  try { devTasks = JSON.parse(localStorage.getItem('gfk_dev_tasks') || '[]'); } catch { devTasks = []; }
+}
+
+function saveDevTasks() {
+  localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
+}
+
+function toggleDevSection() {
+  const panel = document.getElementById('devSectionPanel');
+  const icon  = document.getElementById('devToggleIcon');
+  const isOpen = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', isOpen);
+  icon.classList.toggle('open', !isOpen);
+}
+
+function addDevTask() {
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  devTasks.push({ id, title: 'New Task', priority: 'medium', category: 'ios', attachedSessions: [] });
+  saveDevTasks();
+  renderDevTasks();
+}
+
+function deleteDevTask(id) {
+  devTasks = devTasks.filter(t => t.id !== id);
+  saveDevTasks();
+  renderDevTasks();
+  rerenderEventCards();
+}
+
+function moveTask(id, dir) {
+  const idx = devTasks.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  const to = idx + dir;
+  if (to < 0 || to >= devTasks.length) return;
+  [devTasks[idx], devTasks[to]] = [devTasks[to], devTasks[idx]];
+  saveDevTasks();
+  renderDevTasks();
+}
+
+function updateTaskField(id, field, value) {
+  const task = devTasks.find(t => t.id === id);
+  if (!task) return;
+  task[field] = value;
+  saveDevTasks();
+  renderDevTasks();
+}
+
+function toggleSessionInTask(taskId, sessId) {
+  const task = devTasks.find(t => t.id === taskId);
+  if (!task || !sessId) return;
+  const idx = task.attachedSessions.indexOf(sessId);
+  if (idx >= 0) task.attachedSessions.splice(idx, 1);
+  else task.attachedSessions.push(sessId);
+  saveDevTasks();
+  renderDevTasks();
+  rerenderAttachMenu();
+  rerenderEventCards();
+}
+
+function getTasksForSession(sessId) {
+  if (!sessId) return [];
+  return devTasks.filter(t => t.attachedSessions.includes(sessId));
+}
+
+function rerenderEventCards() {
+  const q = document.getElementById('eventsSearch')?.value?.trim().toLowerCase() || '';
+  if (q) filterEvents();
+  else renderEventsGrid(currentEventsForDisplay);
+}
+
+const PRIORITY_COLORS = { critical: 'var(--red)', high: 'var(--orange)', medium: 'var(--yellow)', low: 'var(--green)' };
+const CATEGORY_LABELS = { ios: 'iOS issue', backend: 'BackEnd issue', 'user-error': 'User error', other: 'Other' };
+
+function renderDevTasks() {
+  const el = document.getElementById('devTaskList');
+  if (!el) return;
+  const subtitle = document.getElementById('devSubtitle');
+  if (subtitle) subtitle.textContent = `— ${devTasks.length} task${devTasks.length !== 1 ? 's' : ''}`;
+  if (!devTasks.length) {
+    el.innerHTML = `<div class="empty">No tasks yet. Click "+ New Task" to add one.</div>`;
+    return;
+  }
+  el.innerHTML = devTasks.map((task, idx) => {
+    const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
+    return `<div class="dev-task" id="dtask-${escAttr(task.id)}">
+      <div class="dev-task-header">
+        <div class="dev-task-reorder">
+          <button class="dev-task-btn" onclick="moveTask('${escAttr(task.id)}',-1)" ${idx===0?'disabled':''} title="Move up">▲</button>
+          <button class="dev-task-btn" onclick="moveTask('${escAttr(task.id)}',1)" ${idx===devTasks.length-1?'disabled':''} title="Move down">▼</button>
+        </div>
+        <input class="dev-task-title-input" value="${escAttr(task.title)}"
+          onblur="updateTaskField('${escAttr(task.id)}','title',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+        <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','priority',this.value)">
+          ${['critical','high','medium','low'].map(p=>`<option value="${p}"${task.priority===p?' selected':''}>${p[0].toUpperCase()+p.slice(1)}</option>`).join('')}
+        </select>
+        <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','category',this.value)">
+          ${Object.entries(CATEGORY_LABELS).map(([k,v])=>`<option value="${k}"${task.category===k?' selected':''}>${v}</option>`).join('')}
+        </select>
+        <span class="dev-prio-dot" style="background:${prioColor}" title="${escAttr(task.priority)}"></span>
+        <button class="dev-task-btn" style="color:var(--red);border-color:rgba(239,68,68,0.3)" onclick="deleteDevTask('${escAttr(task.id)}')" title="Delete task">✕</button>
+      </div>
+      <div class="dev-task-sessions">
+        ${task.attachedSessions.length === 0
+          ? '<span style="font-size:11px;color:var(--muted)">No sessions attached — use 📎 on event cards.</span>'
+          : task.attachedSessions.map(sid => `<span class="dev-sess-chip" onclick="showSessionInEvents('${escAttr(sid)}')" title="${escAttr(sid)}">${esc(sid.slice(0,14))}… <span onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove" style="opacity:0.55;cursor:pointer;font-size:10px">✕</span></span>`).join('')
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Attach menu ───────────────────────────────────────────────────────────────
+function openAttachMenu(sessId, btn) {
+  if (document.getElementById('attachMenu').style.display !== 'none' && attachMenuSessId === sessId) {
+    closeAttachMenu(); return;
+  }
+  attachMenuSessId = sessId;
+  document.getElementById('attachBackdrop').style.display = 'block';
+  const menu = document.getElementById('attachMenu');
+  menu.style.display = 'block';
+  renderAttachMenuItems();
+  const rect = btn.getBoundingClientRect();
+  menu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  menu.style.left = Math.max(4, Math.min(rect.left, window.innerWidth - 220)) + 'px';
+}
+
+function closeAttachMenu() {
+  document.getElementById('attachBackdrop').style.display = 'none';
+  document.getElementById('attachMenu').style.display = 'none';
+  attachMenuSessId = '';
+}
+
+function rerenderAttachMenu() {
+  if (document.getElementById('attachMenu').style.display !== 'none') renderAttachMenuItems();
+}
+
+function renderAttachMenuItems() {
+  const el = document.getElementById('attachMenu');
+  if (!devTasks.length) {
+    el.innerHTML = `<div class="attach-menu-item" style="color:var(--muted);cursor:default">No tasks — add one in Developer section</div>`;
+    return;
+  }
+  el.innerHTML = devTasks.map(t => {
+    const attached = t.attachedSessions.includes(attachMenuSessId);
+    return `<div class="attach-menu-item${attached?' attached':''}" onclick="toggleSessionInTask('${escAttr(t.id)}','${escAttr(attachMenuSessId)}')">
+      <span style="width:14px;font-size:10px;flex-shrink:0">${attached?'✓':''}</span>
+      <span style="flex:1">${esc(t.title)}</span>
+      <span style="font-size:10px;color:var(--muted)">${esc(CATEGORY_LABELS[t.category]||t.category)}</span>
+    </div>`;
+  }).join('');
+}
+
+function scrollToTask(taskId) {
+  closeAttachMenu();
+  const taskEl = document.getElementById(`dtask-${taskId}`);
+  if (taskEl) {
+    taskEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    taskEl.style.outline = '2px solid var(--accent2)';
+    setTimeout(() => { taskEl.style.outline = ''; }, 1500);
+  }
+}
+
+loadDevTasks();
 loadData();
 </script>
 </body>
