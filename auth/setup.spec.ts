@@ -72,6 +72,7 @@ test('Save Firebase session', async ({ page, context }) => {
       }
       await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
       await page.waitForTimeout(1500);
+      console.log(`📍 After email Next: ${page.url().slice(0, 150)}`);
     } else {
       console.log('⚠️  No email input matched — skipping email step.');
     }
@@ -89,7 +90,7 @@ test('Save Firebase session', async ({ page, context }) => {
   ];
   let pwFilled = false;
   try {
-    await page.waitForSelector(PW_SELS.join(', '), { state: 'visible', timeout: 8_000 });
+    await page.waitForSelector(PW_SELS.join(', '), { state: 'visible', timeout: 15_000 });
     for (const sel of PW_SELS) {
       const el = page.locator(sel).first();
       if (!(await el.isVisible().catch(() => false))) continue;
@@ -112,11 +113,18 @@ test('Save Firebase session', async ({ page, context }) => {
   }
 
   // ── 2FA or already logged in ──────────────────────────────────────────────
-  if (page.url().includes('console.firebase.google.com')) {
+  // Use hostname check — URL may contain 'console.firebase.google.com' in the
+  // ?continue= query param even when still on accounts.google.com
+  const isAtFirebase = () => {
+    try { return new URL(page.url()).hostname === 'console.firebase.google.com'; }
+    catch { return false; }
+  };
+  console.log(`📍 Pre-2FA URL: ${page.url().slice(0, 150)}`);
+  if (isAtFirebase()) {
     console.log('✅ Already at Firebase Console (no 2FA needed).');
   } else {
     console.log('⏸️  Enter your 2FA code in the browser…');
-    await page.waitForURL(url => url.href.includes('console.firebase.google.com'), { timeout: 120_000 });
+    await page.waitForURL(url => { try { return new URL(url.href).hostname === 'console.firebase.google.com'; } catch { return false; } }, { timeout: 120_000 });
     await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
     console.log('✅ Firebase Console loaded.');
   }
