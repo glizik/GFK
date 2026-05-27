@@ -187,6 +187,9 @@
   .tl-x-axis { border-top: 1px solid var(--border); margin: 0 2px; }
   .tl-col-date { font-size: 11px; color: var(--muted); text-align: center; margin-top: 6px; font-family: monospace; line-height: 1.5; white-space: nowrap; }
   .tl-download-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
+  .tl-legend { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .tl-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .tl-legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
 
   /* ── Developer section ───────────────────────────────────────────────── */
   .dev-section-panel { }
@@ -224,7 +227,7 @@
       <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
-      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v122</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">ve989929</span></span>
+      <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v123</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">veff00e0</span></span>
       <span class="ro-badge">👁 Read-only</span>
       <button class="btn btn-ghost btn-sm" onclick="loadData()">↺ Refresh</button>
     </div>
@@ -1398,6 +1401,24 @@ const TL_EVENT_HEADERS = [
   'first_breadcrumb_ts','last_breadcrumb_ts','session_elapsed_s',
 ];
 
+// Hungarian public holidays 2025-2027 (Good Friday included since 2017)
+const HU_HOLIDAYS = new Set([
+  '2025-01-01','2025-03-15','2025-04-18','2025-04-20','2025-04-21',
+  '2025-05-01','2025-06-08','2025-06-09',
+  '2025-08-20','2025-10-23','2025-11-01','2025-12-25','2025-12-26',
+  '2026-01-01','2026-03-15','2026-04-03','2026-04-05','2026-04-06',
+  '2026-05-01','2026-05-24','2026-05-25',
+  '2026-08-20','2026-10-23','2026-11-01','2026-12-25','2026-12-26',
+  '2027-01-01','2027-03-15','2027-03-26','2027-03-28','2027-03-29',
+  '2027-05-01','2027-05-16','2027-05-17',
+  '2027-08-20','2027-10-23','2027-11-01','2027-12-25','2027-12-26',
+]);
+function isHuRedDay(date) {
+  if (date.getDay() === 0) return true;
+  const k = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  return HU_HOLIDAYS.has(k);
+}
+
 function prevTimelinePage() {
   tlPageDate = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth() - 1, 1);
   renderTimeline();
@@ -1410,7 +1431,7 @@ function nextTimelinePage() {
 
 function renderTimeline() {
   const year  = tlPageDate.getFullYear();
-  const month = tlPageDate.getMonth(); // 0-based
+  const month = tlPageDate.getMonth();
 
   const dayMap = new Map();
   for (const ev of events) {
@@ -1421,18 +1442,18 @@ function renderTimeline() {
     dayMap.get(key).push(ev);
   }
 
-  // Auto-navigate to the most recent month with data on first render
+  // Auto-navigate to most recent month with data
   if (dayMap.size === 0 && events.length > 0) {
     const latest = events.map(ev => parseEventDate(ev)).filter(Boolean).sort((a, b) => b - a)[0];
-    if (latest) {
-      tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), 1);
-      renderTimeline(); return;
-    }
+    if (latest) { tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), 1); renderTimeline(); return; }
   }
 
-  const monthLabel = tlPageDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const allDates = events.map(ev => parseEventDate(ev)).filter(Boolean);
+  const firstOfMonth = new Date(year, month, 1);
+  const hasPrevData = allDates.some(d => d < firstOfMonth);
   const now = new Date();
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+  const monthLabel = tlPageDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const days = [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
   const subtitle = document.getElementById('timelineSubtitle');
@@ -1441,29 +1462,35 @@ function renderTimeline() {
   const container = document.getElementById('tlChartContainer');
 
   const navHtml = `<div class="tl-nav">
-    <button class="btn btn-ghost btn-sm" onclick="prevTimelinePage()">← Prev</button>
+    <button class="btn btn-ghost btn-sm" onclick="prevTimelinePage()"${!hasPrevData ? ' disabled' : ''}>← Prev</button>
     <span class="tl-nav-title">${esc(monthLabel)}</span>
     <button class="btn btn-ghost btn-sm" onclick="nextTimelinePage()"${isCurrentMonth ? ' disabled' : ''}>Next →</button>
   </div>`;
 
+  const legendHtml = `<div class="tl-legend">
+    ${[{color:'var(--green)',label:'Approved'},{color:'var(--yellow)',label:'Failed'},{color:'var(--red)',label:'Aborted'},{color:'var(--muted)',label:'Other'}]
+      .map(l=>`<span class="tl-legend-item"><span class="tl-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}
+  </div>`;
+
   if (!days.length) {
-    container.innerHTML = navHtml + `<div class="empty">No events in ${esc(monthLabel)}.</div>`;
+    container.innerHTML = navHtml + legendHtml + `<div class="empty">No events in ${esc(monthLabel)}.</div>`;
     document.getElementById('tlDownloads').innerHTML = '';
     return;
   }
 
   const maxCount = Math.max(...days.map(([, evs]) => evs.length));
-
   const CHART_H = 260;
+  // Approved (green) last → renders at the bottom of the flex column (nearest x-axis)
   const SEGS = [
-    { key: 'approve', color: 'var(--green)',  label: 'Approved' },
-    { key: 'failed',  color: 'var(--yellow)', label: 'Failed' },
-    { key: 'aborted', color: 'var(--red)',     label: 'Aborted' },
-    { key: 'other',   color: 'var(--muted)',   label: 'Other' },
+    { key: 'other',   color: 'var(--muted)',  },
+    { key: 'aborted', color: 'var(--red)',    },
+    { key: 'failed',  color: 'var(--yellow)', },
+    { key: 'approve', color: 'var(--green)',  },
   ];
 
   const colsHtml = days.map(([dayKey, dayEvents]) => {
-    const d = new Date(dayKey + 'T12:00:00');
+    const d        = new Date(dayKey + 'T12:00:00');
+    const redDay   = isHuRedDay(d);
     const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekday   = d.toLocaleDateString('en-US', { weekday: 'short' });
     const outcomes  = { approve: 0, failed: 0, aborted: 0, other: 0 };
@@ -1477,22 +1504,19 @@ function renderTimeline() {
     const total = dayEvents.length;
     const barH  = Math.round(total / maxCount * CHART_H);
     const pct   = n => total ? Math.round(n / total * 100) : 0;
-
     const segsHtml = SEGS.filter(s => outcomes[s.key] > 0).map(s => {
       const p    = pct(outcomes[s.key]);
       const segH = Math.round(p / 100 * barH);
-      const text = segH >= 22 ? `${p}%` : '';
-      return `<div class="tl-col-seg" style="height:${segH}px;background:${s.color}">${text}</div>`;
+      return `<div class="tl-col-seg" style="height:${segH}px;background:${s.color}">${segH >= 22 ? p + '%' : ''}</div>`;
     }).join('');
-
     return `<div class="tl-col" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — ${total} events">
       <div class="tl-col-total">${total}</div>
       <div class="tl-col-bars" style="height:${barH}px">${segsHtml}</div>
-      <div class="tl-col-date">${esc(dateLabel)}<br>${esc(weekday)}</div>
+      <div class="tl-col-date"${redDay ? ' style="color:var(--red);font-weight:700"' : ''}>${esc(dateLabel)}<br>${esc(weekday)}</div>
     </div>`;
   }).join('');
 
-  container.innerHTML = navHtml +
+  container.innerHTML = navHtml + legendHtml +
     `<div class="tl-chart-outer"><div class="tl-chart" style="min-height:${CHART_H + 70}px">${colsHtml}</div></div>` +
     `<div class="tl-x-axis"></div>`;
 
@@ -1500,7 +1524,7 @@ function renderTimeline() {
   const dlEl = document.getElementById('tlDownloads');
   if (isLocal) {
     dlEl.innerHTML = `<div class="tl-download-row">
-      <span style="font-size:11px;color:var(--muted);align-self:center">Download events CSV:</span>
+      <span style="font-size:11px;color:var(--muted);align-self:center">Download:</span>
       ${[
         { label: 'Last 1h', ms: 3_600_000 },
         { label: 'Last 8h', ms: 28_800_000 },
@@ -1508,7 +1532,7 @@ function renderTimeline() {
         { label: 'Last 3d', ms: 259_200_000 },
         { label: 'Last 1w', ms: 604_800_000 },
         { label: 'All',     ms: 0 },
-      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="downloadEvents(${w.ms})">${esc(w.label)}</button>`).join('')}
+      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="downloadEvents(${w.ms})">↓ ${esc(w.label)}</button>`).join('')}
     </div>`;
   } else {
     dlEl.innerHTML = '';
