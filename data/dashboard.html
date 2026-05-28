@@ -221,7 +221,8 @@
   .dev-task-note-toggle:hover { color: var(--text); }
   .dev-task-note-body { margin-top: 6px; display: none; }
   .dev-task-note-body.open { display: block; }
-  .dev-task-note-textarea { width: 100%; min-height: 100px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-size: 12px; font-family: monospace; line-height: 1.5; resize: vertical; outline: none; box-sizing: border-box; }
+  .dev-task-note-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .dev-task-note-textarea { width: 100%; min-height: 140px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-size: 12px; font-family: monospace; line-height: 1.6; resize: vertical; outline: none; box-sizing: border-box; }
   .dev-task-note-textarea:focus { border-color: var(--accent); }
 
   /* ── Task badge + attach menu ────────────────────────────────────────── */
@@ -1720,9 +1721,9 @@ function downloadEvents(windowMs) {
 
 // ── Developer section ─────────────────────────────────────────────────────────
 function serializeDevTasksCSV() {
-  const q = v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
-  const rows = ['id,title,priority,resolution,category,note,attachedSessions'];
-  for (const t of devTasks) rows.push([t.id, t.title, t.priority, t.resolution||'open', t.category, t.note||'', (t.attachedSessions||[]).join('|')].map(q).join(','));
+  const q = v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const rows = ['id,title,priority,resolution,category,noteFile,attachedSessions'];
+  for (const t of devTasks) rows.push([t.id, t.title, t.priority, t.resolution||'open', t.category, t.noteFile||'', (t.attachedSessions||[]).join('|')].map(q).join(','));
   return rows.join('\n') + '\n';
 }
 
@@ -1730,7 +1731,7 @@ function parseDevTasksFromCSV(text) {
   return parseCsv(text).map(r => ({
     id: r.id || '', title: r.title || 'Untitled', priority: r.priority || 'medium',
     resolution: r.resolution || 'open', category: r.category || 'ios',
-    note: r.note || '',
+    noteFile: r.noteFile || r.note_file || '',
     attachedSessions: (r.attachedSessions || '').split('|').filter(Boolean),
   })).filter(r => r.id);
 }
@@ -1815,17 +1816,58 @@ function toggleDevSection() {
 
 function addDevTask() {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  devTasks.push({ id, title: 'New Task', priority: 'medium', resolution: 'open', category: 'ios', note: '', attachedSessions: [] });
+  devTasks.push({ id, title: 'New Task', priority: 'medium', resolution: 'open', category: 'ios', noteFile: '', attachedSessions: [] });
   saveDevTasks();
   renderDevTasks();
 }
 
-function toggleTaskNote(id) {
+const noteCache = {}; // taskId → { content, dirty }
+
+async function toggleTaskNote(id) {
   const body = document.getElementById(`tnote-body-${id}`);
   const icon = document.getElementById(`tnote-icon-${id}`);
   if (!body) return;
   const isOpen = body.classList.toggle('open');
   if (icon) icon.textContent = isOpen ? '▾' : '▸';
+  if (!isOpen) return;
+  // load note content if not cached
+  if (!noteCache[id]) {
+    const task = devTasks.find(t => t.id === id);
+    const ta = document.getElementById(`tnote-ta-${id}`);
+    if (task && task.noteFile && ta) {
+      ta.value = 'Loading…';
+      try {
+        const resp = await fetch(`data/notes/${task.noteFile}?_=${Date.now()}`);
+        const text = resp.ok ? await resp.text() : `(Could not load ${task.noteFile})`;
+        noteCache[id] = { content: text, dirty: false };
+        ta.value = text;
+      } catch { ta.value = '(Error loading note file)'; }
+    }
+  }
+}
+
+function onNoteEdit(id, value) {
+  if (!noteCache[id]) noteCache[id] = { content: '', dirty: false };
+  noteCache[id].content = value;
+  noteCache[id].dirty = true;
+  const btn = document.getElementById(`tnote-dl-${id}`);
+  if (btn) { btn.style.color = 'var(--orange)'; btn.title = 'Unsaved changes — click to download .md'; }
+}
+
+function downloadNote(id) {
+  const task = devTasks.find(t => t.id === id);
+  const ta = document.getElementById(`tnote-ta-${id}`);
+  if (!ta) return;
+  const content = ta.value;
+  const filename = (task && task.noteFile) ? task.noteFile : `note_${id}.md`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown' }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  if (noteCache[id]) noteCache[id].dirty = false;
+  const btn = document.getElementById(`tnote-dl-${id}`);
+  if (btn) { btn.style.color = ''; btn.title = 'Download .md file'; }
 }
 
 function deleteDevTask(id) {
@@ -1891,7 +1933,7 @@ function renderDevTasks() {
   }
   el.innerHTML = devTasks.map((task, idx) => {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
-    const hasNote = (task.note || '').trim().length > 0;
+    const hasNoteFile = !!(task.noteFile || '').trim();
     return `<div class="dev-task" id="dtask-${escAttr(task.id)}">
       <div class="dev-task-header">
         <div class="dev-task-reorder">
@@ -1932,12 +1974,16 @@ function renderDevTasks() {
         <div class="dev-task-note-toggle" onclick="toggleTaskNote('${escAttr(task.id)}')">
           <span id="tnote-icon-${escAttr(task.id)}">▸</span>
           <span>Note</span>
-          ${hasNote ? '<span style="font-size:10px;color:var(--accent);margin-left:2px">●</span>' : ''}
+          ${hasNoteFile ? `<span style="font-size:10px;color:var(--muted);margin-left:2px">${escAttr(task.noteFile)}</span>` : ''}
         </div>
         <div class="dev-task-note-body" id="tnote-body-${escAttr(task.id)}">
-          <textarea class="dev-task-note-textarea"
-            placeholder="Markdown supported — add links, details, reproduction steps…"
-            onblur="updateTaskField('${escAttr(task.id)}','note',this.value)">${escAttr(task.note||'')}</textarea>
+          <div class="dev-task-note-toolbar">
+            <button class="dev-task-btn" id="tnote-dl-${escAttr(task.id)}" onclick="downloadNote('${escAttr(task.id)}')" title="Download .md file">📥 Save .md</button>
+            ${hasNoteFile ? `<span style="font-size:10px;color:var(--muted)">data/notes/${escAttr(task.noteFile)}</span>` : ''}
+          </div>
+          <textarea class="dev-task-note-textarea" id="tnote-ta-${escAttr(task.id)}"
+            placeholder="Markdown — links, steps, details…"
+            oninput="onNoteEdit('${escAttr(task.id)}',this.value)"></textarea>
         </div>
       </div>
     </div>`;
