@@ -1954,7 +1954,8 @@ async function exportTaskMD(id) {
   const idx = devTasks.findIndex(t => t.id === id);
   if (idx < 0) return;
   const t = devTasks[idx];
-  const ticket = `Task-${String(idx+1).padStart(3,'0')}`;
+  const ticketNum = parseInt((t.id.match(/\d+$/) || ['0'])[0]);
+  const ticket = `Task-${String(ticketNum).padStart(3,'0')}`;
   const date = new Date().toISOString().slice(0,10);
   const parts = [];
   parts.push(`# ${t.title}\n\n`);
@@ -2138,7 +2139,8 @@ function renderDevTasks() {
   el.innerHTML = devTasks.map((task, idx) => {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
     const hasNoteFile = !!(task.noteFile || '').trim();
-    const ticket = `Task-${String(idx+1).padStart(3,'0')}`;
+    const ticketNum = parseInt((task.id.match(/\d+$/) || ['0'])[0]);
+    const ticket = `Task-${String(ticketNum).padStart(3,'0')}`;
 
     // Log approved sessions to console
     if (task.attachedSessions.length && events.length) {

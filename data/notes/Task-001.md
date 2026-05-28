@@ -13,7 +13,7 @@
 7. User starts over, integrity check aborting ✅
 8. User pass voice-liveness-check, deepfake-detection and then customerPortrait again and timeOut again... and just give suggestions here in console.
 
-## Attempt statistics (17 sessions)
+## Attempt statistics
 
 - Worst case: 1 user made **22 portrait attempts** across 5 full voice→deepfake→portrait restart cycles, never succeeded
 - Recovery rate: **4/17 (23%)** eventually passed customerPortrait within the same session after repeated retries
