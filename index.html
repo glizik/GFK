@@ -381,6 +381,7 @@
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="addDevTask()">+ New Task</button>
         <button class="btn btn-ghost btn-sm" id="devCsvConnectBtn" onclick="connectDevTasksCSV()" style="display:none">⇄ Connect CSV</button>
+        <button class="btn btn-ghost btn-sm" id="devNotesDirBtn" onclick="connectNotesDir()" style="display:none">📁 Connect Notes Folder</button>
         <span id="devCsvStatus" style="font-size:12px;color:var(--muted)">Tasks stored in localStorage · attach sessions via 📎 on event cards</span>
       </div>
       <div id="devTaskList"></div>
@@ -1778,6 +1779,7 @@ async function connectDevTasksCSV() {
 }
 
 function renderDevConnectBtn() {
+  renderDevNotesDirBtn();
   const btn = document.getElementById('devCsvConnectBtn');
   const status = document.getElementById('devCsvStatus');
   if (!btn || !status) return;
@@ -1821,7 +1823,55 @@ function addDevTask() {
   renderDevTasks();
 }
 
-const noteCache = {}; // taskId → { content, dirty }
+// ── Notes folder (File System Access API, localhost only) ────────────────────
+let notesDirHandle = null;
+const noteCache = {}; // taskId → loaded content string
+const noteSaveTimers = {};
+
+function isLocalhost() { return ['localhost','127.0.0.1',''].includes(window.location.hostname); }
+
+async function connectNotesDir() {
+  try {
+    notesDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    renderDevNotesDirBtn();
+    // reload any open note textareas
+    for (const task of devTasks) {
+      const ta = document.getElementById(`tnote-ta-${task.id}`);
+      if (ta && ta.closest('.dev-task-note-body.open')) loadNoteInto(task, ta);
+    }
+  } catch {}
+}
+
+function renderDevNotesDirBtn() {
+  const btn = document.getElementById('devNotesDirBtn');
+  if (!btn) return;
+  const isLocal = isLocalhost() && 'showDirectoryPicker' in window;
+  btn.style.display = isLocal ? '' : 'none';
+  if (notesDirHandle) {
+    btn.textContent = '📁 Notes Connected';
+    btn.style.color = 'var(--green)'; btn.style.borderColor = 'var(--green)';
+  } else {
+    btn.textContent = '📁 Connect Notes Folder';
+    btn.style.color = ''; btn.style.borderColor = '';
+  }
+}
+
+async function loadNoteInto(task, ta) {
+  if (!task.noteFile) return;
+  ta.value = 'Loading…';
+  ta.readOnly = false;
+  try {
+    if (notesDirHandle) {
+      const fh = await notesDirHandle.getFileHandle(task.noteFile);
+      ta.value = await (await fh.getFile()).text();
+    } else {
+      const resp = await fetch(`data/notes/${task.noteFile}?_=${Date.now()}`);
+      ta.value = resp.ok ? await resp.text() : `(Could not load ${task.noteFile})`;
+      if (!isLocalhost()) ta.readOnly = true;
+    }
+    noteCache[task.id] = ta.value;
+  } catch (e) { ta.value = `(Error: ${e.message})`; }
+}
 
 async function toggleTaskNote(id) {
   const body = document.getElementById(`tnote-body-${id}`);
@@ -1830,44 +1880,28 @@ async function toggleTaskNote(id) {
   const isOpen = body.classList.toggle('open');
   if (icon) icon.textContent = isOpen ? '▾' : '▸';
   if (!isOpen) return;
-  // load note content if not cached
-  if (!noteCache[id]) {
-    const task = devTasks.find(t => t.id === id);
-    const ta = document.getElementById(`tnote-ta-${id}`);
-    if (task && task.noteFile && ta) {
-      ta.value = 'Loading…';
-      try {
-        const resp = await fetch(`data/notes/${task.noteFile}?_=${Date.now()}`);
-        const text = resp.ok ? await resp.text() : `(Could not load ${task.noteFile})`;
-        noteCache[id] = { content: text, dirty: false };
-        ta.value = text;
-      } catch { ta.value = '(Error loading note file)'; }
-    }
-  }
-}
-
-function onNoteEdit(id, value) {
-  if (!noteCache[id]) noteCache[id] = { content: '', dirty: false };
-  noteCache[id].content = value;
-  noteCache[id].dirty = true;
-  const btn = document.getElementById(`tnote-dl-${id}`);
-  if (btn) { btn.style.color = 'var(--orange)'; btn.title = 'Unsaved changes — click to download .md'; }
-}
-
-function downloadNote(id) {
+  if (noteCache[id] !== undefined) return; // already loaded
   const task = devTasks.find(t => t.id === id);
   const ta = document.getElementById(`tnote-ta-${id}`);
-  if (!ta) return;
-  const content = ta.value;
-  const filename = (task && task.noteFile) ? task.noteFile : `note_${id}.md`;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown' }));
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-  if (noteCache[id]) noteCache[id].dirty = false;
-  const btn = document.getElementById(`tnote-dl-${id}`);
-  if (btn) { btn.style.color = ''; btn.title = 'Download .md file'; }
+  if (task && ta) await loadNoteInto(task, ta);
+}
+
+async function onNoteEdit(id, value) {
+  noteCache[id] = value;
+  if (!notesDirHandle) return;
+  // debounced auto-save
+  clearTimeout(noteSaveTimers[id]);
+  noteSaveTimers[id] = setTimeout(async () => {
+    const task = devTasks.find(t => t.id === id);
+    if (!task || !task.noteFile) return;
+    try {
+      const fh = await notesDirHandle.getFileHandle(task.noteFile, { create: true });
+      const w = await fh.createWritable();
+      await w.write(value); await w.close();
+      const lbl = document.getElementById(`tnote-status-${id}`);
+      if (lbl) { lbl.textContent = 'Saved'; lbl.style.color = 'var(--green)'; setTimeout(() => { if (lbl) lbl.textContent = ''; }, 2000); }
+    } catch {}
+  }, 800);
 }
 
 function deleteDevTask(id) {
@@ -1978,11 +2012,11 @@ function renderDevTasks() {
         </div>
         <div class="dev-task-note-body" id="tnote-body-${escAttr(task.id)}">
           <div class="dev-task-note-toolbar">
-            <button class="dev-task-btn" id="tnote-dl-${escAttr(task.id)}" onclick="downloadNote('${escAttr(task.id)}')" title="Download .md file">📥 Save .md</button>
             ${hasNoteFile ? `<span style="font-size:10px;color:var(--muted)">data/notes/${escAttr(task.noteFile)}</span>` : ''}
+            <span id="tnote-status-${escAttr(task.id)}" style="font-size:10px;margin-left:4px"></span>
           </div>
           <textarea class="dev-task-note-textarea" id="tnote-ta-${escAttr(task.id)}"
-            placeholder="Markdown — links, steps, details…"
+            placeholder="Connect Notes Folder (localhost) to edit — read-only on GitHub Pages"
             oninput="onNoteEdit('${escAttr(task.id)}',this.value)"></textarea>
         </div>
       </div>
