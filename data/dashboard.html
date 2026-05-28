@@ -230,6 +230,10 @@
   .dev-task-note-body.open { display: block; }
   .dev-task-note-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .dev-task-note-textarea { width: 100%; min-height: 340px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 10px 12px; font-size: 12px; font-family: monospace; line-height: 1.7; resize: vertical; outline: none; box-sizing: border-box; }
+  .note-save-btn { background: none; border: 1px solid var(--border); border-radius: 5px; cursor: pointer; font-size: 11px; color: var(--muted); padding: 2px 7px; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s, border-color 0.2s; }
+  .note-save-btn:hover { color: var(--text); border-color: var(--text); }
+  @keyframes noteSaveFlash { 0%,100%{color:var(--muted);border-color:var(--border)} 30%{color:var(--green);border-color:var(--green)} }
+  .note-save-btn.flash { animation: noteSaveFlash 0.9s ease; }
   .dev-task-note-textarea:focus { border-color: var(--accent); }
 
   /* ── Task badge + attach menu ────────────────────────────────────────── */
@@ -1850,8 +1854,9 @@ function addDevTask() {
 
 // ── Notes folder (File System Access API, localhost only) ────────────────────
 let notesDirHandle = null;
-const noteCache = {}; // taskId → loaded content string
+const noteCache = {};
 const noteSaveTimers = {};
+const noteSaveTimes = {}; // taskId → last save time string HH:MM:SS
 
 function isLocalhost() { return ['localhost','127.0.0.1',''].includes(window.location.hostname); }
 
@@ -1887,8 +1892,17 @@ function renderDevNotesDirBtn() {
 
 async function loadNoteInto(task, ta) {
   if (!task.noteFile) return;
+  ta.readOnly = !isLocalhost();
+  // localStorage is the primary store on localhost — always prefer it
+  const lsKey = `gfk_note_${task.id}`;
+  const lsContent = isLocalhost() ? localStorage.getItem(lsKey) : null;
+  if (lsContent !== null) {
+    ta.value = lsContent;
+    noteCache[task.id] = lsContent;
+    return;
+  }
+  // Seed from file on first load
   ta.value = 'Loading…';
-  ta.readOnly = false;
   try {
     if (notesDirHandle) {
       const fh = await notesDirHandle.getFileHandle(task.noteFile);
@@ -1896,9 +1910,9 @@ async function loadNoteInto(task, ta) {
     } else {
       const resp = await fetch(`data/notes/${task.noteFile}?_=${Date.now()}`);
       ta.value = resp.ok ? await resp.text() : `(Could not load ${task.noteFile})`;
-      if (!isLocalhost()) ta.readOnly = true;
     }
     noteCache[task.id] = ta.value;
+    if (isLocalhost()) localStorage.setItem(lsKey, ta.value);
   } catch (e) { ta.value = `(Error: ${e.message})`; }
 }
 
@@ -1958,22 +1972,39 @@ async function exportTaskMD(id) {
   document.body.removeChild(a);
 }
 
-async function onNoteEdit(id, value) {
+function onNoteEdit(id, value) {
   noteCache[id] = value;
-  if (!notesDirHandle) return;
-  // debounced auto-save
+  if (isLocalhost()) localStorage.setItem(`gfk_note_${id}`, value);
   clearTimeout(noteSaveTimers[id]);
-  noteSaveTimers[id] = setTimeout(async () => {
-    const task = devTasks.find(t => t.id === id);
-    if (!task || !task.noteFile) return;
+  noteSaveTimers[id] = setTimeout(() => saveNoteToDisk(id), 800);
+}
+
+async function saveNoteToDisk(id) {
+  const task = devTasks.find(t => t.id === id);
+  if (!task || !task.noteFile) return;
+  const value = noteCache[id] ?? (isLocalhost() ? localStorage.getItem(`gfk_note_${id}`) : null) ?? '';
+  if (isLocalhost()) localStorage.setItem(`gfk_note_${id}`, value);
+  const t = new Date();
+  const hms = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+  if (notesDirHandle) {
     try {
       const fh = await notesDirHandle.getFileHandle(task.noteFile, { create: true });
       const w = await fh.createWritable();
       await w.write(value); await w.close();
-      const lbl = document.getElementById(`tnote-status-${id}`);
-      if (lbl) { lbl.textContent = 'Saved'; lbl.style.color = 'var(--green)'; setTimeout(() => { if (lbl) lbl.textContent = ''; }, 2000); }
-    } catch {}
-  }, 800);
+    } catch (e) { if (e.name === 'NotAllowedError') notesDirHandle = null; }
+  }
+  noteSaveTimes[id] = hms;
+  flashNoteSaveBtn(id, hms);
+}
+
+function flashNoteSaveBtn(id, hms) {
+  const btn = document.getElementById(`tnote-save-${id}`);
+  if (!btn) return;
+  btn.textContent = `💾 ${hms}`;
+  btn.classList.remove('flash');
+  void btn.offsetWidth; // force reflow to restart animation
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 950);
 }
 
 function deleteDevTask(id) {
@@ -2107,7 +2138,7 @@ function renderDevTasks() {
         <div class="dev-task-note-body" id="tnote-body-${escAttr(task.id)}">
           <div class="dev-task-note-toolbar">
             ${hasNoteFile ? `<span style="font-size:10px;color:var(--muted)">data/notes/${escAttr(task.noteFile)}</span>` : ''}
-            <span id="tnote-status-${escAttr(task.id)}" style="font-size:10px;margin-left:4px"></span>
+            ${hasNoteFile ? `<button class="note-save-btn" id="tnote-save-${escAttr(task.id)}" onclick="saveNoteToDisk('${escAttr(task.id)}')" title="Save note">💾 ${escAttr(noteSaveTimes[task.id] || '')}</button>` : ''}
           </div>
           <textarea class="dev-task-note-textarea" id="tnote-ta-${escAttr(task.id)}"
             placeholder="Click to edit — read-only on GitHub Pages"
