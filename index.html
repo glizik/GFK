@@ -1338,6 +1338,15 @@ function renderKeysContent(ev) {
   </div>`;
 }
 
+function annotateFaceKomMsg(msg) {
+  return esc(msg).replace(/FaceKomSDK\.FaceKomError hiba (\d+)/g, (match, code) => {
+    const name = FACEKOMCODES[parseInt(code)];
+    return name
+      ? `${match} <span style="color:var(--orange);font-weight:600">— ${name}</span>`
+      : match;
+  });
+}
+
 function renderTimelineContent(logs) {
   if (!logs.length) return `<div class="empty" style="padding:16px">No breadcrumbs for this event.</div>`;
   return `<div class="timeline">${logs.map(l => {
@@ -1348,7 +1357,7 @@ function renderTimelineContent(logs) {
     return `<div class="tl-item">
       <div class="tl-dot ${dotClass}"></div>
       <div class="tl-time">${esc(l.ts)}</div>
-      <div class="tl-msg ${msgClass}">${esc(l.msg)}</div>
+      <div class="tl-msg ${msgClass}">${annotateFaceKomMsg(l.msg)}</div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -2058,6 +2067,20 @@ function rerenderEventCards() {
 const PRIORITY_COLORS = { critical: 'var(--red)', high: 'var(--orange)', medium: 'var(--yellow)', low: 'var(--green)' };
 const CATEGORY_LABELS = { ios: 'iOS issue', backend: 'BackEnd issue', 'user-error': 'User error', other: 'Other' };
 const RESOLUTION_LABELS = { open: 'Open', 'waiting-approval': 'Waiting for approval', 'waiting-po': 'Waiting for PO', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
+const FACEKOMCODES = {
+  0:'ParseError', 1:'PassportError', 2:'urlError', 3:'networkError', 4:'publicKeyError',
+  5:'appNotCompatible', 6:'settingsError', 7:'socketIOError', 8:'serverError', 9:'noDataError',
+  10:'validationFailed', 11:'authError', 12:'noAck', 13:'feedbackError', 14:'unknown',
+  15:'validationError', 16:'closed', 17:'videoJoinError', 18:'waitingQueueJoinError',
+  19:'weakSelfError', 20:'chatMessageError', 21:'callbackError', 22:'audioMuteError',
+  23:'validationSubmitCancelError', 24:'validationSubmitError', 25:'hangUpError',
+  26:'initWebRTCError', 27:'screenshotError', 28:'customerModificationError',
+  29:'disconnectError', 30:'reconnectionError', 31:'alreadyAuthorized', 32:'alreadyHasRoom',
+  33:'consentStepMismath', 34:'customerNotFound', 35:'generalError', 36:'hasNoSelfServiceRoom',
+  37:'invalidConsentStep', 38:'invalidIDType', 39:'invalidImageFormat', 40:'invalidInput',
+  41:'invalidPhoneNumber', 42:'invalidToken', 43:'notAuthorized', 44:'somethingWentWorng',
+  45:'stepMismatch', 46:'timeOut', 47:'incompatible', 48:'integrityTokenError'
+};
 
 function getSessionStartDate(sid) {
   const ev = events.find(e => e.session_id_base === sid);
