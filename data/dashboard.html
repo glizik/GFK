@@ -215,9 +215,12 @@
   .dev-task-ticket { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.04em; white-space: nowrap; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 3px 7px; flex-shrink: 0; }
   .dev-sess-chip { background: rgba(91,127,255,0.12); border: 1px solid rgba(91,127,255,0.3); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; display: inline-flex; flex-direction: column; gap: 1px; }
   .dev-sess-chip:hover { border-color: var(--accent); }
+  .dev-sess-chip.reviewed { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.35); color: var(--green); opacity: 0.7; }
+  .dev-sess-chip.reviewed .dev-sess-chip-date { color: var(--green); opacity: 0.7; }
   .dev-sess-chip-id { font-size: 11px; line-height: 1.3; }
   .dev-sess-chip-date { font-size: 10px; color: var(--muted); line-height: 1.2; }
   .dev-sess-chip-remove { font-size: 10px; opacity: 0.5; cursor: pointer; align-self: flex-end; }
+  .reviewed-check { font-size: 10px; color: var(--green); font-weight: 700; }
   .dev-select-group { display: flex; flex-direction: column; gap: 2px; }
   .dev-select-label { font-size: 10px; color: var(--muted); line-height: 1; padding-left: 2px; }
   .dev-task-note { border-top: 1px solid var(--border); padding: 8px 14px; background: rgba(0,0,0,0.06); }
@@ -451,6 +454,7 @@ let activeIssueIds = new Set();
 let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all', analyticsVersionFilter = 'all';
 const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
+let reviewedSessions = new Set();
 let attachMenuSessId = '';
 let tlPageDate = new Date();
 let csvFileHandle = null;
@@ -1360,8 +1364,10 @@ function renderSessionCard(group, idx) {
     `<span class="task-badge" onclick="scrollToTask('${escAttr(t.id)}')" title="${escAttr(t.title)}">${esc(t.title.length > 16 ? t.title.slice(0, 16) + '…' : t.title)}</span>`
   ).join(' ');
   const hasAttached = attachedTasks.length > 0;
+  const isReviewed = reviewedSessions.has(primary.session_id_base);
   const attachBtnHtml = primary.session_id_base
-    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${hasAttached ? ';border-color:var(--accent2);color:#fff;background:var(--accent2)' : ''}" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="${hasAttached ? attachedTasks.length + ' task(s) attached' : 'Attach to developer task'}">📎</button>`
+    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${hasAttached ? ';border-color:var(--accent2);color:#fff;background:var(--accent2)' : ''}" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="${hasAttached ? attachedTasks.length + ' task(s) attached' : 'Attach to developer task'}">📎</button>
+       <button class="btn btn-ghost btn-sm" style="flex-shrink:0${isReviewed ? ';color:var(--green);border-color:var(--green)' : ''}" onclick="toggleReviewed('${escAttr(primary.session_id_base)}')" title="${isReviewed ? 'Reviewed — click to unmark' : 'Mark as reviewed'}">✓ Reviewed</button>`
     : '';
 
   const subReportsHtml = `
@@ -1520,20 +1526,17 @@ function renderTimeline() {
   </div>`;
 
   const legendHtml = `<div class="tl-legend">
-    ${[{color:'var(--green)',label:'Approved'},{color:'var(--yellow)',label:'Failed'},{color:'var(--red)',label:'Aborted'},{color:'var(--muted)',label:'Other'},{color:'var(--accent2)',label:'Tracked'}]
+    ${[{color:'var(--green)',label:'Approved'},{color:'var(--yellow)',label:'Failed'},{color:'var(--red)',label:'Aborted'},{color:'var(--muted)',label:'Other'}]
       .map(l=>`<span class="tl-legend-item"><span class="tl-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}
   </div>`;
-
-  const attachedSids = new Set(devTasks.flatMap(t => t.attachedSessions || []));
 
   const CHART_H = 260, DATE_H = 42;
   const maxCount = Math.max(1, ...days.map(d => d.evs.length));
   const SEGS = [
-    { key: 'tracked', color: 'var(--accent2)' },
-    { key: 'other',   color: 'var(--muted)'   },
-    { key: 'aborted', color: 'var(--red)'     },
-    { key: 'failed',  color: 'var(--yellow)'  },
-    { key: 'approve', color: 'var(--green)'   },
+    { key: 'other',   color: 'var(--muted)'  },
+    { key: 'aborted', color: 'var(--red)'    },
+    { key: 'failed',  color: 'var(--yellow)' },
+    { key: 'approve', color: 'var(--green)'  },
   ];
   const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
@@ -1551,9 +1554,8 @@ function renderTimeline() {
         <div class="tl-col-date"${dateStyle}>${esc(dateLabel)}<br>${esc(weekday)}</div>
       </div>`;
     }
-    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0, tracked: 0 };
+    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0 };
     for (const ev of dayEvents) {
-      if (attachedSids.has(ev.session_id_base)) { outcomes.tracked++; continue; }
       const o = normalizeOutcome(deriveOutcome(ev));
       if (o === 'approve') outcomes.approve++;
       else if (o === 'failed') outcomes.failed++;
@@ -1819,6 +1821,18 @@ function saveDevTasks() {
   saveDevTasksToFile();
 }
 
+function loadReviewed() {
+  try { reviewedSessions = new Set(JSON.parse(localStorage.getItem('gfk_reviewed') || '[]')); } catch { reviewedSessions = new Set(); }
+}
+
+function toggleReviewed(sessId) {
+  if (reviewedSessions.has(sessId)) reviewedSessions.delete(sessId);
+  else reviewedSessions.add(sessId);
+  localStorage.setItem('gfk_reviewed', JSON.stringify([...reviewedSessions]));
+  rerenderEventCards();
+  renderDevTasks();
+}
+
 function toggleDevSection() {
   const panel = document.getElementById('devSectionPanel');
   const icon  = document.getElementById('devToggleIcon');
@@ -2075,8 +2089,9 @@ function renderDevTasks() {
           ? '<span style="font-size:11px;color:var(--muted)">No sessions attached — use 📎 on event cards.</span>'
           : task.attachedSessions.map(sid => {
               const dt = getSessionStartDate(sid);
-              return `<span class="dev-sess-chip" onclick="showSessionInEvents('${escAttr(sid)}')">
-                <span class="dev-sess-chip-id">${esc(sid)}</span>
+              const rev = reviewedSessions.has(sid);
+              return `<span class="dev-sess-chip${rev ? ' reviewed' : ''}" onclick="showSessionInEvents('${escAttr(sid)}')">
+                <span class="dev-sess-chip-id">${rev ? '<span class="reviewed-check">✓ </span>' : ''}${esc(sid)}</span>
                 ${dt ? `<span class="dev-sess-chip-date">${esc(dt)}</span>` : ''}
                 <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove">✕</span>
               </span>`;
@@ -2156,6 +2171,7 @@ function scrollToTask(taskId) {
 }
 
 loadDevTasks();
+loadReviewed();
 loadData();
 </script>
 </body>
