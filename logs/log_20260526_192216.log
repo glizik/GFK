@@ -1,0 +1,16 @@
+
+> gfk@1.0.0 discover
+> npx playwright test tests/discover-issues.spec.ts
+
+
+Running 1 test using 1 worker
+
+
+════════════════════════════════════════════════════════════════════════
+🌐 Discovery URL:
+   https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues?state=open&tag=all&sort=eventCount&versions=3.7.0+%282753%29&types=error&issuesQuery=FaceKom&time=90d
+📦 Bundle ID for namespacing: hu.microsec.eszigno.mobile
+🏷️  Filter kind:               error  (error = non-fatals, crash = crashes)
+📄 Writing worklist CSV:      /Users/lizik.gabor/DEV/GFK/data/issues_3.7.0.csv
+════════════════════════════════════════════════════════════════════════
+

@@ -1902,27 +1902,28 @@ function renderDevNotesDirBtn() {
 async function loadNoteInto(task, ta) {
   if (!task.noteFile) return;
   ta.readOnly = !isLocalhost();
-  // localStorage is the primary store on localhost — always prefer it
   const lsKey = `gfk_note_${task.id}`;
-  const lsContent = isLocalhost() ? localStorage.getItem(lsKey) : null;
-  if (lsContent !== null) {
-    ta.value = lsContent;
-    noteCache[task.id] = lsContent;
-    return;
-  }
-  // Seed from file on first load
   ta.value = 'Loading…';
   try {
+    let content = null;
     if (notesDirHandle) {
       const fh = await notesDirHandle.getFileHandle(task.noteFile);
-      ta.value = await (await fh.getFile()).text();
+      content = await (await fh.getFile()).text();
     } else {
       const resp = await fetch(`data/notes/${task.noteFile}?_=${Date.now()}`);
-      ta.value = resp.ok ? await resp.text() : `(Could not load ${task.noteFile})`;
+      if (resp.ok) content = await resp.text();
     }
-    noteCache[task.id] = ta.value;
-    if (isLocalhost()) localStorage.setItem(lsKey, ta.value);
-  } catch (e) { ta.value = `(Error: ${e.message})`; }
+    if (content !== null) {
+      ta.value = content;
+      noteCache[task.id] = content;
+      if (isLocalhost()) localStorage.setItem(lsKey, content);
+      return;
+    }
+  } catch (e) {}
+  // Fall back to localStorage only if file is unreachable
+  const lsContent = isLocalhost() ? localStorage.getItem(lsKey) : null;
+  ta.value = lsContent ?? `(Could not load ${task.noteFile})`;
+  if (lsContent !== null) noteCache[task.id] = lsContent;
 }
 
 async function toggleTaskNote(id) {
