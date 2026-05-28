@@ -1,6 +1,5 @@
 # Consent timer expired at voice-liveness-check
 
-**Priority:** High | **Category:** iOS | **Resolution:** Open
 
 **Affected:** 81 sessions
 

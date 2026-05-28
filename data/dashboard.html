@@ -384,6 +384,7 @@
     <div class="dev-section-panel" id="devSectionPanel">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="addDevTask()">+ New Task</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportTasksMD()">⬇ Export MD</button>
         <button class="btn btn-ghost btn-sm" id="devCsvConnectBtn" onclick="connectDevTasksCSV()" style="display:none">⇄ Connect CSV</button>
         <button class="btn btn-ghost btn-sm" id="devNotesDirBtn" onclick="connectNotesDir()" style="display:none">📁 Connect Notes Folder</button>
         <span id="devCsvStatus" style="font-size:12px;color:var(--muted)">Tasks stored in localStorage · attach sessions via 📎 on event cards</span>
@@ -1884,10 +1885,45 @@ async function toggleTaskNote(id) {
   const isOpen = body.classList.toggle('open');
   if (icon) icon.textContent = isOpen ? '▾' : '▸';
   if (!isOpen) return;
-  if (noteCache[id] !== undefined) return; // already loaded
-  const task = devTasks.find(t => t.id === id);
   const ta = document.getElementById(`tnote-ta-${id}`);
+  if (noteCache[id] !== undefined) {
+    if (ta) ta.value = noteCache[id]; // restore after re-render
+    return;
+  }
+  const task = devTasks.find(t => t.id === id);
   if (task && ta) await loadNoteInto(task, ta);
+}
+
+async function exportTasksMD() {
+  const parts = [`# GFK Developer Tasks\n\nExported: ${new Date().toISOString().slice(0,10)}\n`];
+  for (let i = 0; i < devTasks.length; i++) {
+    const t = devTasks[i];
+    const ticket = `Task-${String(i+1).padStart(3,'0')}`;
+    parts.push(`\n---\n\n## ${ticket} · ${t.title}\n\n`);
+    parts.push(`**Priority:** ${t.priority[0].toUpperCase()+t.priority.slice(1)} | **Category:** ${CATEGORY_LABELS[t.category]||t.category} | **Resolution:** ${RESOLUTION_LABELS[t.resolution||'open']}\n`);
+    if (t.noteFile) {
+      let content = noteCache[t.id];
+      if (content === undefined) {
+        try {
+          if (notesDirHandle) {
+            const fh = await notesDirHandle.getFileHandle(t.noteFile);
+            content = await (await fh.getFile()).text();
+          } else {
+            const resp = await fetch(`data/notes/${t.noteFile}?_=${Date.now()}`);
+            content = resp.ok ? await resp.text() : '';
+          }
+        } catch { content = ''; }
+      }
+      if (content) parts.push(`\n${content.trim()}\n`);
+    }
+  }
+  const blob = new Blob([parts.join('')], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `gfk-tasks-${new Date().toISOString().slice(0,10)}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 async function onNoteEdit(id, value) {

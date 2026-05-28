@@ -1,6 +1,5 @@
 # CustomerPortrait: integrity check abort
 
-**Priority:** High | **Category:** Backend | **Resolution:** Open
 
 **Affected:** 65 sessions
 

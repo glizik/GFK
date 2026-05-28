@@ -1,6 +1,5 @@
 # twoFactor background: 44% abandonment
 
-**Priority:** Medium | **Category:** iOS | **Resolution:** Open
 
 **Affected:** 478 sessions backgrounded at 2FA step; **209 (44%) never returned**
 

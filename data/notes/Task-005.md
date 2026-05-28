@@ -1,6 +1,5 @@
 # Hard fail: face-detection-error and photo limit exhausted
 
-**Priority:** Medium | **Category:** Backend | **Resolution:** Open
 
 **Affected:** 50 face-detection-error + 22 photo-limit = **72 sessions total**
 

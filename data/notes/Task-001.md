@@ -1,6 +1,5 @@
 # CustomerPortrait: silent rejection loop
 
-**Priority:** Critical | **Category:** Backend | **Resolution:** Open
 
 **Affected:** 112 sessions with `finished with type: reject`, 71 with explicit retry loops
 

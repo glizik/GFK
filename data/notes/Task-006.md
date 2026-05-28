@@ -1,6 +1,5 @@
 # invalidToken on FaceKom session start
 
-**Priority:** Medium | **Category:** Backend | **Resolution:** Waiting for approval
 
 **Affected:** 2 unique users (6 invalidToken + 6 notAuthorized events — multiple errors per session)
 
