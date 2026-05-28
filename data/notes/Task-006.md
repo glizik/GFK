@@ -25,8 +25,3 @@ The token is issued by the backend when generating the QR code. If the QR was ge
 - Investigate token TTL at QR generation time — ensure the token is valid for at least the expected session duration
 - Add server-side token validation before embedding in QR: reject or re-issue if token is already near expiry
 - Consider allowing the client to request a fresh token if `invalidToken` is received, rather than hard-failing
-
-## Involved Sessions:
-
-- #1  21177932b7d94921a3f2dcbeb3d080f0  2026-05-08 14:25
-- #2  d4770950c1b947b1a30818e9d36ba7d5  2026-05-26 13:47
