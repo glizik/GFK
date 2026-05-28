@@ -1958,7 +1958,7 @@ function rerenderEventCards() {
 
 const PRIORITY_COLORS = { critical: 'var(--red)', high: 'var(--orange)', medium: 'var(--yellow)', low: 'var(--green)' };
 const CATEGORY_LABELS = { ios: 'iOS issue', backend: 'BackEnd issue', 'user-error': 'User error', other: 'Other' };
-const RESOLUTION_LABELS = { open: 'Open', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
+const RESOLUTION_LABELS = { open: 'Open', 'waiting-approval': 'Waiting for approval', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
 
 function getSessionStartDate(sid) {
   const ev = events.find(e => e.session_id_base === sid);

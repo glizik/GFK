@@ -1,8 +1,11 @@
 # invalidToken on FaceKom session start
 
-**Priority:** Medium | **Category:** iOS | **Resolution:** Open
+**Priority:** Medium | **Category:** iOS | **Resolution:** Waiting for approval
 
-**Affected:** 6 invalidToken + 6 notAuthorized = **12 sessions**
+**Affected:** 2 unique users (6 invalidToken + 6 notAuthorized events — multiple errors per session)
+
+> Note: the original estimate said "12 sessions" but these 12 crash events belong to only 2 distinct users.
+> Each user hit the token error repeatedly across multiple attempts within the same session.
 
 ## What happens
 
@@ -24,5 +27,5 @@ The auth token granted at the start of the eSzigno session expired before FaceKo
 
 ## Involved Sessions:
 
-- 21177932b7d94921a3f2dcbeb3d080f0  2026-05-08 14:25
-- d4770950c1b947b1a30818e9d36ba7d5  2026-05-26 13:47
+- #1  21177932b7d94921a3f2dcbeb3d080f0  2026-05-08 14:25
+- #2  d4770950c1b947b1a30818e9d36ba7d5  2026-05-26 13:47
