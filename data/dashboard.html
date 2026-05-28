@@ -1520,17 +1520,20 @@ function renderTimeline() {
   </div>`;
 
   const legendHtml = `<div class="tl-legend">
-    ${[{color:'var(--green)',label:'Approved'},{color:'var(--yellow)',label:'Failed'},{color:'var(--red)',label:'Aborted'},{color:'var(--muted)',label:'Other'}]
+    ${[{color:'var(--green)',label:'Approved'},{color:'var(--yellow)',label:'Failed'},{color:'var(--red)',label:'Aborted'},{color:'var(--muted)',label:'Other'},{color:'var(--accent2)',label:'Tracked'}]
       .map(l=>`<span class="tl-legend-item"><span class="tl-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}
   </div>`;
+
+  const attachedSids = new Set(devTasks.flatMap(t => t.attachedSessions || []));
 
   const CHART_H = 260, DATE_H = 42;
   const maxCount = Math.max(1, ...days.map(d => d.evs.length));
   const SEGS = [
-    { key: 'other',   color: 'var(--muted)'  },
-    { key: 'aborted', color: 'var(--red)'    },
-    { key: 'failed',  color: 'var(--yellow)' },
-    { key: 'approve', color: 'var(--green)'  },
+    { key: 'other',   color: 'var(--muted)'   },
+    { key: 'aborted', color: 'var(--red)'     },
+    { key: 'failed',  color: 'var(--yellow)'  },
+    { key: 'approve', color: 'var(--green)'   },
+    { key: 'tracked', color: 'var(--accent2)' },
   ];
   const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
@@ -1548,8 +1551,9 @@ function renderTimeline() {
         <div class="tl-col-date"${dateStyle}>${esc(dateLabel)}<br>${esc(weekday)}</div>
       </div>`;
     }
-    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0 };
+    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0, tracked: 0 };
     for (const ev of dayEvents) {
+      if (attachedSids.has(ev.session_id_base)) { outcomes.tracked++; continue; }
       const o = normalizeOutcome(deriveOutcome(ev));
       if (o === 'approve') outcomes.approve++;
       else if (o === 'failed') outcomes.failed++;
@@ -2001,7 +2005,7 @@ function rerenderEventCards() {
 
 const PRIORITY_COLORS = { critical: 'var(--red)', high: 'var(--orange)', medium: 'var(--yellow)', low: 'var(--green)' };
 const CATEGORY_LABELS = { ios: 'iOS issue', backend: 'BackEnd issue', 'user-error': 'User error', other: 'Other' };
-const RESOLUTION_LABELS = { open: 'Open', 'waiting-approval': 'Waiting for approval', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
+const RESOLUTION_LABELS = { open: 'Open', 'waiting-approval': 'Waiting for approval', 'waiting-po': 'Waiting for PO', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
 
 function getSessionStartDate(sid) {
   const ev = events.find(e => e.session_id_base === sid);
