@@ -212,8 +212,12 @@
   .dev-task-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 5px 8px; font-size: 12px; cursor: pointer; }
   .dev-prio-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
   .dev-task-sessions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); min-height: 36px; align-items: center; }
-  .dev-sess-chip { background: rgba(91,127,255,0.12); border: 1px solid rgba(91,127,255,0.3); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .dev-task-ticket { font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.04em; white-space: nowrap; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 3px 7px; flex-shrink: 0; }
+  .dev-sess-chip { background: rgba(91,127,255,0.12); border: 1px solid rgba(91,127,255,0.3); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; display: inline-flex; flex-direction: column; gap: 1px; }
   .dev-sess-chip:hover { border-color: var(--accent); }
+  .dev-sess-chip-id { font-size: 11px; line-height: 1.3; }
+  .dev-sess-chip-date { font-size: 10px; color: var(--muted); line-height: 1.2; }
+  .dev-sess-chip-remove { font-size: 10px; opacity: 0.5; cursor: pointer; align-self: flex-end; }
   .dev-select-group { display: flex; flex-direction: column; gap: 2px; }
   .dev-select-label { font-size: 10px; color: var(--muted); line-height: 1; padding-left: 2px; }
   .dev-task-note { border-top: 1px solid var(--border); padding: 8px 14px; background: rgba(0,0,0,0.06); }
@@ -222,7 +226,7 @@
   .dev-task-note-body { margin-top: 6px; display: none; }
   .dev-task-note-body.open { display: block; }
   .dev-task-note-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .dev-task-note-textarea { width: 100%; min-height: 140px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-size: 12px; font-family: monospace; line-height: 1.6; resize: vertical; outline: none; box-sizing: border-box; }
+  .dev-task-note-textarea { width: 100%; min-height: 340px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 10px 12px; font-size: 12px; font-family: monospace; line-height: 1.7; resize: vertical; outline: none; box-sizing: border-box; }
   .dev-task-note-textarea:focus { border-color: var(--accent); }
 
   /* ── Task badge + attach menu ────────────────────────────────────────── */
@@ -1956,6 +1960,17 @@ const PRIORITY_COLORS = { critical: 'var(--red)', high: 'var(--orange)', medium:
 const CATEGORY_LABELS = { ios: 'iOS issue', backend: 'BackEnd issue', 'user-error': 'User error', other: 'Other' };
 const RESOLUTION_LABELS = { open: 'Open', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
 
+function getSessionStartDate(sid) {
+  const ev = events.find(e => e.session_id_base === sid);
+  if (!ev || !ev.date) return '';
+  try {
+    const d = new Date(ev.date);
+    if (isNaN(d)) return ev.date;
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch { return ev.date; }
+}
+
 function renderDevTasks() {
   const el = document.getElementById('devTaskList');
   if (!el) return;
@@ -1968,12 +1983,14 @@ function renderDevTasks() {
   el.innerHTML = devTasks.map((task, idx) => {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
     const hasNoteFile = !!(task.noteFile || '').trim();
+    const ticket = `Task-${String(idx+1).padStart(3,'0')}`;
     return `<div class="dev-task" id="dtask-${escAttr(task.id)}">
       <div class="dev-task-header">
         <div class="dev-task-reorder">
           <button class="dev-task-btn" onclick="moveTask('${escAttr(task.id)}',-1)" ${idx===0?'disabled':''} title="Move up">▲</button>
           <button class="dev-task-btn" onclick="moveTask('${escAttr(task.id)}',1)" ${idx===devTasks.length-1?'disabled':''} title="Move down">▼</button>
         </div>
+        <span class="dev-task-ticket">${ticket}</span>
         <input class="dev-task-title-input" value="${escAttr(task.title)}"
           onblur="updateTaskField('${escAttr(task.id)}','title',this.value)"
           onkeydown="if(event.key==='Enter')this.blur()">
@@ -2001,7 +2018,14 @@ function renderDevTasks() {
       <div class="dev-task-sessions">
         ${task.attachedSessions.length === 0
           ? '<span style="font-size:11px;color:var(--muted)">No sessions attached — use 📎 on event cards.</span>'
-          : task.attachedSessions.map(sid => `<span class="dev-sess-chip" onclick="showSessionInEvents('${escAttr(sid)}')" title="${escAttr(sid)}">${esc(sid.slice(0,14))}… <span onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove" style="opacity:0.55;cursor:pointer;font-size:10px">✕</span></span>`).join('')
+          : task.attachedSessions.map(sid => {
+              const dt = getSessionStartDate(sid);
+              return `<span class="dev-sess-chip" onclick="showSessionInEvents('${escAttr(sid)}')">
+                <span class="dev-sess-chip-id">${esc(sid)}</span>
+                ${dt ? `<span class="dev-sess-chip-date">${esc(dt)}</span>` : ''}
+                <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove">✕</span>
+              </span>`;
+            }).join('')
         }
       </div>
       <div class="dev-task-note">
