@@ -1,1 +1,219 @@
-id,title,priority,category,attachedSessions
+id,title,priority,resolution,category,note,attachedSessions
+6a17e2a95294,CustomerPortrait: silent rejection loop,critical,open,backend,"## CustomerPortrait silent rejection loop
+
+**Affected:** 112 sessions with `finished with type: reject`, 71 with explicit retry loops
+
+### What happens
+1. User passes voice-liveness-check ✅ and deepfake-detection ✅
+2. Server sends `customerPortrait` step
+3. SDK triggers reconnect (`connecting → connected`) — auto-retry kicks in
+4. Server sends `customerPortrait` again as `retry Step`
+5. Repeats up to **13 times** in the worst case
+6. SDK gives up: `finished with type: reject`
+7. User sees *""Ismeretlen hiba történt!""* — generic unknown error
+8. User must restart from QR code
+
+### Root cause
+Server silently fails the portrait quality/validation check on every retry without communicating the reason. The SDK retry mechanism (designed to recover from dropped frames) becomes a trap — user burns multiple reconnect cycles against the same failing check.
+
+### Suggested fix
+- Server should return a specific failure reason on reject so SDK can surface a meaningful message
+- Consider surfacing retry count to user: ""Trying again… (2/3)""
+- If all retries exhausted, show actionable guidance (better lighting, remove glasses, etc.)
+
+## Involved Sessions (reject loop)
+Open on production Firebase (ask admin for access):
+
+- [19013e43639d4a13…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/fc90ac57101d1258a32120e65642f194?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=19013e43639d4a138a1524ddc0af2eb8_2218497141129102812)
+- [05dd8149937448f3…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=05dd8149937448f3b80e5259d65e6f0e_2215549885537023505)
+- [75763682d7df4aae…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=75763682d7df4aaea31df399156eef8f_2219562974078897125)
+- [fd4995ce0e504200…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=fd4995ce0e504200965f156a215fa892_2215223185763958779)
+- [3090f20443824088…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=3090f20443824088bb542437fdb400b7_2219591809860858807)
+- [b1bd0be7be9b4a35…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=b1bd0be7be9b4a35b3378fb91808c2e1_2215542630676400749)
+- [9c0a89f6ae4f4139…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=9c0a89f6ae4f4139b1692ac3dfd2ce08_2219932859362255392)
+- [4510de9401294e07…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=4510de9401294e07a062d3af25956407_2217892720380528588)
+- [01e1702142aa48a0…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=01e1702142aa48a0a42b781e14e8f64c_2220765656821314584)
+- [8b3096e80cc74af3…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=8b3096e80cc74af3a6f2996d3cce76b3_2222581577515023185)
+- [fd1eb6af3f9340fa…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=1h&versions=3.7.0+%282753%29&types=error&sessionEventKey=fd1eb6af3f9340faaa6b5d16c08f6bce_2222616671663597815)
+- [9ac283a89a204eee…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=9ac283a89a204eeebcded1eda49b1dbd_2221941787023255790)
+- [b973c2ede8154f10…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=b973c2ede8154f1095c5fa7d4f6eca82_2218494916373388242)
+- [35419990ac154db6…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=35419990ac154db6a25cba14e4c0edf8_2219319904416908038)
+- [073683edc1174bc0…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=073683edc1174bc098d0c2e87d779096_2215223970275727766)",19013e43639d4a138a1524ddc0af2eb8|05dd8149937448f3b80e5259d65e6f0e|75763682d7df4aaea31df399156eef8f|fd4995ce0e504200965f156a215fa892|3090f20443824088bb542437fdb400b7|b1bd0be7be9b4a35b3378fb91808c2e1|9c0a89f6ae4f4139b1692ac3dfd2ce08|4510de9401294e07a062d3af25956407|01e1702142aa48a0a42b781e14e8f64c|8b3096e80cc74af3a6f2996d3cce76b3|fd1eb6af3f9340faaa6b5d16c08f6bce|9ac283a89a204eeebcded1eda49b1dbd|b973c2ede8154f1095c5fa7d4f6eca82|35419990ac154db6a25cba14e4c0edf8|073683edc1174bc098d0c2e87d779096
+6a17e2a942d2,CustomerPortrait: integrity check abort,high,open,backend,"## CustomerPortrait integrity check — hard abort
+
+**Affected:** 65 sessions
+
+### What happens
+1. User passes voice + deepfake ✅
+2. Gets to `customerPortrait` — server returns immediate integrity check failure:
+   `FaceKom failed integrity check at step: customer-portrait, aborted`
+3. No retry, SDK aborts: *""Ismeretlen hiba történt!""*
+4. App internally reports state as `voiceLivenessCheck` (confusing mismatch)
+5. Can happen on attempt #2 even after completing all prior steps
+
+### Root cause (hypothesis)
+Server-side biometric consistency check: the face portrait captured at `customerPortrait` is flagged as inconsistent with the deepfake-detection selfie captured earlier. Possible triggers:
+- User moved or changed lighting between steps
+- Camera angle shifted (especially on iPhone SE with smaller screen — 69 sessions from SE)
+- Different face distance between deepfake and portrait captures
+
+### Suggested fix
+- Surface a specific user-facing message: *""We couldn't verify your face. Please ensure good lighting and look directly at the camera.""*
+- Allow one retry with fresh deepfake + portrait capture instead of forcing full QR restart
+
+## Involved Sessions (integrity check fail)
+Open on production Firebase (ask admin for access):
+
+- [19013e43639d4a13…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/fc90ac57101d1258a32120e65642f194?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=19013e43639d4a138a1524ddc0af2eb8_2218497141129102812)
+- [56c09dc0326f4db6…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=56c09dc0326f4db697c83d586197dc14_2218497704365824654)
+- [05dd8149937448f3…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=05dd8149937448f3b80e5259d65e6f0e_2215549885537023505)
+- [fd4995ce0e504200…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=fd4995ce0e504200965f156a215fa892_2215223185763958779)
+- [3090f20443824088…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=3090f20443824088bb542437fdb400b7_2219591809860858807)
+- [9c0a89f6ae4f4139…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=9c0a89f6ae4f4139b1692ac3dfd2ce08_2219932859362255392)
+- [01e1702142aa48a0…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=01e1702142aa48a0a42b781e14e8f64c_2220765656821314584)
+- [8b3096e80cc74af3…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=8b3096e80cc74af3a6f2996d3cce76b3_2222581577515023185)
+- [fd1eb6af3f9340fa…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=1h&versions=3.7.0+%282753%29&types=error&sessionEventKey=fd1eb6af3f9340faaa6b5d16c08f6bce_2222616671663597815)
+- [9ac283a89a204eee…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=9ac283a89a204eeebcded1eda49b1dbd_2221941787023255790)
+- [98468590192443a5…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=98468590192443a5ba434259fb6a6a2e_2217405475188107713)
+- [b1bd0be7be9b4a35…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=b1bd0be7be9b4a35b3378fb91808c2e1_2215542768115354224)",19013e43639d4a138a1524ddc0af2eb8|56c09dc0326f4db697c83d586197dc14|05dd8149937448f3b80e5259d65e6f0e|fd4995ce0e504200965f156a215fa892|3090f20443824088bb542437fdb400b7|9c0a89f6ae4f4139b1692ac3dfd2ce08|01e1702142aa48a0a42b781e14e8f64c|8b3096e80cc74af3a6f2996d3cce76b3|fd1eb6af3f9340faaa6b5d16c08f6bce|9ac283a89a204eeebcded1eda49b1dbd|98468590192443a5ba434259fb6a6a2e|b1bd0be7be9b4a35b3378fb91808c2e1
+6a17e2a9c2c8,Consent timer expired at voice-liveness,high,open,ios,"## Consent timer expired at voice-liveness-check
+
+**Affected:** 81 sessions
+
+### What happens
+1. FaceKom starts, user gets `voice-liveness-check` as first step
+2. Camera opens, WebRTC starts
+3. Server waits for BOTH face + voice detection consent within 60s
+4. One or both detections never fire:
+   - `voice: nil, face: detected` — camera works but microphone doesn't
+   - Multiple `guide` messages loop — head-on guidance sent but detection never triggers
+5. After 60s: `""user waited for more than 60 seconds for detection""`
+6. Session disconnects silently — user sees a frozen-looking screen
+
+### Notable cases
+- 2 sessions lasted **62 minutes** total — users kept returning and hitting the same wall
+- 2 sessions lasted **17 minutes** (multiple restarts, same consent timeout each time)
+
+### Root cause
+Either microphone permissions not granted (iOS audio permission prompt may not appear during FaceKom WebRTC session) or environmental factors (very dark room, strong background noise, or user holding phone too far away).
+
+### Suggested fix
+- Show visible countdown during consent phase so user knows something is expected of them
+- Check microphone permission state *before* starting WebRTC; prompt user if missing
+- Provide in-screen guidance: ""Speak clearly"" / ""Move to better light"" after 20s without detection
+
+## Involved Sessions (consent timer expired)
+Open on production Firebase (ask admin for access):
+
+- [3cc573bc657647d9…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=3cc573bc657647d988dfc203730e24fb_2219599537921377444)
+- [af7adfbbc65f4fc6…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=af7adfbbc65f4fc6afa9d2dcd59d7ff1_2218122466237710140)
+- [a5bb2495cdfc4234…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=a5bb2495cdfc4234a80fd6ff844aa07d_2219902632425024363)
+- [cf9ed4271cbd450d…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=cf9ed4271cbd450d8e8e4398efa598b3_2219693131564745651)
+- [398b5de1c5f54daa…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=398b5de1c5f54daa83bbeec0ae5d0ad0_2216976053577443180)
+- [0b15a688bc234caa…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/fc90ac57101d1258a32120e65642f194?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=0b15a688bc234caa8334eef90c6370de_2218575335106602923)
+- [4c1b5aabca884971…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=4c1b5aabca884971a8eccf24c4467261_2217468474029934523)
+- [09e010a133e84d38…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/fc90ac57101d1258a32120e65642f194?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=09e010a133e84d389004c1e00d8bd4a2_2219941703454500658)
+- [f80eea1e0f1542d5…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=f80eea1e0f1542d5b59a5f6d78fa8a95_2217740732332469811)
+- [60207f55a2d54af4…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=60207f55a2d54af4b9be02d0d764ecf2_2220859731438390901)
+- [799b7fc864d24ba2…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=799b7fc864d24ba284d472d958f6d4aa_2218405541838160324)
+- [86f635e26f0a4255…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=86f635e26f0a42558400197d246e59e1_2218457364434290058)
+- [ece0959c521f4d13…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=ece0959c521f4d1388971c0f120c271d_2218272798190151631)
+- [e1a25d8a90364236…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1554cddf903511ee1651c3806c818d82?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=e1a25d8a903642369caed88985cccdf7_2220372217909121436)
+- [7b20ea8a605e4849…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=7b20ea8a605e484987e888f7b0865299_2218463341037722625)
+- [6ed5716717844221…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=6ed57167178442218855fd791450a3e8_2219604776589299801)
+- [53a1fd6e6c8f48fc…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=53a1fd6e6c8f48fcbde048c4d25d6c23_2218152440561403114)
+- [637ffe088dcd47e4…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=637ffe088dcd47e4a4bff9b4225fefb1_2220778560830587222)
+- [ff748b4f5b3c4be9…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=ff748b4f5b3c4be9b97c7cc11ac23c85_2217122754393389616)",3cc573bc657647d988dfc203730e24fb|af7adfbbc65f4fc6afa9d2dcd59d7ff1|a5bb2495cdfc4234a80fd6ff844aa07d|cf9ed4271cbd450d8e8e4398efa598b3|398b5de1c5f54daa83bbeec0ae5d0ad0|0b15a688bc234caa8334eef90c6370de|4c1b5aabca884971a8eccf24c4467261|09e010a133e84d389004c1e00d8bd4a2|f80eea1e0f1542d5b59a5f6d78fa8a95|60207f55a2d54af4b9be02d0d764ecf2|799b7fc864d24ba284d472d958f6d4aa|86f635e26f0a42558400197d246e59e1|ece0959c521f4d1388971c0f120c271d|e1a25d8a903642369caed88985cccdf7|7b20ea8a605e484987e888f7b0865299|6ed57167178442218855fd791450a3e8|53a1fd6e6c8f48fcbde048c4d25d6c23|637ffe088dcd47e4a4bff9b4225fefb1|ff748b4f5b3c4be9b97c7cc11ac23c85
+6a17e2a94eed,twoFactor background: 44% abandonment,medium,open,ios,"## twoFactor step — background abandonment (44% drop-off)
+
+**Affected:** 478 sessions backgrounded at 2FA; **209 (44%) never returned**
+
+### What happens
+1. User reaches final `twoFactor` step (SMS/OTP entry)
+2. Switches apps to find the code — app goes to background
+3. SDK reconnects: `connecting → connected`
+4. Server resends `twoFactor` as `retry Step`
+5. **269 users (56%) come back and finish** ✅
+6. **209 users (44%) don't return** — session eventually expires
+
+### Why users abandon
+The reconnect animation almost certainly looks like a crash or error to most users. They see activity in the status bar, the screen changes state, and assume the process broke. Nothing tells them ""it's fine, just enter your code"".
+
+### Suggested fix
+- Show a persistent banner during reconnect: *""Don't close the app — retrieving your session…""*
+- After reconnect completes and twoFactor step is restored, briefly animate the input field to draw attention
+- Consider a push notification or in-app prompt if user is backgrounded for >30s at twoFactor
+
+## Involved Sessions (backgrounded at 2FA, did not finish)
+Open on production Firebase (ask admin for access):
+
+- [06acfcb2dd14490a…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=06acfcb2dd14490aa6278ca3498925d6_2218579699198365922)
+- [f805da77bb7a4eff…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=f805da77bb7a4eff90df03c5561abb24_2218122663659140089)
+- [e7d1282d65924bd3…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=e7d1282d65924bd38e7d2123b475bb81_2220312293504014532)
+- [e4a8c6156a994e50…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=e4a8c6156a994e50a99c89cf0ab6dbe4_2222558651925645975)
+- [154e956da14e4e72…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=154e956da14e4e72b4446e91bb1e21ea_2217085018609029385)
+- [af7adfbbc65f4fc6…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=af7adfbbc65f4fc6afa9d2dcd59d7ff1_2218122466237710140)
+- [62ff675ee30a4649…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=62ff675ee30a4649b10222ccda2ec186_2220352161069438828)
+- [2a1dfd2da0f04c9b…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=2a1dfd2da0f04c9bb3b18e09b5cc90e2_2217724710508659590)
+- [27b32b0973554fcc…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=27b32b0973554fccac7370927165a4cd_2217371531809500731)
+- [d855ffeb23df4222…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=d855ffeb23df42229ac62154598cb684_2215582165154989089)
+- [fbde568287364955…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=fbde568287364955a65ab50852e675ae_2220714957627822096)
+- [3f5e5a5e52d9451f…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=3f5e5a5e52d9451fb93bcc332120c133_2218236811500912531)
+- [3ad863ca05a846b9…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=3ad863ca05a846b9bf9bae40d831db6d_2217517007833489951)
+- [bec4135e944c4561…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=bec4135e944c4561b428b3917f569783_2215142071704559894)
+- [3a9de29b82a54e7c…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=3a9de29b82a54e7cb2c3d65c234467ee_2219987161400338589)",06acfcb2dd14490aa6278ca3498925d6|f805da77bb7a4eff90df03c5561abb24|e7d1282d65924bd38e7d2123b475bb81|e4a8c6156a994e50a99c89cf0ab6dbe4|154e956da14e4e72b4446e91bb1e21ea|af7adfbbc65f4fc6afa9d2dcd59d7ff1|62ff675ee30a4649b10222ccda2ec186|2a1dfd2da0f04c9bb3b18e09b5cc90e2|27b32b0973554fccac7370927165a4cd|d855ffeb23df42229ac62154598cb684|fbde568287364955a65ab50852e675ae|3f5e5a5e52d9451fb93bcc332120c133|3ad863ca05a846b9bf9bae40d831db6d|bec4135e944c4561b428b3917f569783|3a9de29b82a54e7cb2c3d65c234467ee
+6a17e2a9e5e9,Hard fail: face-detection + photo limit,medium,open,backend,"## Hard failure requiring full QR restart (face-detection-error + photo limit)
+
+**Affected:** 50 face-detection-error + 22 photo-limit-exhausted = **72 sessions**
+
+### face-detection-error (50 sessions)
+Server returns `end(status: ""failed"", reason: ""face-detection-error"")` after deepfake-detection.
+User sees: *""Hibakód: 0006 — A QR-kód leolvasásával indítsa újra a folyamatot!""*
+No in-app recovery — user must go back to portal and scan QR code again.
+
+### no-more-photo-candidate-allowed (22 sessions)
+User exhausted all allowed photo retries (idFront or idBack).
+User sees: *""A képkészítésre rendelkezésre álló próbálkozások száma elérte a maximumot""*
+Same hard QR-restart required.
+
+### Root cause
+Face detection failure: selfie captured during deepfake step didn't meet server-side face quality threshold. Photo limit: user couldn't capture an acceptable ID photo within the allowed attempts.
+
+### Suggested fix
+- Before forcing QR restart, offer one in-app retry with a fresh session (reuse existing auth token)
+- For photo limit: before last attempt, show a help screen with tips (flat surface, no glare, all 4 corners visible)
+- Provide a contact/support path when these hard failures occur
+
+## Involved Sessions (hard fail)
+Open on production Firebase (ask admin for access):
+
+- [a6199c3bc3394564…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=a6199c3bc3394564ad8dd4800eb5dbd2_2218195327879372873)
+- [b925430ec0b54c98…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=b925430ec0b54c98ba8dbcca26bd63b3_2218459298021756716)
+- [6b32fadd48d24f6f…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=6b32fadd48d24f6f8cca0321523cdc6f_2218107828933727124)
+- [b016119a97264307…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=b016119a97264307ba5e8eca9cfcb316_2222567271062038766)
+- [46bfd18f6b5744b8…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=46bfd18f6b5744b8a26c3a88fdc5aa79_2219624648769475204)
+- [92b0956268554149…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/66ab9689c1addf4cdac8881ddf52eff2?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=92b09562685541498d6b4875a0d88f69_2220727338176158406)
+- [cee4a5d0ef954359…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=cee4a5d0ef954359a7f407964d2bf4e9_2222628437659107887)
+- [902291c91eba4491…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=902291c91eba449195e4ec5a97fd3066_2221110280843776977)",a6199c3bc3394564ad8dd4800eb5dbd2|b925430ec0b54c98ba8dbcca26bd63b3|6b32fadd48d24f6f8cca0321523cdc6f|b016119a97264307ba5e8eca9cfcb316|46bfd18f6b5744b8a26c3a88fdc5aa79|92b09562685541498d6b4875a0d88f69|cee4a5d0ef954359a7f407964d2bf4e9|902291c91eba449195e4ec5a97fd3066
+6a17e2a98ad2,invalidToken on FaceKom session start,medium,open,ios,"## invalidToken at voice-liveness-check start
+
+**Affected:** 6 invalidToken + 6 notAuthorized = **12 sessions**
+
+### What happens
+1. User navigates through pre-FaceKom screens (EULA, login, package upgrade — up to 4+ minutes)
+2. FaceKom starts — `auth` call fails immediately: `Facekom auth error: invalidToken`
+3. SDK stops and shows abort: *""Ismeretlen hiba történt!""*
+4. User has no recovery path — the session is dead
+
+### Root cause
+The auth token granted at the start of the eSzigno session expired before FaceKom consumed it. Users who spent extra time on pre-FaceKom screens (browsing EULA, being slow on the package upgrade screen) hit this window.
+
+### Suggested fix
+- Refresh / re-issue the FaceKom auth token immediately before calling `startSelfService()` instead of reusing the one obtained at session creation
+- Add token expiry check with a 30s buffer — silently refresh if expiring soon
+
+## Involved Sessions (invalidToken)
+Open on production Firebase (ask admin for access):
+
+- [21177932b7d94921…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/cc976fb6b163a26ebbddf22103e89d3c?time=90d&versions=3.7.0+%282753%29&types=error&sessionEventKey=21177932b7d94921a3f2dcbeb3d080f0_2215941702234759309)
+- [d4770950c1b947b1…](https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?time=1h&versions=3.7.0+%282753%29&types=error&sessionEventKey=d4770950c1b947b1a30818e9d36ba7d5_2222611353994733452)",21177932b7d94921a3f2dcbeb3d080f0|d4770950c1b947b1a30818e9d36ba7d5

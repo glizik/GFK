@@ -214,6 +214,15 @@
   .dev-task-sessions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); min-height: 36px; align-items: center; }
   .dev-sess-chip { background: rgba(91,127,255,0.12); border: 1px solid rgba(91,127,255,0.3); border-radius: 12px; padding: 3px 10px; font-size: 11px; font-family: monospace; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   .dev-sess-chip:hover { border-color: var(--accent); }
+  .dev-select-group { display: flex; flex-direction: column; gap: 2px; }
+  .dev-select-label { font-size: 10px; color: var(--muted); line-height: 1; padding-left: 2px; }
+  .dev-task-note { border-top: 1px solid var(--border); padding: 8px 14px; background: rgba(0,0,0,0.06); }
+  .dev-task-note-toggle { font-size: 11px; color: var(--muted); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; }
+  .dev-task-note-toggle:hover { color: var(--text); }
+  .dev-task-note-body { margin-top: 6px; display: none; }
+  .dev-task-note-body.open { display: block; }
+  .dev-task-note-textarea { width: 100%; min-height: 100px; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-size: 12px; font-family: monospace; line-height: 1.5; resize: vertical; outline: none; box-sizing: border-box; }
+  .dev-task-note-textarea:focus { border-color: var(--accent); }
 
   /* ── Task badge + attach menu ────────────────────────────────────────── */
   .task-badge { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35); color: var(--accent2); border-radius: 10px; padding: 2px 7px; font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -1711,16 +1720,18 @@ function downloadEvents(windowMs) {
 
 // ── Developer section ─────────────────────────────────────────────────────────
 function serializeDevTasksCSV() {
-  const q = v => { const s = String(v); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
-  const rows = ['id,title,priority,category,attachedSessions'];
-  for (const t of devTasks) rows.push([t.id, t.title, t.priority, t.category, (t.attachedSessions||[]).join('|')].map(q).join(','));
+  const q = v => { const s = String(v ?? ''); return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g,'""')}"` : s; };
+  const rows = ['id,title,priority,resolution,category,note,attachedSessions'];
+  for (const t of devTasks) rows.push([t.id, t.title, t.priority, t.resolution||'open', t.category, t.note||'', (t.attachedSessions||[]).join('|')].map(q).join(','));
   return rows.join('\n') + '\n';
 }
 
 function parseDevTasksFromCSV(text) {
   return parseCsv(text).map(r => ({
     id: r.id || '', title: r.title || 'Untitled', priority: r.priority || 'medium',
-    category: r.category || 'ios', attachedSessions: (r.attachedSessions || '').split('|').filter(Boolean),
+    resolution: r.resolution || 'open', category: r.category || 'ios',
+    note: r.note || '',
+    attachedSessions: (r.attachedSessions || '').split('|').filter(Boolean),
   })).filter(r => r.id);
 }
 
@@ -1734,6 +1745,8 @@ async function loadDevTasksFromCSV() {
       localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
       renderDevTasks();
     }
+    // CSV loaded successfully (even if empty) — it's the authoritative source when online
+    renderDevConnectBtn();
   } catch {}
 }
 
@@ -1802,9 +1815,17 @@ function toggleDevSection() {
 
 function addDevTask() {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  devTasks.push({ id, title: 'New Task', priority: 'medium', category: 'ios', attachedSessions: [] });
+  devTasks.push({ id, title: 'New Task', priority: 'medium', resolution: 'open', category: 'ios', note: '', attachedSessions: [] });
   saveDevTasks();
   renderDevTasks();
+}
+
+function toggleTaskNote(id) {
+  const body = document.getElementById(`tnote-body-${id}`);
+  const icon = document.getElementById(`tnote-icon-${id}`);
+  if (!body) return;
+  const isOpen = body.classList.toggle('open');
+  if (icon) icon.textContent = isOpen ? '▾' : '▸';
 }
 
 function deleteDevTask(id) {
@@ -1857,6 +1878,7 @@ function rerenderEventCards() {
 
 const PRIORITY_COLORS = { critical: 'var(--red)', high: 'var(--orange)', medium: 'var(--yellow)', low: 'var(--green)' };
 const CATEGORY_LABELS = { ios: 'iOS issue', backend: 'BackEnd issue', 'user-error': 'User error', other: 'Other' };
+const RESOLUTION_LABELS = { open: 'Open', investigating: 'Investigating', fixed: 'Fixed', 'wont-fix': "Won't fix", 'needs-info': 'Needs info' };
 
 function renderDevTasks() {
   const el = document.getElementById('devTaskList');
@@ -1869,6 +1891,7 @@ function renderDevTasks() {
   }
   el.innerHTML = devTasks.map((task, idx) => {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
+    const hasNote = (task.note || '').trim().length > 0;
     return `<div class="dev-task" id="dtask-${escAttr(task.id)}">
       <div class="dev-task-header">
         <div class="dev-task-reorder">
@@ -1878,12 +1901,24 @@ function renderDevTasks() {
         <input class="dev-task-title-input" value="${escAttr(task.title)}"
           onblur="updateTaskField('${escAttr(task.id)}','title',this.value)"
           onkeydown="if(event.key==='Enter')this.blur()">
-        <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','priority',this.value)">
-          ${['critical','high','medium','low'].map(p=>`<option value="${p}"${task.priority===p?' selected':''}>${p[0].toUpperCase()+p.slice(1)}</option>`).join('')}
-        </select>
-        <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','category',this.value)">
-          ${Object.entries(CATEGORY_LABELS).map(([k,v])=>`<option value="${k}"${task.category===k?' selected':''}>${v}</option>`).join('')}
-        </select>
+        <div class="dev-select-group">
+          <span class="dev-select-label">Priority</span>
+          <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','priority',this.value)">
+            ${['critical','high','medium','low'].map(p=>`<option value="${p}"${task.priority===p?' selected':''}>${p[0].toUpperCase()+p.slice(1)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="dev-select-group">
+          <span class="dev-select-label">Resolution</span>
+          <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','resolution',this.value)">
+            ${Object.entries(RESOLUTION_LABELS).map(([k,v])=>`<option value="${k}"${(task.resolution||'open')===k?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="dev-select-group">
+          <span class="dev-select-label">Category</span>
+          <select class="dev-task-select" onchange="updateTaskField('${escAttr(task.id)}','category',this.value)">
+            ${Object.entries(CATEGORY_LABELS).map(([k,v])=>`<option value="${k}"${task.category===k?' selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
         <span class="dev-prio-dot" style="background:${prioColor}" title="${escAttr(task.priority)}"></span>
         <button class="dev-task-btn" style="color:var(--red);border-color:rgba(239,68,68,0.3)" onclick="deleteDevTask('${escAttr(task.id)}')" title="Delete task">✕</button>
       </div>
@@ -1892,6 +1927,18 @@ function renderDevTasks() {
           ? '<span style="font-size:11px;color:var(--muted)">No sessions attached — use 📎 on event cards.</span>'
           : task.attachedSessions.map(sid => `<span class="dev-sess-chip" onclick="showSessionInEvents('${escAttr(sid)}')" title="${escAttr(sid)}">${esc(sid.slice(0,14))}… <span onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove" style="opacity:0.55;cursor:pointer;font-size:10px">✕</span></span>`).join('')
         }
+      </div>
+      <div class="dev-task-note">
+        <div class="dev-task-note-toggle" onclick="toggleTaskNote('${escAttr(task.id)}')">
+          <span id="tnote-icon-${escAttr(task.id)}">▸</span>
+          <span>Note</span>
+          ${hasNote ? '<span style="font-size:10px;color:var(--accent);margin-left:2px">●</span>' : ''}
+        </div>
+        <div class="dev-task-note-body" id="tnote-body-${escAttr(task.id)}">
+          <textarea class="dev-task-note-textarea"
+            placeholder="Markdown supported — add links, details, reproduction steps…"
+            onblur="updateTaskField('${escAttr(task.id)}','note',this.value)">${escAttr(task.note||'')}</textarea>
+        </div>
       </div>
     </div>`;
   }).join('');
