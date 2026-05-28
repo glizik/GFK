@@ -1529,11 +1529,11 @@ function renderTimeline() {
   const CHART_H = 260, DATE_H = 42;
   const maxCount = Math.max(1, ...days.map(d => d.evs.length));
   const SEGS = [
+    { key: 'tracked', color: 'var(--accent2)' },
     { key: 'other',   color: 'var(--muted)'   },
     { key: 'aborted', color: 'var(--red)'     },
     { key: 'failed',  color: 'var(--yellow)'  },
     { key: 'approve', color: 'var(--green)'   },
-    { key: 'tracked', color: 'var(--accent2)' },
   ];
   const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
@@ -1748,14 +1748,17 @@ function parseDevTasksFromCSV(text) {
 async function loadDevTasksFromCSV() {
   try {
     const resp = await fetch('data/developer_tasks.csv?_=' + Date.now());
-    if (!resp.ok) return;
-    const tasks = parseDevTasksFromCSV(await resp.text());
-    if (tasks.length > 0) {
-      devTasks = tasks;
-      localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
-      renderDevTasks();
+    if (!resp.ok) { renderDevConnectBtn(); return; }
+    const csvTasks = parseDevTasksFromCSV(await resp.text());
+    if (csvTasks.length > 0) {
+      if (devTasks.length === 0) {
+        // First visit (empty localStorage) — seed from CSV
+        devTasks = csvTasks;
+        localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
+        renderDevTasks();
+      }
+      // If localStorage already has tasks, keep them — user's edits take precedence over the file
     }
-    // CSV loaded successfully (even if empty) — it's the authoritative source when online
     renderDevConnectBtn();
   } catch {}
 }
@@ -1842,12 +1845,16 @@ async function connectNotesDir() {
   try {
     notesDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
     renderDevNotesDirBtn();
-    // reload any open note textareas
     for (const task of devTasks) {
       const ta = document.getElementById(`tnote-ta-${task.id}`);
       if (ta && ta.closest('.dev-task-note-body.open')) loadNoteInto(task, ta);
     }
   } catch {}
+}
+
+async function ensureNotesDirHandle() {
+  if (notesDirHandle || !isLocalhost() || !('showDirectoryPicker' in window)) return;
+  await connectNotesDir();
 }
 
 function renderDevNotesDirBtn() {
@@ -2088,7 +2095,8 @@ function renderDevTasks() {
             <span id="tnote-status-${escAttr(task.id)}" style="font-size:10px;margin-left:4px"></span>
           </div>
           <textarea class="dev-task-note-textarea" id="tnote-ta-${escAttr(task.id)}"
-            placeholder="Connect Notes Folder (localhost) to edit — read-only on GitHub Pages"
+            placeholder="Click to edit — read-only on GitHub Pages"
+            onfocus="ensureNotesDirHandle()"
             oninput="onNoteEdit('${escAttr(task.id)}',this.value)"></textarea>
         </div>
       </div>
