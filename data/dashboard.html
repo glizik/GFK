@@ -1767,12 +1767,20 @@ async function loadDevTasksFromCSV() {
     const csvTasks = parseDevTasksFromCSV(await resp.text());
     if (csvTasks.length > 0) {
       if (devTasks.length === 0) {
-        // First visit (empty localStorage) — seed from CSV
         devTasks = csvTasks;
-        localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
-        renderDevTasks();
+      } else {
+        // Always sync attachedSessions from CSV (managed externally); preserve user-edited fields
+        const csvMap = new Map(csvTasks.map(t => [t.id, t]));
+        devTasks = devTasks.map(t => {
+          const csvT = csvMap.get(t.id);
+          return csvT ? { ...t, attachedSessions: csvT.attachedSessions } : t;
+        });
+        for (const csvT of csvTasks) {
+          if (!devTasks.find(t => t.id === csvT.id)) devTasks.push(csvT);
+        }
       }
-      // If localStorage already has tasks, keep them — user's edits take precedence over the file
+      localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
+      renderDevTasks();
     }
     renderDevConnectBtn();
   } catch {}
@@ -2094,6 +2102,17 @@ function getSessionStartDate(sid) {
   } catch { return ev.date; }
 }
 
+function getSessionOutcome(sid) {
+  if (!events.length) return null;
+  const sessEvents = events.filter(e => e.session_id_base === sid);
+  if (!sessEvents.length) return null;
+  const outcomes = sessEvents.map(ev => normalizeOutcome(deriveOutcome(ev)));
+  if (outcomes.includes('approve')) return 'approve';
+  if (outcomes.includes('failed')) return 'failed';
+  if (outcomes.includes('aborted')) return 'aborted';
+  return null;
+}
+
 function renderDevTasks() {
   const el = document.getElementById('devTaskList');
   if (!el) return;
@@ -2107,6 +2126,13 @@ function renderDevTasks() {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
     const hasNoteFile = !!(task.noteFile || '').trim();
     const ticket = `Task-${String(idx+1).padStart(3,'0')}`;
+
+    // Log approved sessions to console
+    if (task.attachedSessions.length && events.length) {
+      const approved = task.attachedSessions.filter(sid => getSessionOutcome(sid) === 'approve');
+      if (approved.length) console.log(`[${ticket}] ${task.title} — approved sessions (${approved.length}/${task.attachedSessions.length}):`, approved);
+    }
+
     return `<div class="dev-task" id="dtask-${escAttr(task.id)}">
       <div class="dev-task-header">
         <div class="dev-task-reorder">
@@ -2145,8 +2171,10 @@ function renderDevTasks() {
           : task.attachedSessions.map(sid => {
               const dt = getSessionStartDate(sid);
               const rev = reviewedSessions.has(sid);
+              const outcome = getSessionOutcome(sid);
+              const approvedBadge = outcome === 'approve' ? '<span style="color:var(--green);font-size:9px;font-weight:700"> ✓ approved</span>' : '';
               return `<span class="dev-sess-chip${rev ? ' reviewed' : ''}" onclick="showSessionInEvents('${escAttr(sid)}')">
-                <span class="dev-sess-chip-id">${rev ? '<span class="reviewed-check">✓ </span>' : ''}${esc(sid)}</span>
+                <span class="dev-sess-chip-id">${rev ? '<span class="reviewed-check">✓ </span>' : ''}${esc(sid)}${approvedBadge}</span>
                 ${dt ? `<span class="dev-sess-chip-date">${esc(dt)}</span>` : ''}
                 <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove">✕</span>
               </span>`;
