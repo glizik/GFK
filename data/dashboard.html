@@ -2004,7 +2004,20 @@ async function saveNoteToDisk(id) {
   if (isLocalhost()) localStorage.setItem(`gfk_note_${id}`, value);
   const t = new Date();
   const hms = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
-  if (notesDirHandle) {
+  // Try server API first (works when running via server.js)
+  let savedViaApi = false;
+  if (isLocalhost()) {
+    try {
+      const r = await fetch('/api/save-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: task.noteFile, content: value }),
+      });
+      savedViaApi = r.ok;
+    } catch {}
+  }
+  // Fall back to File System Access API if server endpoint not available
+  if (!savedViaApi && notesDirHandle) {
     try {
       const fh = await notesDirHandle.getFileHandle(task.noteFile, { create: true });
       const w = await fh.createWritable();

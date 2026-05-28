@@ -52,7 +52,8 @@ function readLog(eventId) {
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 function jsonResp(res, data) {
@@ -114,6 +115,26 @@ const server = http.createServer((req, res) => {
   const { pathname, searchParams } = url;
 
   if (req.method === 'OPTIONS') { cors(res); res.writeHead(204); res.end(); return; }
+
+  // POST /api/save-note  { file: "Task-001.md", content: "..." }
+  if (req.method === 'POST' && pathname === '/api/save-note') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { file, content } = JSON.parse(body);
+        if (!file || !/^[A-Za-z0-9_-]+\.md$/.test(file)) {
+          res.writeHead(400); res.end('Bad filename'); return;
+        }
+        const dest = path.join(ROOT, 'data', 'notes', file);
+        fs.writeFileSync(dest, content, 'utf8');
+        cors(res);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(500); res.end(e.message); }
+    });
+    return;
+  }
 
   if (pathname === '/' || pathname === '/index.html') {
     try {

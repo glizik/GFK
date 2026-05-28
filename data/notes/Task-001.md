@@ -15,7 +15,7 @@
 
 ## Attempt statistics (17 sessions)
 
-- Portrait attempts per session: **min 1 — avg 5.6 — median 5 — max 22**
 - Worst case: 1 user made **22 portrait attempts** across 5 full voice→deepfake→portrait restart cycles, never succeeded
-- Recovery rate: **6/17 (35%)** eventually passed customerPortrait within the same session after repeated retries
+- Recovery rate: **4/17 (23%)** eventually passed customerPortrait within the same session after repeated retries
+Approved (05dd8149937448f3b80e5259d65e6f0e, 75763682d7df4aaea31df399156eef8f, 9c0a89f6ae4f4139b1692ac3dfd2ce08, 4510de9401294e07a062d3af25956407)
 - No observable behavioral difference between recovered and stuck sessions — recovery appears server-dependent (same number of restarts can lead to either outcome)
