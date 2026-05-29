@@ -220,6 +220,43 @@ async function readDataLineItem(page: Page, labelText: string): Promise<{ text: 
   return result ?? { text: '', href: '' };
 }
 
+/** Robust identification-link reader: scans the full page + shadow DOM for the videoid URL. */
+async function readIdentificationLink(page: Page): Promise<string> {
+  // Try the standard data-line-item mechanism first
+  const idRow = await readDataLineItem(page, 'ID');
+  if (idRow.href && idRow.href.includes('/identification/')) return idRow.href;
+  if (idRow.text && idRow.text.includes('/identification/')) return idRow.text;
+
+  // Fallback: scan every link and all text nodes for the identification URL pattern
+  return await page.evaluate(() => {
+    const pat = /https?:\/\/[a-z0-9.-]+\/identification\/[a-zA-Z0-9_\-%]+/;
+    function search(root: Document | ShadowRoot): string {
+      for (const a of Array.from(root.querySelectorAll('a'))) {
+        const href = (a as HTMLAnchorElement).href || '';
+        if (pat.test(href)) return href;
+        const txt = a.textContent?.trim() || '';
+        if (pat.test(txt)) return txt;
+      }
+      // Scan text content of all span/div/td elements
+      for (const el of Array.from(root.querySelectorAll('span,div,td,p'))) {
+        const txt = (el as HTMLElement).innerText?.trim() || '';
+        const m = txt.match(pat);
+        if (m) return m[0];
+      }
+      // Recurse into shadow DOM
+      for (const el of Array.from(root.querySelectorAll('*'))) {
+        const sr = (el as Element).shadowRoot;
+        if (sr) {
+          const found = search(sr);
+          if (found) return found;
+        }
+      }
+      return '';
+    }
+    return search(document);
+  });
+}
+
 async function downloadLog(page: Page, logFilePath: string): Promise<'downloaded' | 'not_available'> {
   fs.mkdirSync(path.dirname(logFilePath), { recursive: true });
 
@@ -371,8 +408,7 @@ async function collectIssueType(
       await page.getByRole('tab', { name: 'Data', exact: true }).click();
       await waitForStable(page);
 
-      const idRow              = await readDataLineItem(page, 'ID');
-      const identification_link = idRow.href || idRow.text || 'not available';
+      const identification_link = (await readIdentificationLink(page)) || 'not available';
       const { app_version, os_version: rawOs, model, date } = await readEventSummary(page);
       const os_version         = cleanOsVersion(rawOs);
       const os_major_version   = extractOsMajorVersion(os_version);
@@ -381,7 +417,6 @@ async function collectIssueType(
       const jailbroken         = (await readDataLineItem(page, 'Jailbroken')).text;
       const ramFree            = (await readDataLineItem(page, 'RAM free')).text;
       const { userIdBase, userIdSuffix } = parseUserId(identification_link);
-
       console.log(`   ID:    ${identification_link}`);
       console.log(`   Model: ${model}  OS: ${os_version}  App: ${app_version}  Date: ${date}`);
 
