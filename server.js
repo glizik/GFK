@@ -12,6 +12,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 const LOGS_DIR = path.join(DATA_DIR, 'logs');
 const ISSUES_CSV = path.join(DATA_DIR, 'issues_3.7.0.csv');
 const EVENTS_CSV = path.join(DATA_DIR, 'events_3.7.0.csv');
+const REVIEWED_JSON = path.join(DATA_DIR, 'reviewed_sessions.json');
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,23 @@ const server = http.createServer((req, res) => {
         }
         const dest = path.join(ROOT, 'data', 'notes', file);
         fs.writeFileSync(dest, content, 'utf8');
+        cors(res);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(500); res.end(e.message); }
+    });
+    return;
+  }
+
+  // POST /api/save-reviewed  { sessions: [...] }
+  if (req.method === 'POST' && pathname === '/api/save-reviewed') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { sessions } = JSON.parse(body);
+        if (!Array.isArray(sessions)) { res.writeHead(400); res.end('Bad request'); return; }
+        fs.writeFileSync(REVIEWED_JSON, JSON.stringify(sessions, null, 2), 'utf8');
         cors(res);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));

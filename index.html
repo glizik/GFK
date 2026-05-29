@@ -252,7 +252,7 @@
   <div class="header">
     <div class="header-left">
       <h1>GFK — FaceKom Crashlytics</h1>
-      <p>iOS <strong>3.7.0 (2753)</strong> &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
+      <p>iOS &nbsp;·&nbsp; Non-fatals &nbsp;·&nbsp; Updated <span id="updated">—</span></p>
     </div>
     <div class="header-actions">
       <span class="ro-badge"><span style="font-weight:600;color:var(--red)">v198</span><span style="font-size:10px;font-family:monospace;margin-left:6px;color:var(--red);font-weight:700">v080f384</span></span>
@@ -362,6 +362,10 @@
       </div>
     </div>
     <div class="events-panel" id="eventsPanel">
+      <div class="filter-group" id="eventsVersionFilterGroup" style="display:none">
+        <span class="filter-label">Version</span>
+        <div id="eventsVersionFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
       <div class="search-bar">
         <input type="text" class="search-input" id="eventsSearch" placeholder="Filter by session / event identifier…" oninput="filterEvents()">
         <div class="search-match-count" id="searchMatchCount"></div>
@@ -456,6 +460,7 @@ function processLogs(items) {
 let issues = [], events = [], releases = [], currentEventsForDisplay = [];
 let activeIssueIds = new Set();
 let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all', analyticsVersionFilter = 'all';
+let eventsVersionFilter = 'all';
 const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
 let reviewedSessions = new Set();
@@ -464,33 +469,71 @@ let tlPageDate = new Date();
 let csvFileHandle = null;
 
 // ── Load ──────────────────────────────────────────────────────────────────────
+function parseIssueRow(i) {
+  return {
+    ...i,
+    rank: +i.rank || 0,
+    variants_total: +i.variants_total || 0,
+    events_total: +i.events_total || 0,
+    users_total: +i.users_total || 0,
+    processed_events: +i.processed_events || 0,
+  };
+}
+
+function mergeIssuesByName(primary, secondary) {
+  const merged = primary.map(i => ({ ...i }));
+  const byName = new Map(merged.map(i => [i.issue_name, i]));
+  let nextRank = Math.max(0, ...merged.map(i => i.rank)) + 1;
+  for (const sec of secondary) {
+    if (byName.has(sec.issue_name)) {
+      const ex = byName.get(sec.issue_name);
+      ex.events_total     += sec.events_total;
+      ex.processed_events += sec.processed_events;
+      ex.users_total       = Math.max(ex.users_total, sec.users_total);
+    } else {
+      const newIssue = { ...sec, rank: nextRank++ };
+      merged.push(newIssue);
+      byName.set(sec.issue_name, newIssue);
+    }
+  }
+  return merged.filter(i => i.rank > 0).sort((a, b) => a.rank - b.rank);
+}
+
 async function loadData() {
   try {
-    const [issuesCsv, eventsCsv, releasesCsv] = await Promise.all([
-      fetch(`data/issues_3.7.0.csv?_=${Date.now()}`).then(r => { if (!r.ok) throw r; return r.text(); }),
-      fetch(`data/events_3.7.0.csv?_=${Date.now()}`).then(r => { if (!r.ok) throw r; return r.text(); }),
-      fetch(`data/version_releases.csv?_=${Date.now()}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+    const ts = Date.now();
+    const [issuesCsv370, eventsCsv370, issuesCsv371, eventsCsv371, releasesCsv, reviewedRaw] = await Promise.all([
+      fetch(`data/issues_3.7.0.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(`data/events_3.7.0.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(`data/issues_3.7.1.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(`data/events_3.7.1.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(`data/reviewed_sessions.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
 
     releases = releasesCsv ? parseCsv(releasesCsv) : [];
 
-    issues = parseCsv(issuesCsv).map(i => ({
-      ...i,
-      rank: +i.rank || 0,
-      variants_total: +i.variants_total || 0,
-      events_total: +i.events_total || 0,
-      users_total: +i.users_total || 0,
-      processed_events: +i.processed_events || 0,
-    }));
+    const issues370 = issuesCsv370 ? parseCsv(issuesCsv370).map(parseIssueRow) : [];
+    const issues371 = issuesCsv371 ? parseCsv(issuesCsv371).map(parseIssueRow) : [];
+    issues = mergeIssuesByName(issues370, issues371);
 
-    const rawEvents = parseCsv(eventsCsv);
+    const rawEvents = [
+      ...(eventsCsv370 ? parseCsv(eventsCsv370) : []),
+      ...(eventsCsv371 ? parseCsv(eventsCsv371) : []),
+    ];
     events = await Promise.all(rawEvents.map(async ev => {
       const eventId = (ev.session_event_key || '').split('_').pop();
       const log = eventId
-        ? await fetch(`data/logs/${eventId}.log?_=${Date.now()}`).then(r => r.json()).catch(() => null)
+        ? await fetch(`data/logs/${eventId}.log?_=${ts}`).then(r => r.json()).catch(() => null)
         : null;
       return { ...ev, logs: log ? processLogs(log.logs_and_breadcrumbs) : [] };
     }));
+
+    // Load reviewed sessions from server file if it has entries; else keep localStorage
+    if (reviewedRaw && Array.isArray(reviewedRaw) && reviewedRaw.length > 0) {
+      reviewedSessions = new Set(reviewedRaw);
+      localStorage.setItem('gfk_reviewed', JSON.stringify(reviewedRaw));
+    }
 
     const last = issues.map(i => i.last_scraped).filter(Boolean).sort().pop();
     if (last) document.getElementById('updated').textContent =
@@ -1166,11 +1209,47 @@ function filterEvents() {
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
+function setEventsVersionFilter(v) {
+  eventsVersionFilter = v;
+  renderEventsFromActiveIssues();
+}
+
 function renderEventsFromActiveIssues() {
   const activeCodes = new Set(
     issues.filter(i => activeIssueIds.has(String(i.rank))).map(i => i.nserror_code)
   );
-  currentEventsForDisplay = events.filter(ev => !ev.nserror_code || activeCodes.has(ev.nserror_code));
+  const byCode = events.filter(ev => !ev.nserror_code || activeCodes.has(ev.nserror_code));
+
+  // Version counts (before version filter, so buttons show full counts)
+  const versionCounts = {};
+  for (const ev of byCode) {
+    const v = ev.app_version || 'unknown';
+    versionCounts[v] = (versionCounts[v] || 0) + 1;
+  }
+
+  // Render version filter buttons
+  const filterGroup = document.getElementById('eventsVersionFilterGroup');
+  const filterContainer = document.getElementById('eventsVersionFilters');
+  if (filterGroup && filterContainer) {
+    const vKeys = Object.keys(versionCounts);
+    if (vKeys.length > 1) {
+      filterGroup.style.display = '';
+      const opts = [
+        { key: 'all', label: `All (${byCode.length})` },
+        ...Object.entries(versionCounts).sort((a, b) => b[1] - a[1]).map(([v, cnt]) => ({ key: v, label: `${v} (${cnt})` })),
+      ];
+      filterContainer.innerHTML = opts.map(o =>
+        `<button class="filter-btn${eventsVersionFilter === o.key ? ' active' : ''}" onclick="setEventsVersionFilter('${escAttr(o.key)}')">${esc(o.label)}</button>`
+      ).join('');
+    } else {
+      filterGroup.style.display = 'none';
+    }
+  }
+
+  currentEventsForDisplay = eventsVersionFilter === 'all'
+    ? byCode
+    : byCode.filter(ev => (ev.app_version || 'unknown') === eventsVersionFilter);
+
   const uniqueSess = new Set(currentEventsForDisplay.map(ev => ev.session_id_base).filter(Boolean)).size;
   document.getElementById('eventsSubtitle').textContent =
     `— ${currentEventsForDisplay.length} events · ${uniqueSess} sessions`;
@@ -1406,7 +1485,7 @@ function renderSessionCard(group, idx) {
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
         <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}</div>
+        <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>
@@ -1849,7 +1928,15 @@ function loadReviewed() {
 function toggleReviewed(sessId) {
   if (reviewedSessions.has(sessId)) reviewedSessions.delete(sessId);
   else reviewedSessions.add(sessId);
-  localStorage.setItem('gfk_reviewed', JSON.stringify([...reviewedSessions]));
+  const arr = [...reviewedSessions];
+  localStorage.setItem('gfk_reviewed', JSON.stringify(arr));
+  if (isLocalhost()) {
+    fetch('/api/save-reviewed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessions: arr }),
+    }).catch(() => {});
+  }
   rerenderEventCards();
   renderDevTasks();
 }
