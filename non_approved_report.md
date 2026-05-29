@@ -109,3 +109,79 @@ If that ID also exists server-side, server↔client pairing becomes a lookup ins
 ## 6. Suggested next step
 
 Fix **Bug A** first — it's the one that makes approved sessions disappear, which is exactly the case you couldn't find. After it ships, the no-finish bucket should shrink and the missing-approval sessions should start appearing in Crashlytics. Bug B is lower-stakes (it only adds duplicate abort noise, never loses an approval).
+
+---
+
+# Addendum — code review of `SelfServicePresenter` / `SelfServiceViewController` (2026-05-29)
+
+## A. Double-close source confirmed (Bug B root cause)
+
+`SelfServiceViewController` calls `presenter?.close()` from **two** lifecycle hooks:
+
+```swift
+override func viewWillDisappear(_ animated: Bool) { super...; presenter?.close() }
+@objc private func didEnterBackground() { presenter?.didEnterBackground() }  // → close()
+```
+
+When the user backgrounds the app, iOS frequently fires **both** `didEnterBackgroundNotification` *and* `viewWillDisappear` in the same run-loop tick. Both call `close()`. Because `isAlreadyClosed = true` is only set asynchronously inside `stopAndClear()→clearSelfService()`, both calls pass the `if isAlreadyClosed { return }` guard → two `stopAndClear()` tasks. This is the 23 same-second double-close races.
+**Fix:** set `isAlreadyClosed = true` synchronously at the top of `close()` (see Bug B above).
+
+## B. Consent timer — the real edge case (task_t3)
+
+Confirmed in the data: of 20 consent-timeout sessions, **4 were spurious** — detection messages and step transitions kept arriving *after* the 60 s timer fired, and **2 of those went on to be approved anyway**. Example `3cc573bc`:
+
+```
+10:57:11  handleNewMessageStep: detection:status:face   ← fresh task, timer just reset
+10:57:12  session disconnected: consent timer expired    ← fires 1s later (impossible for a fresh 60s timer)
+10:57:40  detection:status:card → nextStep: customerPortrait → idFront  ← user sailed past consent
+```
+
+A freshly-reset 60 s timer cannot fire one second later. The firing timer is a **stale/already-queued `Timer`**:
+
+- `resetConsentTimeoutTimer()` does `consentTimer?.invalidate()` + reschedule, but **`Timer.invalidate()` cannot cancel a fire that has already been enqueued on the run loop.** If the old timer fired microseconds before the reset, its callback still runs.
+- `Timer.scheduledTimer` attaches to the **current** run loop/thread. If the SDK delivers `.stepMessage` events on a background queue (likely — the listener closure isn't hopped to main), the timer is scheduled on a non-main runloop and invalidation from a different thread is unreliable. This is the classic source of "timer fires right after I reset it."
+
+**Robust fix (thread-agnostic): make the fire a guarded check, not an unconditional disconnect.**
+
+```swift
+private var lastDetectionAt = Date()
+
+private func noteDetectionActivity() { lastDetectionAt = Date() }   // call in handleNewMessageStep
+
+private func resetConsentTimeoutTimer() {
+    consentTimer?.invalidate()
+    consentTimer = Timer.scheduledTimer(withTimeInterval: consentTimeoutInSec, repeats: false) { [weak self] _ in
+        guard let self else { return }
+        // Guard against a stale/queued fire: only disconnect if truly idle.
+        let idle = Date().timeIntervalSince(lastDetectionAt)
+        Crashlytics.crashlytics().log("consent timer fired, idle=\(Int(idle))s, step=\(currentStep.rawValue)")
+        guard idle >= consentTimeoutInSec - 2 else {
+            resetConsentTimeoutTimer()   // false alarm — re-arm
+            return
+        }
+        disconnectSelfService(reason: "consent timer expired (idle \(Int(idle))s)")
+    }
+}
+```
+
+Also schedule/invalidate the timer **on the main thread** (`DispatchQueue.main.async`) so it lives on the main run loop, and **invalidate the consent timer in `handleNextStep`** (step transitions) so a step-N timer can never fire during step N+1.
+
+The remaining **16/20** consent timeouts were genuinely idle — 60 s with zero detection messages (backend stall or user walked away). For those, consider a soft "Are you still there?" prompt before the hard disconnect rather than silently killing the session.
+
+> Note on your "let them continue on head-up" idea: only **1/20** timeouts had head-movement `guide` messages flowing in the final 60 s, so resetting the timer on `guide` would help very few. The bigger win is the stale-timer guard above (4/20) + the soft prompt for the idle 16/20.
+
+## C. Why `stop()` throws (task_t8)
+
+`selfService.stop()` is a **network** operation. It's called from `stopAndClear()`, which runs inside `close()` — i.e. exactly when the user just backgrounded or dismissed. iOS suspends networking on background, so the call can't reach the backend. Error codes from the 22 sessions:
+
+| FaceKomError code | meaning | count |
+|---|---|---|
+| 46 | `timeOut` | 92 |
+| 3 | `networkError` | 19 |
+| 43 | `notAuthorized` | 9 |
+
+`timeOut`+`networkError` (111/120) = the backend was unreachable because the app was backgrounding. `notAuthorized` = token already cleared. **This is mostly not fixable** — you can't do a clean network teardown while suspended. Two mitigations:
+1. Wrap the teardown in a `UIApplication.beginBackgroundTask` so `stop()` gets ~5–25 s of network time after backgrounding before iOS suspends.
+2. Log the code explicitly: `setCustomValue("\(error)", forKey: "stop_error")` so timeOut-on-background can be filtered out from genuine stop failures.
+
+The double-close (§A) inflates this count too — each duplicate `stopAndClear()` fires its own (failing) `stop()`. Fixing Bug B will roughly halve the `FaceKom stopAndClear (0)` event volume.
