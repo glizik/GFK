@@ -980,11 +980,13 @@ function deduplicateGroupEvents(group) {
     if (removed.has(i)) continue;
     for (let j = i + 1; j < group.length; j++) {
       if (removed.has(j)) continue;
+      // Never merge different crash types — stopAndClear ≠ SelfServiceRuntimeError
+      if (group[i].crash_kind !== group[j].crash_kind) continue;
       const ri = getEvTimeRange(group[i]), rj = getEvTimeRange(group[j]);
       if (!ri || !rj) continue;
       if (Math.max(ri.start, rj.start) >= Math.min(ri.end, rj.end)) continue;
       if (extractStepSequence(group[i].logs).join('|') !== extractStepSequence(group[j].logs).join('|')) continue;
-      // Overlapping + identical steps: drop the less complete one
+      // Same crash type, overlapping time, identical steps: keep the more complete one
       if (group[j].logs.length >= group[i].logs.length) { removed.add(i); break; }
       else removed.add(j);
     }
