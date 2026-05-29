@@ -1430,29 +1430,32 @@ function facekomSessionId(ev) {
 }
 
 function renderSummaryContent(ev) {
-  const logs      = ev.logs;
-  const srvStart  = serverStartLog(logs);
-  const lastLog   = logs.length ? logs[logs.length - 1] : null;
-  const elapsed   = (srvStart?.rawTs && lastLog?.rawTs) ? Math.round((lastLog.rawTs - srvStart.rawTs) / 1000) : 0;
-  const nErrors   = logs.filter(l => l.type === 'error').length;
-  const nScreens  = logs.filter(l => l.type === 'screen').length;
-  const startFull = fmtFullDateFromRaw(srvStart?.rawTs);
-  const endFull   = fmtFullDateFromRaw(lastLog?.rawTs);
-  const outcome   = deriveOutcome(ev);
-  const reason    = ev.reason || '—';
-  const lastStep  = deriveLastStep(ev);
-  const hasLogs   = logs.length > 0;
-  const fkSessId  = facekomSessionId(ev);
-  const fbSessId  = ev.session_id_base || '';
+  const logs          = ev.logs;
+  const clientStart   = logs.length ? logs[0] : null;
+  const srvStart      = serverStartLog(logs);
+  const lastLog       = logs.length ? logs[logs.length - 1] : null;
+  const elapsed       = (srvStart?.rawTs && lastLog?.rawTs) ? Math.round((lastLog.rawTs - srvStart.rawTs) / 1000) : 0;
+  const nErrors       = logs.filter(l => l.type === 'error').length;
+  const nScreens      = logs.filter(l => l.type === 'screen').length;
+  const clientFull    = fmtFullDateFromRaw(clientStart?.rawTs);
+  const serverFull    = fmtFullDateFromRaw(srvStart?.rawTs);
+  const endFull       = fmtFullDateFromRaw(lastLog?.rawTs);
+  const outcome       = deriveOutcome(ev);
+  const reason        = ev.reason || '—';
+  const lastStep      = deriveLastStep(ev);
+  const hasLogs       = logs.length > 0;
+  const fkSessId      = facekomSessionId(ev);
+  const fbSessId      = ev.session_id_base || '';
   const copyBtn = (text, label) =>
-    `<button onclick="copyToClipboard('${escAttr(text)}',this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0 4px;font-size:15px;vertical-align:middle;transition:transform 0.15s" title="Copy ${escAttr(label)}">⎘</button>`;
+    `<button class="btn btn-ghost btn-sm" onclick="copyToClipboard('${escAttr(text)}',this)" title="Copy ${escAttr(label)}" style="margin-left:6px">📋 Copy</button>`;
   return `<div class="kv-grid">
     ${fkSessId ? `<span class="kv-key">FaceKom session</span><span class="kv-val" style="font-size:10px;color:var(--accent2)">${esc(fkSessId)} ${copyBtn(fkSessId, 'FaceKom session')}</span>` : ''}
     <span class="kv-key">Outcome</span><span class="kv-val ${outcome === 'approve' || outcome === 'finished' ? 'ok' : 'highlight'}">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
     <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
-    ${startFull ? `<span class="kv-key">Started</span><span class="kv-val">${esc(startFull)}</span>` : ''}
-    ${endFull   ? `<span class="kv-key">Ended</span><span class="kv-val">${esc(endFull)}</span>` : ''}
-    ${elapsed   ? `<span class="kv-key">Duration</span><span class="kv-val">${elapsed}s</span>` : ''}
+    ${clientFull ? `<span class="kv-key">Client started</span><span class="kv-val">${esc(clientFull)}</span>` : ''}
+    ${serverFull ? `<span class="kv-key">Server started</span><span class="kv-val">${esc(serverFull)}</span>` : ''}
+    ${endFull    ? `<span class="kv-key">Ended</span><span class="kv-val">${esc(endFull)}</span>` : ''}
+    ${elapsed    ? `<span class="kv-key">Duration</span><span class="kv-val">${elapsed}s</span>` : ''}
     <span class="kv-key">Screens</span><span class="kv-val">${nScreens} screen views</span>
     <span class="kv-key">Errors</span><span class="kv-val highlight">${nErrors} error events</span>
     <span class="kv-key">Breadcrumbs</span><span class="kv-val ${hasLogs ? 'ok' : ''}">${esc(ev.breadcrumbs_status || '—')}${hasLogs ? ' ✓' : ''}</span>
@@ -1533,7 +1536,7 @@ function renderSessionCard(group, idx) {
           <span class="badge ${outcomeBadgeClass(repOutcome)}" style="font-size:10px">${esc(repOutcome)}</span>
           ${repStep !== '—' ? `<span style="font-size:11px;color:var(--analytics)">→ ${esc(repStep)}</span>` : ''}
           ${repIssue ? `<span style="font-size:10px;color:var(--muted)">${esc(repIssue)}</span>` : ''}
-          ${ev.session_event_key ? `<button onclick="event.stopPropagation();copyToClipboard('${escAttr(ev.session_event_key)}',this)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0 4px;transition:transform 0.15s" title="Copy event key">⎘</button>` : ''}
+          ${ev.session_event_key ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyToClipboard('${escAttr(ev.session_event_key)}',this)" title="Copy event key">📋 Copy</button>` : ''}
           ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" class="subreport-link" onclick="event.stopPropagation()">Open ↗</a>` : ''}
         </div>`;
       }).join('')}
@@ -1542,7 +1545,7 @@ function renderSessionCard(group, idx) {
   const srvStart  = serverStartLog(primary.logs);
   const startFull = fmtFullDateFromRaw(srvStart?.rawTs);
   const sek = primary.session_event_key || '';
-  const copyIcon = (text, title) => `<button onclick="event.stopPropagation();copyToClipboard('${escAttr(text)}',this)" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0 4px;font-size:15px;vertical-align:middle;transition:transform 0.15s" title="${escAttr(title)}">⎘</button>`;
+  const copyIcon = (text, title) => `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyToClipboard('${escAttr(text)}',this)" title="${escAttr(title)}">📋 Copy</button>`;
 
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
@@ -2257,13 +2260,23 @@ const FACEKOMCODES = {
 
 function getSessionStartDate(sid) {
   const ev = events.find(e => e.session_id_base === sid);
-  if (!ev || !ev.date) return '';
+  if (!ev) return '';
+  // Use server start (FaceKom SelfService started breadcrumb) if available
+  const srvLog = serverStartLog(ev.logs || []);
+  if (srvLog?.rawTs) {
+    const d = new Date(srvLog.rawTs);
+    if (!isNaN(d)) {
+      const p = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }
+  }
+  // Fallback to Firebase event date
   try {
     const d = new Date(ev.date);
-    if (isNaN(d)) return ev.date;
-    const pad = n => String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  } catch { return ev.date; }
+    if (isNaN(d)) return ev.date || '';
+    const p = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  } catch { return ev.date || ''; }
 }
 
 function getSessionOutcome(sid) {
