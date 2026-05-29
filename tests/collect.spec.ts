@@ -26,14 +26,16 @@ const FIREBASE_BASE =
   `https://console.firebase.google.com/project/${process.env.FIREBASE_PROJECT}` +
   `/crashlytics/app/${process.env.FIREBASE_APP}/issues`;
 
-const ISSUE_BASE         = process.env.ISSUE_BASE          ?? 'FaceKom';
-const ISSUE_DIRECT_ID    = process.env.ISSUE_DIRECT_ID     ?? '';
-const ISSUE_TYPES_LIST   = (process.env.ISSUE_TYPES_LIST   ?? '').split(',').map(s => s.trim()).filter(Boolean);
-const EVENTS_CSV         = path.resolve(process.env.EVENTS_CSV  ?? './data/events_3.7.0.csv');
-const ISSUES_CSV         = path.resolve(process.env.ISSUES_CSV  ?? './data/issues_3.7.0.csv');
-const LOGS_DIR           = path.resolve(process.env.LOGS_DIR    ?? './data/logs');
-const ISSUE_TIME_DEFAULT = process.env.ISSUE_TIME_DEFAULT   ?? '90d';
-const COLLECT_LIMIT      = parseInt(process.env.COLLECT_LIMIT   ?? '0');
+const ISSUE_BASE              = process.env.ISSUE_BASE              ?? 'FaceKom';
+const ISSUE_DIRECT_ID         = process.env.ISSUE_DIRECT_ID         ?? '';
+const ISSUE_TYPES_LIST        = (process.env.ISSUE_TYPES_LIST       ?? '').split(',').map(s => s.trim()).filter(Boolean);
+const EVENTS_CSV              = path.resolve(process.env.EVENTS_CSV  ?? './data/events_3.7.0.csv');
+const ISSUES_CSV              = path.resolve(process.env.ISSUES_CSV  ?? './data/issues_3.7.0.csv');
+const LOGS_DIR                = path.resolve(process.env.LOGS_DIR    ?? './data/logs');
+const ISSUE_TIME_DEFAULT      = process.env.ISSUE_TIME_DEFAULT       ?? '90d';
+const COLLECT_LIMIT           = parseInt(process.env.COLLECT_LIMIT   ?? '0');
+/** FaceKom session UUID to force-recollect (removes matching events from dedup before run). */
+const FORCE_RECOLLECT_FK      = (process.env.FORCE_RECOLLECT_FK_SESSION ?? '').trim();
 
 const BASE_QUERY = {
   state:       process.env.ISSUE_STATE       ?? 'open',
@@ -107,6 +109,65 @@ function readExistingKeys(csvPath: string): Set<string> {
     if (sekIdx >= 0 && vals[sekIdx]) keys.add(vals[sekIdx]);
   }
   return keys;
+}
+
+function readAllEvents(csvPath: string): EventRecord[] {
+  if (!fs.existsSync(csvPath)) return [];
+  const text = fs.readFileSync(csvPath, 'utf-8').trim();
+  if (!text) return [];
+  const lines = text.split(/\r?\n/);
+  const headers = parseCsvLine(lines[0]);
+  return lines.slice(1).filter(Boolean).map(line => {
+    const vals = parseCsvLine(line);
+    const rec = {} as EventRecord;
+    EVENT_HEADERS.forEach(h => { rec[h] = ''; });
+    headers.forEach((h, i) => {
+      if (EVENT_HEADERS.includes(h as EventHeader)) (rec as any)[h] = vals[i] ?? '';
+    });
+    return rec;
+  });
+}
+
+function writeAllEvents(csvPath: string, records: EventRecord[]) {
+  const header = EVENT_HEADERS.map(escapeCsv).join(',');
+  const rows   = records.map(r => EVENT_HEADERS.map(h => escapeCsv(r[h] ?? '')).join(','));
+  fs.writeFileSync(csvPath, [header, ...rows].join('\n') + '\n', 'utf-8');
+}
+
+/** Match an event row back to an issue type name using nserror_code then crash_kind. */
+function matchIssueType(ev: EventRecord, issueTypes: string[]): string {
+  if (ev.nserror_code) {
+    const byCode = issueTypes.find(it => it.includes(`(${ev.nserror_code})`));
+    if (byCode) return byCode;
+  }
+  return issueTypes.find(it => deriveCrashKind(it) === ev.crash_kind) ?? '';
+}
+
+/** Remove events matching a FaceKom session ID from the CSV and dedup set. */
+function forceRecollect(fkSession: string, existingKeys: Set<string>): number {
+  const all     = readAllEvents(EVENTS_CSV);
+  const toForce = all.filter(ev => ev.identification_link?.includes(fkSession));
+  if (!toForce.length) {
+    console.log(`🔄 Force-recollect: no events found with FK session ${fkSession}`);
+    return 0;
+  }
+  console.log(`🔄 Force-recollect: clearing ${toForce.length} event(s) with FK session ${fkSession}`);
+  for (const ev of toForce) {
+    existingKeys.delete(ev.event_url);
+    existingKeys.delete(ev.session_event_key);
+  }
+  const remaining = all.filter(ev => !ev.identification_link?.includes(fkSession));
+  writeAllEvents(EVENTS_CSV, remaining);
+  // Adjust processed_events
+  const byIssue: Record<string, number> = {};
+  for (const ev of toForce) {
+    const issue = matchIssueType(ev, ISSUE_TYPES_LIST);
+    if (issue) byIssue[issue] = (byIssue[issue] || 0) + 1;
+  }
+  for (const [issue, count] of Object.entries(byIssue)) {
+    updateProcessedEvents(ISSUES_CSV, issue, -count);
+  }
+  return toForce.length;
 }
 
 function appendEventCsv(csvPath: string, record: EventRecord) {
@@ -533,6 +594,7 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
   fs.mkdirSync(LOGS_DIR, { recursive: true });
 
   const existingEventUrls = readExistingKeys(EVENTS_CSV);
+  if (FORCE_RECOLLECT_FK) forceRecollect(FORCE_RECOLLECT_FK, existingEventUrls);
   console.log(`📋 Existing events in CSV: ${existingEventUrls.size}`);
   console.log(`📋 Issue types to collect: ${ISSUE_TYPES_LIST.join(', ')}`);
 
