@@ -447,13 +447,23 @@ function pad(n) { return String(n).padStart(2, '0'); }
 function processLogs(items) {
   return (items || []).map(item => {
     if (item.name === 'screen_view')
-      return { ts: fmtTs(item.timestamp), type: 'screen', msg: item.params?.firebase_screen_class || '?' };
+      return { ts: fmtTs(item.timestamp), rawTs: item.timestamp, type: 'screen', msg: item.params?.firebase_screen_class || '?' };
     const msg = item.message || '';
     let type = 'log';
     if (/error|failed|abort/i.test(msg) && !/success/i.test(msg)) type = 'error';
     else if (/success|verified|connected/i.test(msg)) type = 'log-ok';
-    return { ts: fmtTs(item.timestamp), type, msg };
+    return { ts: fmtTs(item.timestamp), rawTs: item.timestamp, type, msg };
   });
+}
+
+function fmtFullDateFromRaw(rawTs) {
+  if (!rawTs) return null;
+  const d = new Date(rawTs);
+  return d.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).catch(() => {});
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -526,7 +536,9 @@ async function loadData() {
       const log = eventId
         ? await fetch(`data/logs/${eventId}.log?_=${ts}`).then(r => r.json()).catch(() => null)
         : null;
-      return { ...ev, logs: log ? processLogs(log.logs_and_breadcrumbs) : [] };
+      const logs = log ? processLogs(log.logs_and_breadcrumbs) : [];
+      const startTs = logs[0]?.rawTs || null;
+      return { ...ev, logs, startTs };
     }));
 
     // Load reviewed sessions from server file if it has entries; else keep localStorage
@@ -1397,22 +1409,24 @@ function facekomSessionId(ev) {
 
 function renderSummaryContent(ev) {
   const logs = ev.logs;
-  const times = logs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
-  const elapsed  = times.length ? Math.max(...times) - Math.min(...times) : 0;
+  const elapsed  = logs.length > 1 ? Math.round((logs[logs.length-1].rawTs - logs[0].rawTs) / 1000) : 0;
   const nErrors  = logs.filter(l => l.type === 'error').length;
   const nScreens = logs.filter(l => l.type === 'screen').length;
-  const firstTs  = logs[0]?.ts || '—';
-  const lastTs   = logs[logs.length-1]?.ts || '—';
-  const outcome  = deriveOutcome(ev);
-  const reason   = ev.reason || '—';
-  const lastStep = deriveLastStep(ev);
-  const hasLogs  = logs.length > 0;
-  const fkSessId = facekomSessionId(ev);
+  const startFull = fmtFullDateFromRaw(logs[0]?.rawTs);
+  const endFull   = fmtFullDateFromRaw(logs[logs.length-1]?.rawTs);
+  const outcome   = deriveOutcome(ev);
+  const reason    = ev.reason || '—';
+  const lastStep  = deriveLastStep(ev);
+  const hasLogs   = logs.length > 0;
+  const fkSessId  = facekomSessionId(ev);
+  const copyBtn   = text => `<button onclick="copyToClipboard('${escAttr(text)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0 2px;font-size:11px" title="Copy">⎘</button>`;
   return `<div class="kv-grid">
-    ${fkSessId ? `<span class="kv-key">FaceKom session</span><span class="kv-val" style="font-size:10px;color:var(--accent2)">${esc(fkSessId)}</span>` : ''}
+    ${fkSessId ? `<span class="kv-key">FaceKom session</span><span class="kv-val" style="font-size:10px;color:var(--accent2)">${esc(fkSessId)} ${copyBtn(fkSessId)}</span>` : ''}
     <span class="kv-key">Outcome</span><span class="kv-val ${outcome === 'approve' || outcome === 'finished' ? 'ok' : 'highlight'}">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
     <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
-    <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
+    ${startFull ? `<span class="kv-key">Started</span><span class="kv-val">${esc(startFull)}</span>` : ''}
+    ${endFull   ? `<span class="kv-key">Ended</span><span class="kv-val">${esc(endFull)}</span>` : ''}
+    <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s</span>
     <span class="kv-key">Screens</span><span class="kv-val">${nScreens} screen views</span>
     <span class="kv-key">Errors</span><span class="kv-val highlight">${nErrors} error events</span>
     <span class="kv-key">Breadcrumbs</span><span class="kv-val ${hasLogs ? 'ok' : ''}">${esc(ev.breadcrumbs_status || '—')}${hasLogs ? ' ✓' : ''}</span>
@@ -1493,16 +1507,21 @@ function renderSessionCard(group, idx) {
           <span class="badge ${outcomeBadgeClass(repOutcome)}" style="font-size:10px">${esc(repOutcome)}</span>
           ${repStep !== '—' ? `<span style="font-size:11px;color:var(--analytics)">→ ${esc(repStep)}</span>` : ''}
           ${repIssue ? `<span style="font-size:10px;color:var(--muted)">${esc(repIssue)}</span>` : ''}
+          ${ev.session_event_key ? `<button onclick="event.stopPropagation();copyToClipboard('${escAttr(ev.session_event_key)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:0 2px" title="Copy event key">⎘</button>` : ''}
           ${ev.event_url ? `<a href="${escAttr(ev.event_url)}" target="_blank" class="subreport-link" onclick="event.stopPropagation()">Open ↗</a>` : ''}
         </div>`;
       }).join('')}
     </div>`;
 
+  const startFull = fmtFullDateFromRaw(primary.startTs);
+  const sek = primary.session_event_key || '';
+  const copyIcon = (text, title) => `<button onclick="event.stopPropagation();copyToClipboard('${escAttr(text)}')" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:0 2px;font-size:11px;vertical-align:middle" title="${escAttr(title)}">⎘</button>`;
+
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
-        <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${fbSess ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px" title="Firebase session">FB: ' + esc(fbSess.slice(0, 8)) + '…</span>' : ''}</div>
+        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
+        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${fbSess ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px" title="Firebase session">FB: ' + esc(fbSess.slice(0, 8)) + '…</span>' : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>
