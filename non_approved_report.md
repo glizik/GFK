@@ -36,21 +36,72 @@ selfService.setListener(identifier: mainFaceKomStep) { [weak self] event in
 
 **13 sessions** in the current data show "backgrounded, no finish recorded" — the in-data tip of this iceberg. The fully-lost ones (like your 7m54s case) can't even be counted because no event exists.
 
-**Fix:** record the finish synchronously inside the listener, before `guard let self`, for the terminal case:
+**Fix (flag-free):** record the finish synchronously inside the listener, before `guard let self`, and make every terminal event have exactly one recorder — decided by *which path produced it*, not by runtime state.
+
+Server `.end` and client-side aborts are mutually exclusive, so no `didReportFinish` flag is needed:
+
+- **Server `.end`** → recorded in the listener (the lifecycle-safe point), nowhere else.
+- **Client-side aborts** (integrity fail, invalid step, portraitError…) never arrive as `.end` → they keep recording in `reportAndShowFinish`.
+
+**Step 1 — pure initializer (the single status→state mapping, no side effects):**
+
+```swift
+extension VideoAuthState {
+    /// Pure: no logging / Crashlytics — safe to call from the SDK listener where `self` may be gone.
+    init(serverStatus status: String, additionalData: Any?) {
+        switch status {
+        case "finished": self = .finished
+        case "expired":  self = .expired
+        case "failed":
+            if let dict = additionalData as? [String: Any], let reason = PhotoRecognitionError.from(dict) {
+                self = .failed(title: L10n.Video.Step.Aborted.Error.title,
+                               subtitle: L10n.Video.Finish.Error.subtitle.uppercased(),
+                               message: reason.getMessage())
+            } else if let reason = RoomClosedError.from(String(describing: additionalData)) {
+                self = .failed(title: reason.title, subtitle: reason.subtitle)
+            } else { self = .failed() }
+        default: // "aborted" + unknown (absorbs the old `Status(rawValue:) ?? aborted`)
+            var message: String?
+            if let s = additionalData as? String, s != "nil" { message = RoomClosedError.from(s).debugDescription }
+            self = .aborted(message: message)
+        }
+    }
+}
+```
+
+**Step 2 — record once in the listener, before `guard let self`:**
 
 ```swift
 selfService.setListener(identifier: mainFaceKomStep) { [weak self] event in
+    Logger.dev.info("FaceKom \(mainFaceKomStep) -> event \(String(describing: event))")
     if case .nextStep(let step) = event, case .end(let status, let extra) = step {
-        // Record terminal state independent of presenter lifecycle
-        let state = Self.videoAuthState(forStatus: status, additionalData: extra) // make this static/pure
-        let err = SelfServiceRuntimeError.sessionFinished(state: state)
-        Crashlytics.crashlytics().log(err.localizedDescription)
-        Crashlytics.crashlytics().record(error: err)
+        Crashlytics.crashlytics().setCustomValue(status, forKey: "STATUS")
+        let state = VideoAuthState(serverStatus: status, additionalData: extra)
+        let finished = SelfServiceRuntimeError.sessionFinished(state: state)
+        Crashlytics.crashlytics().log(finished.localizedDescription)
+        Crashlytics.crashlytics().record(error: finished)
     }
     guard let self else { return }
-    ...
+    switch event { case .nextStep(let step): handleNextStep(step); ... }
 }
 ```
+
+**Step 3 — `handleNormalStep`'s `.end` shows UI only (listener already recorded):**
+
+```swift
+case .end(let status, let additionalData):
+    selfService.disconnect()
+    selfService.clearToken()
+    delegate?.showFinish(VideoAuthState(serverStatus: status, additionalData: additionalData))
+```
+
+`reportAndShowFinish` is unchanged and keeps recording — it's now only reached by client-side abort paths, which the listener's `.end` branch never touches. Each terminal event is recorded exactly once, with no shared flag to keep in sync.
+
+| Terminal event | Recorded by | UI shown by |
+|---|---|---|
+| Server `.end`, presenter alive | listener | `handleNormalStep.end` → `showFinish` |
+| Server `.end`, presenter dead (the leak) | listener ✓ | — (app backgrounded) |
+| Client abort (integrity / invalid step) | `reportAndShowFinish` | `reportAndShowFinish` |
 
 ### Bug B — double `stopAndClear` race (`isAlreadyClosed` set asynchronously)
 
