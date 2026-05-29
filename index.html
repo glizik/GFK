@@ -367,7 +367,7 @@
         <div id="eventsVersionFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
       <div class="search-bar">
-        <input type="text" class="search-input" id="eventsSearch" placeholder="Filter by session / event identifier…" oninput="filterEvents()">
+        <input type="text" class="search-input" id="eventsSearch" placeholder="Filter by Firebase session, FaceKom session, event ID…" oninput="filterEvents()">
         <div class="search-match-count" id="searchMatchCount"></div>
       </div>
       <div id="eventsGrid"></div>
@@ -1200,7 +1200,9 @@ function filterEvents() {
   const filtered = q
     ? pool.filter(ev => {
         const identifiers = [
-          ev.session_event_key, ev.session_id_full, ev.session_id_base, ev.event_id
+          ev.session_event_key, ev.session_id_full, ev.session_id_base, ev.event_id,
+          ev.user_id_base, ev.user_id_suffix, ev.identification_link,
+          facekomSessionId(ev),
         ].join(' ').toLowerCase();
         return identifiers.includes(q);
       })
@@ -1382,6 +1384,17 @@ function selectReport(cardId, repIdx) {
   });
 }
 
+// FaceKom session = QR UUID (user_id_base[-suffix]) — what the app calls the attempt ID
+function facekomSessionId(ev) {
+  if (ev.user_id_base) {
+    return ev.user_id_suffix ? `${ev.user_id_base}-${ev.user_id_suffix}` : ev.user_id_base;
+  }
+  // Fallback: parse from identification_link URL
+  const link = ev.identification_link || '';
+  const m = link.match(/\/identification\/([^/?#\s]+)/);
+  return m ? m[1] : '';
+}
+
 function renderSummaryContent(ev) {
   const logs = ev.logs;
   const times = logs.map(l => { const [h,m,s] = l.ts.split(':').map(Number); return h*3600+m*60+s; });
@@ -1394,8 +1407,10 @@ function renderSummaryContent(ev) {
   const reason   = ev.reason || '—';
   const lastStep = deriveLastStep(ev);
   const hasLogs  = logs.length > 0;
+  const fkSessId = facekomSessionId(ev);
   return `<div class="kv-grid">
-    <span class="kv-key">Session</span><span class="kv-val" style="font-size:10px">${esc(ev.session_id_base || '—')}</span>
+    <span class="kv-key">Firebase session</span><span class="kv-val" style="font-size:10px">${esc(ev.session_id_base || '—')}</span>
+    ${fkSessId ? `<span class="kv-key">FaceKom session</span><span class="kv-val" style="font-size:10px;color:var(--accent2)">${esc(fkSessId)}</span>` : ''}
     <span class="kv-key">Outcome</span><span class="kv-val ${outcome === 'approve' || outcome === 'finished' ? 'ok' : 'highlight'}">${esc(outcome)}${reason !== '—' ? ' — ' + esc(reason) : ''}</span>
     <span class="kv-key">Last step</span><span class="kv-val highlight">${esc(lastStep)}</span>
     <span class="kv-key">Duration</span><span class="kv-val">${elapsed}s &nbsp;(${firstTs} → ${lastTs})</span>
@@ -1447,8 +1462,10 @@ function renderSessionCard(group, idx) {
   const primary = group[group.length - 1];
   const defaultRepIdx = group.length - 1;
   const outcome = deriveSessionOutcome(group);
-  const title = primary.session_id_base
-    ? `Session ${primary.session_id_base.slice(0, 12)}…`
+  const fbSess   = primary.session_id_base || '';
+  const fkSess   = facekomSessionId(primary);
+  const title = fbSess
+    ? `Firebase session: ${fbSess.slice(0, 12)}…`
     : `Event ${idx + 1}`;
 
   const attachedTasks = getTasksForSession(primary.session_id_base);
@@ -1485,7 +1502,7 @@ function renderSessionCard(group, idx) {
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
         <h3>${esc(title)} <span class="badge ${outcomeBadgeClass(outcome)}">${esc(outcome)}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}</div>
+        <div class="meta">${esc(primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${fkSess ? ' &nbsp;·&nbsp; <span style="color:var(--yellow);font-size:10px" title="FaceKom session">FK: ' + esc(fkSess.slice(0, 8)) + '…</span>' : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>

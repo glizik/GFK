@@ -210,12 +210,18 @@ Saved at `data/fixtures/sample_3.7.0_sessionFinished_aborted_30803.json`.
 > **One Crashlytics event ≠ one user.**
 > The hierarchy is **user → attempt → session → report.**
 
-| Level | Identifier | Notes |
-|---|---|---|
-| **User** | `user_id_base` (first 36 chars of user_id) | Physical person. **Variants** of the QR for the same person (extended UUID `<base>-<unix_ts>`) all belong here. Per-user record keeps an array of every variant seen — `user_id_variants[]`, `identification_links[]`. |
-| **Attempt** | `user_id` — `base_uuid` or `base_uuid-<unix_ts>` | One QR scan / one identification link. |
-| **Session** | `session_id_base` (from log JSON OR `sessionEventKey` URL param) | The Firebase Analytics session inside the iOS app. |
-| **Report** | full `session_id` with `_DNE_<N>_v2` suffix; or full `sessionEventKey` (`base_eventId`) for unique per-event identity | A single Crashlytics non-fatal report = one row in `issues.csv`. 3.7.0 emits multiple per session (every `didEnterBackground` fires one). |
+| Level | Identifier | Dashboard label | Notes |
+|---|---|---|---|
+| **User** | `user_id_base` (first 36 chars of user_id) | — | Physical person. **Variants** of the QR for the same person (extended UUID `<base>-<unix_ts>`) all belong here. |
+| **Attempt** | `user_id` — `base_uuid` or `base_uuid-<unix_ts>` | **FaceKom session** | One QR scan / one identification link. Gabor calls this the "FaceKom session". Format: `<uuid4>` or `<uuid4>-<unix_ts_seconds>`. Stored in Crashlytics via `setUserID(qr_url)` on the Data tab. Exposed as `user_id_base` + `user_id_suffix` in the CSV and `identification_link` (full URL). |
+| **Session** | `session_id_base` (from log JSON OR `sessionEventKey` URL param) | **Firebase session** | The Firebase Analytics session inside the iOS app. Gabor calls this the "Firebase session". |
+| **Report** | full `session_id` with `_DNE_<N>_v2` suffix; or full `sessionEventKey` (`base_eventId`) for unique per-event identity | — | A single Crashlytics non-fatal report = one row in events CSV. 3.7.0 emits multiple per session. |
+
+**Important naming convention (2026-05-29):** Gabor distinguishes:
+- **"Firebase session"** = `session_id_base` (32-char hex, e.g. `e1c9aff8...`) — the Firebase Analytics session.
+- **"FaceKom session"** = the attempt/QR UUID (e.g. `b2df7150-ee4d-4700-a567-e6043db9379c-1779958054`) — parsed from `identification_link`. The suffix is a unix timestamp (seconds) of the QR generation time.
+
+The dashboard shows both. The search box accepts either. Both are shown on event cards: "Firebase session: e1c9aff…" in the title, "FaceKom session: b2df7150…" in the Summary tab and as "FK: b2df7150…" in the meta line.
 
 ### Why this matters
 - **User-centric success** is what we care about. In 3.6.1 data: 1,278 users
