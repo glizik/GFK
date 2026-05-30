@@ -239,11 +239,56 @@
   /* ── Task badge + attach menu ────────────────────────────────────────── */
   .task-badge { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35); color: var(--accent2); border-radius: 10px; padding: 2px 7px; font-size: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .task-badge:hover { border-color: var(--accent2); }
-  .attach-backdrop { position: fixed; inset: 0; z-index: 199; }
-  .attach-menu { position: fixed; z-index: 200; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; min-width: 210px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .attach-backdrop { position: fixed; inset: 0; z-index: 699; }
+  .attach-menu { position: fixed; z-index: 700; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; min-width: 210px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .attach-menu-item { padding: 8px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
   .attach-menu-item:hover { background: var(--border); }
   .attach-menu-item.attached { color: var(--accent2); }
+
+  /* ── Day Timeline (Gantt swimlanes) ──────────────────────────────────── */
+  .gantt-section-panel.collapsed { display: none; }
+  .gantt-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .gantt-daynav { display: flex; align-items: center; gap: 6px; }
+  .gantt-day-label { font-size: 14px; font-weight: 700; color: #fff; min-width: 168px; text-align: center; }
+  .gantt-cmd { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; }
+  .gantt-cmd:focus-within { border-color: var(--accent); }
+  .gantt-cmd-prompt { color: var(--accent2); font-family: monospace; font-weight: 700; font-size: 13px; }
+  .gantt-cmd input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: monospace; font-size: 12px; padding: 9px 0; }
+  .gantt-summary { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 12px; align-items: center; }
+  .gantt-summary b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .gantt-summary .g-chip { display: inline-flex; align-items: center; gap: 5px; }
+  .gantt-summary .g-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .gantt-filter-tag { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35); color: var(--accent2); border-radius: 12px; padding: 2px 10px; font-size: 11px; font-family: monospace; cursor: pointer; }
+  .gantt-filter-tag:hover { border-color: var(--accent2); }
+
+  .gantt-wrap { --lane-w: 172px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .gantt-axis { position: relative; height: 22px; margin-left: var(--lane-w); border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .gantt-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border); }
+  .gantt-tick-label { position: absolute; top: 4px; left: 4px; font-size: 10px; color: var(--muted); font-family: monospace; white-space: nowrap; }
+  .gantt-scroll { max-height: 62vh; overflow-y: auto; }
+
+  .gantt-lane { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); min-height: 38px; }
+  .gantt-lane:last-child { border-bottom: none; }
+  .gantt-lane:hover { background: var(--surface2); }
+  .gantt-lane-label { width: var(--lane-w); flex-shrink: 0; padding: 5px 10px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; gap: 2px; cursor: pointer; }
+  .gantt-lane-label:hover .gantt-lane-fk { text-decoration: underline; }
+  .gantt-lane-fk { font-family: monospace; font-size: 11px; color: var(--accent2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gantt-lane-meta { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gantt-track { position: relative; flex: 1; min-width: 0; }
+
+  .gantt-box { position: absolute; top: 50%; transform: translateY(-50%); height: 26px; border-radius: 5px; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.3); overflow: hidden; transition: filter .12s, box-shadow .12s; }
+  .gantt-box:hover { filter: brightness(1.2); box-shadow: 0 0 0 2px var(--accent); z-index: 5; }
+  .gantt-box.approved { height: 12px; }
+  .gantt-box-label { position: absolute; left: 6px; right: 4px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,0.6); pointer-events: none; }
+  .gantt-prog { position: absolute; left: 0; top: 0; height: 4px; background: rgba(255,255,255,0.55); pointer-events: none; }
+  .g-green  { background: var(--green); }
+  .g-yellow { background: var(--yellow); }
+  .g-red    { background: var(--red); }
+  .g-muted  { background: #475569; }
+
+  .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
+  .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
+  .gantt-modal .event-card { background: var(--surface); }
 </style>
 </head>
 <body>
@@ -291,6 +336,32 @@
     </div>
   </div>
   <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
+
+  <div class="section" id="ganttSection">
+    <div class="section-header" onclick="toggleGantt()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="ganttToggleIcon">▶</span>Day Timeline <span class="count" id="ganttSubtitle"></span>
+      </div>
+    </div>
+    <div class="gantt-section-panel" id="ganttPanel">
+      <div class="gantt-toolbar">
+        <div class="gantt-daynav">
+          <button class="btn btn-ghost btn-sm" id="ganttPrev" onclick="ganttDay(-1)">← Prev</button>
+          <span class="gantt-day-label" id="ganttDayLabel">—</span>
+          <button class="btn btn-ghost btn-sm" id="ganttNext" onclick="ganttDay(1)">Next →</button>
+          <button class="btn btn-ghost btn-sm" onclick="ganttLatest()" title="Jump to the most recent day with data">⤓ Latest</button>
+        </div>
+        <div class="gantt-cmd">
+          <span class="gantt-cmd-prompt">/</span>
+          <input id="ganttCmd" autocomplete="off" spellcheck="false"
+                 placeholder="filterfacekomsession <id>  ·  filter outcome=aborted os=26 appversion=3.7.1  ·  clear"
+                 onkeydown="if(event.key==='Enter'){runGanttCmd(this.value);this.value='';}">
+        </div>
+      </div>
+      <div class="gantt-summary" id="ganttSummary"></div>
+      <div id="ganttChart"></div>
+    </div>
+  </div>
 
   <div class="section">
     <div class="section-header" onclick="toggleIssuesPanel()">
@@ -405,6 +476,9 @@
 
   <div id="attachBackdrop" class="attach-backdrop" style="display:none" onclick="closeAttachMenu()"></div>
   <div id="attachMenu" class="attach-menu" style="display:none"></div>
+
+  <div id="gCardBg" class="gantt-modal-bg" onclick="closeGanttCard()"></div>
+  <div id="gCardModal" class="gantt-modal"></div>
 
   <div id="discoverBg" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.72)" onclick="closeDiscoverModal()"></div>
   <div id="discoverModal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:501;width:min(92vw,660px);max-height:80vh;background:var(--surface);border:1px solid var(--border);border-radius:12px;flex-direction:column">
@@ -582,6 +656,7 @@ async function loadData() {
     renderStepFunnel();
     renderEventsFromActiveIssues();
     renderTimeline();
+    renderGantt();
     renderDevTasks();
     renderDevConnectBtn();
     loadDevTasksFromCSV();
@@ -1794,6 +1869,258 @@ function filterToDay(dayKey) {
   document.getElementById('eventsSearch').value = '';
   renderEventsGrid(dayEvents);
   document.getElementById('eventsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
+let gDayKey = null;
+let gFilter = { fk: '', outcome: '', os: '', appversion: '', event: '' };
+const GANTT_CANON = 8; // rough max FaceKom steps, for the "how far" progress strip
+
+function toggleGantt() {
+  const panel = document.getElementById('ganttPanel');
+  const icon  = document.getElementById('ganttToggleIcon');
+  const open  = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', open);
+  icon.classList.toggle('open', !open);
+}
+
+// Server-side start of a session report = "FaceKom SelfService started" crumb (falls back to event date).
+function gStartTs(ev) {
+  const s = serverStartLog(ev.logs || []);
+  return (s && s.rawTs) ? s.rawTs : parseTs(ev.date);
+}
+function gEndTs(ev) {
+  const logs = ev.logs || [];
+  const lastTs = logs.length ? logs[logs.length - 1].rawTs : 0;
+  return lastTs || gStartTs(ev);
+}
+function gDayKeyOf(ts) {
+  if (!ts) return null;
+  const d = new Date(ts);
+  return isNaN(d.getTime()) ? null : `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+// Lane = FaceKom session when known, else the Firebase session (older 3.7.0 data).
+function gLaneKey(ev) {
+  const fk = facekomSessionId(ev);
+  return fk ? 'fk:' + fk : 'fb:' + (ev.session_id_base || ev.event_id || '?');
+}
+function gOutcomeColor(outcome) {
+  const o = normalizeOutcome(outcome);
+  if (o === 'approve') return 'g-green';
+  if (o === 'failed')  return 'g-yellow';
+  if (o === 'aborted') return 'g-red';
+  return 'g-muted';
+}
+
+function buildGanttModel() {
+  const dayKeysSet = new Set();
+  for (const ev of events) { const k = gDayKeyOf(gStartTs(ev)); if (k) dayKeysSet.add(k); }
+  const dayKeys = [...dayKeysSet].sort();
+  if (!dayKeys.length) return { lanes: [], dayKeys: [], dayMin: 0, dayMax: 0, summary: null };
+  if (!gDayKey || !dayKeys.includes(gDayKey)) gDayKey = dayKeys[dayKeys.length - 1];
+
+  const dayEvents = events.filter(ev => gDayKeyOf(gStartTs(ev)) === gDayKey);
+
+  const laneMap = new Map();
+  for (const ev of dayEvents) {
+    const lk = gLaneKey(ev);
+    if (!laneMap.has(lk)) laneMap.set(lk, new Map());
+    const tryMap = laneMap.get(lk);
+    const tk = ev.session_id_base || ev.event_id || '?';
+    if (!tryMap.has(tk)) tryMap.set(tk, []);
+    tryMap.get(tk).push(ev);
+  }
+
+  let lanes = [];
+  for (const [lk, tryMap] of laneMap) {
+    const tries = [];
+    for (const [tk, reps] of tryMap) {
+      const group = deduplicateGroupEvents(reps.slice().sort((a,b)=>(+a.report_index||0)-(+b.report_index||0)));
+      const rep = group.reduce((best, e) => (e.logs?.length||0) > (best.logs?.length||0) ? e : best, group[0]);
+      const start = gStartTs(rep), end = gEndTs(rep);
+      tries.push({
+        sessId: tk, group, rep, start, end,
+        dur: Math.max(0, Math.round((end - start) / 1000)),
+        outcome: deriveSessionOutcome(group),
+        lastStep: deriveLastStep(rep),
+        steps: extractStepSequence(rep.logs || []),
+        reviewed: reviewedSessions.has(tk),
+        fk: facekomSessionId(rep), model: rep.model, os: rep.os_version, app: rep.app_version,
+      });
+    }
+    tries.sort((a,b) => a.start - b.start);
+    const first = tries[0];
+    lanes.push({
+      key: lk, tries, fk: first.fk, fbOnly: lk.startsWith('fb:'),
+      model: first.model, os: first.os, app: first.app,
+      laneStart: Math.min(...tries.map(t=>t.start)), laneEnd: Math.max(...tries.map(t=>t.end)),
+    });
+  }
+
+  const f = gFilter;
+  if (f.fk) lanes = lanes.filter(l => (l.fk||'').toLowerCase().includes(f.fk.toLowerCase()) || l.tries.some(t => (t.sessId||'').includes(f.fk)));
+  if (f.os) lanes = lanes.filter(l => l.tries.some(t => String(t.os||'').toLowerCase().includes(f.os.toLowerCase()) || String(t.rep.os_major_version||'')===f.os));
+  if (f.appversion) lanes = lanes.filter(l => l.tries.some(t => String(t.app||'').includes(f.appversion)));
+  if (f.outcome) lanes = lanes.filter(l => l.tries.some(t => normalizeOutcome(t.outcome) === f.outcome));
+  if (f.event) lanes = lanes.filter(l => l.tries.some(t => issueLabel(t.rep).toLowerCase().includes(f.event.toLowerCase()) || t.steps.join(' ').toLowerCase().includes(f.event.toLowerCase())));
+
+  lanes.sort((a,b) => a.laneStart - b.laneStart);
+
+  let allStart = Math.min(...lanes.flatMap(l => l.tries.map(t=>t.start)).filter(Boolean));
+  let allEnd   = Math.max(...lanes.flatMap(l => l.tries.map(t=>t.end)).filter(Boolean));
+  const dayBase = new Date(gDayKey + 'T00:00:00').getTime();
+  if (!isFinite(allStart)) allStart = dayBase;
+  if (!isFinite(allEnd) || allEnd <= allStart) allEnd = allStart + 60000;
+
+  const summary = { lanes: lanes.length, tries: 0, approve:0, failed:0, aborted:0, other:0, approved:0 };
+  for (const l of lanes) for (const t of l.tries) {
+    summary.tries++;
+    const o = normalizeOutcome(t.outcome);
+    if (o==='approve') summary.approve++; else if (o==='failed') summary.failed++; else if (o==='aborted') summary.aborted++; else summary.other++;
+    if (t.reviewed) summary.approved++;
+  }
+  return { lanes, dayKeys, dayMin: allStart, dayMax: allEnd, summary };
+}
+
+function renderGantt() {
+  const chart = document.getElementById('ganttChart');
+  if (!chart) return;
+  const m = buildGanttModel();
+
+  const lbl = document.getElementById('ganttDayLabel');
+  if (gDayKey) {
+    const d = new Date(gDayKey + 'T00:00:00');
+    lbl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  } else lbl.textContent = '—';
+  const idx = m.dayKeys.indexOf(gDayKey);
+  document.getElementById('ganttPrev').disabled = idx <= 0;
+  document.getElementById('ganttNext').disabled = idx < 0 || idx >= m.dayKeys.length - 1;
+
+  const summ = document.getElementById('ganttSummary');
+  const sub  = document.getElementById('ganttSubtitle');
+  if (m.summary && m.lanes.length) {
+    const chip = (color, n, label) => `<span class="g-chip"><span class="g-dot" style="background:${color}"></span><b>${n}</b> ${label}</span>`;
+    const fchips = Object.entries(gFilter).filter(([,v])=>v).map(([k,v]) =>
+      `<span class="gantt-filter-tag" onclick="clearGanttFilter('${k}')">${k}: ${esc(v)} ✕</span>`).join(' ');
+    summ.innerHTML =
+      `<span><b>${m.summary.lanes}</b> FaceKom session${m.summary.lanes!==1?'s':''}</span>` +
+      `<span><b>${m.summary.tries}</b> tries</span>` +
+      chip('var(--green)', m.summary.approve, 'appr/fin') + chip('var(--yellow)', m.summary.failed, 'failed') +
+      chip('var(--red)', m.summary.aborted, 'aborted') + chip('#475569', m.summary.other, 'other') +
+      (fchips ? `<span style="margin-left:auto">${fchips}</span>` : '');
+  } else summ.innerHTML = '';
+  if (sub) sub.textContent = m.lanes.length ? `— ${m.summary.lanes} sessions · ${m.summary.tries} tries` : '';
+
+  if (!m.lanes.length) {
+    chart.innerHTML = `<div class="empty">No sessions for this day${Object.values(gFilter).some(Boolean)?' with the current filter':''}.</div>`;
+    return;
+  }
+
+  const span = Math.max(1, m.dayMax - m.dayMin);
+  const xpct = ts => ((ts - m.dayMin) / span) * 100;
+
+  const ticks = [];
+  const firstTick = new Date(m.dayMin); firstTick.setMinutes(0,0,0);
+  for (let t = firstTick.getTime(); t <= m.dayMax; t += 3600*1000) {
+    if (t < m.dayMin) continue;
+    ticks.push(`<div class="gantt-tick" style="left:${xpct(t)}%"><span class="gantt-tick-label">${pad(new Date(t).getHours())}:00</span></div>`);
+  }
+
+  const lanesHtml = m.lanes.map(l => {
+    const boxes = l.tries.map(t => {
+      const left = xpct(t.start);
+      const wpct = ((t.end - t.start) / span) * 100;
+      const colorClass = t.reviewed ? 'g-green' : gOutcomeColor(t.outcome);
+      const prog = Math.min(100, Math.round((t.steps.length / GANTT_CANON) * 100));
+      const tip = `FaceKom ${l.fk||'(none)'} · Firebase ${t.sessId.slice(0,8)}… · ${t.outcome} · start ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
+      const label = t.reviewed ? '' : `<div class="gantt-box-label">${esc(t.lastStep!=='—'?t.lastStep:t.outcome)}</div>`;
+      const progBar = t.reviewed ? '' : `<div class="gantt-prog" style="width:${prog}%"></div>`;
+      return `<div class="gantt-box ${colorClass}${t.reviewed?' approved':''}" style="left:${left}%;width:max(8px,${wpct}%)" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${progBar}${label}</div>`;
+    }).join('');
+    const fkLabel = l.fbOnly ? `FB ${(l.tries[0].sessId||'').slice(0,10)}…` : `${(l.fk||'').slice(0,12)}…`;
+    return `<div class="gantt-lane">
+      <div class="gantt-lane-label" onclick="ganttFilterToLane('${escAttr(l.fbOnly?('fb:'+l.tries[0].sessId):(l.fk||''))}',${l.fbOnly})" title="${escAttr(l.fk||l.tries[0].sessId)}">
+        <span class="gantt-lane-fk">${esc(fkLabel)}</span>
+        <span class="gantt-lane-meta">${l.tries.length} tr · ${esc(l.model||'?')} · ${esc(l.os||'?')}</span>
+      </div>
+      <div class="gantt-track">${boxes}</div>
+    </div>`;
+  }).join('');
+
+  chart.innerHTML = `<div class="gantt-wrap"><div class="gantt-axis">${ticks.join('')}</div><div class="gantt-scroll">${lanesHtml}</div></div>`;
+}
+
+function ganttDay(delta) {
+  const m = buildGanttModel();
+  const i = m.dayKeys.indexOf(gDayKey) + delta;
+  if (i < 0 || i >= m.dayKeys.length) return;
+  gDayKey = m.dayKeys[i]; renderGantt();
+}
+function ganttLatest() {
+  const m = buildGanttModel();
+  if (m.dayKeys.length) { gDayKey = m.dayKeys[m.dayKeys.length-1]; renderGantt(); }
+}
+function ganttFilterToLane(key, fbOnly) {
+  gFilter.fk = fbOnly ? key.replace(/^fb:/,'') : key;
+  renderGantt();
+}
+function clearGanttFilter(k) { gFilter[k] = ''; renderGantt(); }
+
+function runGanttCmd(raw) {
+  let s = (raw||'').trim();
+  if (!s) return;
+  s = s.replace(/^\//,'');
+  const lower = s.toLowerCase();
+  if (lower === 'clear' || lower === 'reset') { gFilter = { fk:'', outcome:'', os:'', appversion:'', event:'' }; renderGantt(); return; }
+  let mm = s.match(/^(?:filterfacekomsession|facekomsession|facekom|fk)\s+(.+)$/i);
+  if (mm) { gFilter.fk = mm[1].trim(); jumpGanttToFk(gFilter.fk); return; }
+  if (/^filter\b/i.test(s)) {
+    const rest = s.replace(/^filter\s*/i,''); const re = /(\w+)\s*=\s*("[^"]*"|\S+)/g; let mt;
+    while ((mt = re.exec(rest))) {
+      const key = mt[1].toLowerCase(); const val = mt[2].replace(/^"|"$/g,'');
+      if (key==='outcome') gFilter.outcome = normalizeOutcome(val);
+      else if (key==='os'||key==='iosversion'||key==='ios') gFilter.os = val;
+      else if (key==='appversion'||key==='app'||key==='version') gFilter.appversion = val;
+      else if (key==='event'||key==='issue'||key==='step') gFilter.event = val;
+      else if (key==='facekom'||key==='fk') gFilter.fk = val;
+    }
+    renderGantt(); return;
+  }
+  gFilter.fk = s; jumpGanttToFk(s);
+}
+function jumpGanttToFk(idStr) {
+  const needle = idStr.toLowerCase();
+  const match = events.find(ev =>
+    (facekomSessionId(ev)||'').toLowerCase().includes(needle) ||
+    (ev.session_id_base||'').toLowerCase().includes(needle));
+  if (match) { const k = gDayKeyOf(gStartTs(match)); if (k) gDayKey = k; }
+  renderGantt();
+}
+
+function openGanttCard(sessId) {
+  const group = deduplicateGroupEvents(
+    events.filter(e => e.session_id_base === sessId).sort((a,b)=>(+a.report_index||0)-(+b.report_index||0))
+  );
+  if (!group.length) return;
+  const modal = document.getElementById('gCardModal');
+  modal.innerHTML = renderSessionCard(group, 'g');
+  modal.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t=>t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c=>c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+  document.getElementById('gCardBg').style.display = 'block';
+  modal.style.display = 'block';
+}
+function closeGanttCard() {
+  document.getElementById('gCardBg').style.display = 'none';
+  const modal = document.getElementById('gCardModal');
+  modal.style.display = 'none'; modal.innerHTML = '';
+  renderGantt();
 }
 
 // ── Last-1h discover + download ───────────────────────────────────────────────
