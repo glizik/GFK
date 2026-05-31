@@ -250,42 +250,40 @@
   .gantt-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .gantt-daynav { display: flex; align-items: center; gap: 6px; }
   .gantt-day-label { font-size: 14px; font-weight: 700; color: #fff; min-width: 168px; text-align: center; }
-  .gantt-cmd { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; }
-  .gantt-cmd:focus-within { border-color: var(--accent); }
-  .gantt-cmd-prompt { color: var(--accent2); font-family: monospace; font-weight: 700; font-size: 13px; }
-  .gantt-cmd input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: monospace; font-size: 12px; padding: 9px 0; }
+  .gantt-viewtoggle { display: flex; gap: 6px; margin-left: auto; }
   .gantt-summary { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 12px; align-items: center; }
   .gantt-summary b { color: var(--text); font-variant-numeric: tabular-nums; }
   .gantt-summary .g-chip { display: inline-flex; align-items: center; gap: 5px; }
   .gantt-summary .g-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-  .gantt-filter-tag { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35); color: var(--accent2); border-radius: 12px; padding: 2px 10px; font-size: 11px; font-family: monospace; cursor: pointer; }
-  .gantt-filter-tag:hover { border-color: var(--accent2); }
 
   .gantt-wrap { --lane-w: 38px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .gantt-axis { position: relative; height: 22px; margin-left: var(--lane-w); border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .gantt-scroll { max-height: 70vh; overflow: auto; }                       /* scrolls both axes */
+  .gantt-axis { position: sticky; top: 0; z-index: 6; display: flex; height: 24px; background: var(--surface2); border-bottom: 1px solid var(--border); width: max-content; min-width: 100%; }
+  .gantt-axis-spacer { width: var(--lane-w); flex-shrink: 0; position: sticky; left: 0; z-index: 2; background: var(--surface2); border-right: 1px solid var(--border); }
+  .gantt-axis-track { position: relative; flex-shrink: 0; }
   .gantt-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border); }
-  .gantt-tick-label { position: absolute; top: 4px; left: 4px; font-size: 10px; color: var(--muted); font-family: monospace; white-space: nowrap; }
-  .gantt-scroll { max-height: 64vh; overflow-y: auto; }
+  .gantt-tick-label { position: absolute; top: 5px; left: 4px; font-size: 10px; color: var(--muted); font-family: monospace; white-space: nowrap; }
+  .gantt-break { position: absolute; top: 0; bottom: 0; width: 14px; background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(100,116,139,0.22) 3px, rgba(100,116,139,0.22) 5px); border-left: 1px dashed var(--border); border-right: 1px dashed var(--border); }
 
-  .gantt-lane { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); min-height: 60px; }
+  .gantt-lane { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); min-height: 58px; width: max-content; min-width: 100%; }
   .gantt-lane:last-child { border-bottom: none; }
-  .gantt-lane-num { width: var(--lane-w); flex-shrink: 0; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .gantt-track { position: relative; flex: 1; min-width: 0; }
+  .gantt-lane-num { width: var(--lane-w); flex-shrink: 0; position: sticky; left: 0; z-index: 3; border-right: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gantt-track { position: relative; flex-shrink: 0; }
 
-  /* user "bubble" band — one FaceKom session's tries grouped on a shared line */
+  /* user "bubble" band — groups one FaceKom session's tries on a shared line */
   .gantt-userband { position: absolute; top: 50%; transform: translateY(-50%); height: 30px; background: rgba(167,139,250,0.07); border: 1px dashed rgba(167,139,250,0.28); border-radius: 7px; pointer-events: none; }
   .gantt-userband-id { position: absolute; top: 3px; font-size: 9px; color: var(--accent2); font-family: monospace; white-space: nowrap; cursor: pointer; opacity: 0.85; z-index: 3; }
   .gantt-userband-id:hover { opacity: 1; text-decoration: underline; }
 
-  /* duration-scaled box (session >= 1 min) */
-  .gantt-box { position: absolute; top: 50%; transform: translateY(-50%); height: 24px; border-radius: 5px; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.3); overflow: hidden; transition: filter .12s, box-shadow .12s; z-index: 2; }
+  /* duration-scaled box (>= ~1 min wide) */
+  .gantt-box { position: absolute; top: 50%; transform: translateY(-50%); height: 26px; border-radius: 5px; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.3); overflow: hidden; transition: filter .12s, box-shadow .12s; z-index: 2; }
   .gantt-box:hover { filter: brightness(1.2); box-shadow: 0 0 0 2px var(--accent); z-index: 6; }
-  .gantt-box.approved { height: 11px; }
-  .gantt-box-label { position: absolute; left: 6px; right: 4px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,0.6); pointer-events: none; }
+  .gantt-box.approved { height: 13px; }
+  .gantt-box-label { position: absolute; left: 6px; right: 4px; top: 50%; transform: translateY(-50%); font-size: 10px; font-family: monospace; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,0.6); pointer-events: none; }
   .gantt-prog { position: absolute; left: 0; top: 0; height: 4px; background: rgba(255,255,255,0.55); pointer-events: none; }
 
-  /* short session (< 1 min): tiny scaled mark on the line + bubble above pointing to it */
-  .gantt-scaledbox { position: absolute; top: 50%; transform: translateY(-50%); height: 16px; min-width: 2px; border-radius: 3px; opacity: 0.95; z-index: 2; }
+  /* short session: tiny scaled mark on the line + bubble above pointing to it */
+  .gantt-scaledbox { position: absolute; top: 50%; transform: translateY(-50%); height: 16px; min-width: 3px; border-radius: 3px; opacity: 0.95; z-index: 2; }
   .gantt-bubble { position: absolute; bottom: calc(50% + 11px); transform: translateX(-50%); padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; color: #fff; white-space: nowrap; cursor: pointer; z-index: 4; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 2px 6px rgba(0,0,0,0.4); transition: filter .12s, box-shadow .12s; }
   .gantt-bubble:hover { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--accent); z-index: 7; }
   .gantt-bubble::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: inherit; transform: translateX(-50%) rotate(45deg); border-right: 1px solid rgba(0,0,0,0.3); border-bottom: 1px solid rgba(0,0,0,0.3); }
@@ -295,6 +293,23 @@
   .g-yellow { background: var(--yellow); }
   .g-red    { background: var(--red); }
   .g-muted  { background: #475569; }
+
+  /* Day list (table) view */
+  .gantt-list-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .gantt-list-table th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
+  .gantt-list-table th:hover { color: var(--text); }
+  .gantt-list-table th.active { color: var(--accent); }
+  .gantt-list-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .gantt-list-table tr:hover td { background: var(--surface2); }
+  .gl-num { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .gl-fk { font-family: monospace; font-size: 11px; color: var(--accent2); cursor: pointer; }
+  .gl-fk:hover { text-decoration: underline; }
+  .gl-eid { font-family: monospace; font-size: 11px; color: var(--accent); cursor: pointer; display: block; }
+  .gl-eid:hover { text-decoration: underline; }
+  .gl-line { padding: 1px 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .gl-foot td { border-top: 2px solid var(--border); border-bottom: none; font-weight: 600; color: var(--text); background: var(--surface2); }
+  .gl-outbar { display: inline-flex; height: 16px; width: 180px; border-radius: 4px; overflow: hidden; vertical-align: middle; border: 1px solid var(--border); }
+  .gl-outbar span { height: 100%; }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
   .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
@@ -361,15 +376,22 @@
           <button class="btn btn-ghost btn-sm" id="ganttNext" onclick="ganttDay(1)">Next →</button>
           <button class="btn btn-ghost btn-sm" onclick="ganttLatest()" title="Jump to the most recent day with data">⤓ Latest</button>
         </div>
-        <div class="gantt-cmd">
-          <span class="gantt-cmd-prompt">/</span>
-          <input id="ganttCmd" autocomplete="off" spellcheck="false"
-                 placeholder="filterfacekomsession <id>  ·  filter outcome=aborted os=26 appversion=3.7.1  ·  clear"
-                 onkeydown="if(event.key==='Enter'){runGanttCmd(this.value);this.value='';}">
+        <div class="gantt-viewtoggle">
+          <button class="filter-btn active" id="gViewTimeline" onclick="setGanttView('timeline')">▦ Timeline</button>
+          <button class="filter-btn" id="gViewList" onclick="setGanttView('list')">☰ List</button>
         </div>
+      </div>
+      <div class="filter-group" style="margin-bottom:8px">
+        <span class="filter-label">Outcome</span>
+        <div id="ganttOutcomeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <div class="filter-group" style="margin-bottom:12px">
+        <span class="filter-label">Version</span>
+        <div id="ganttVersionFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
       <div class="gantt-summary" id="ganttSummary"></div>
       <div id="ganttChart"></div>
+      <div id="ganttList" style="display:none"></div>
     </div>
   </div>
 
@@ -458,10 +480,10 @@
   <div class="section" id="timelineSection">
     <div class="section-header" onclick="toggleTimeline()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="timelineToggleIcon">▶</span>Timeline <span class="count" id="timelineSubtitle"></span>
+        <span class="toggle-icon" id="timelineToggleIcon">▶</span>Timeline <span class="count" id="timelineSubtitle"></span>
       </div>
     </div>
-    <div class="tl-section-panel" id="tlSectionPanel">
+    <div class="tl-section-panel collapsed" id="tlSectionPanel">
       <div id="tlChartContainer"></div>
       <div id="tlDownloads"></div>
     </div>
@@ -470,10 +492,10 @@
   <div class="section" id="devSection">
     <div class="section-header" onclick="toggleDevSection()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="devToggleIcon">▶</span>Developer <span class="count" id="devSubtitle"></span>
+        <span class="toggle-icon" id="devToggleIcon">▶</span>Developer <span class="count" id="devSubtitle"></span>
       </div>
     </div>
-    <div class="dev-section-panel" id="devSectionPanel">
+    <div class="dev-section-panel collapsed" id="devSectionPanel">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="addDevTask()">+ New Task</button>
         <button class="btn btn-ghost btn-sm" id="devCsvConnectBtn" onclick="connectDevTasksCSV()" style="display:none">⇄ Connect CSV</button>
@@ -1890,8 +1912,15 @@ function filterToDay(dayKey) {
 
 // ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
 let gDayKey = null;
-let gFilter = { fk: '', outcome: '', os: '', appversion: '', event: '' };
-const GANTT_CANON = 8; // rough max FaceKom steps, for the "how far" progress strip
+let gOutcomeFilter = 'all', gVersionFilter = 'all', gFkFilter = '';
+let gView = 'timeline';                 // 'timeline' | 'list'
+let gSortCol = 'start', gSortDir = 1;   // list sort
+const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
+const GSCALE = 2;                       // px per second (zoom)
+const GMINBOX = 120;                    // min box width px; shorter sessions → bubble
+const GGAP = 44;                        // px width of a compressed empty gap
+const GMERGE = 120;                     // merge active segments separated by < this many sec
+const GPAD = 50;                        // left px margin so the first bubble isn't clipped
 
 function toggleGantt() {
   const panel = document.getElementById('ganttPanel');
@@ -1900,6 +1929,7 @@ function toggleGantt() {
   panel.classList.toggle('collapsed', open);
   icon.classList.toggle('open', !open);
 }
+function gFilterActive() { return gOutcomeFilter !== 'all' || gVersionFilter !== 'all' || !!gFkFilter; }
 
 // Server-side start of a session report = "FaceKom SelfService started" crumb (falls back to event date).
 function gStartTs(ev) {
@@ -1974,12 +2004,13 @@ function buildGanttModel() {
     });
   }
 
-  const f = gFilter;
-  if (f.fk) users = users.filter(u => (u.fk||'').toLowerCase().includes(f.fk.toLowerCase()) || u.tries.some(t => (t.sessId||'').includes(f.fk)));
-  if (f.os) users = users.filter(u => u.tries.some(t => String(t.os||'').toLowerCase().includes(f.os.toLowerCase()) || String(t.rep.os_major_version||'')===f.os));
-  if (f.appversion) users = users.filter(u => u.tries.some(t => String(t.app||'').includes(f.appversion)));
-  if (f.outcome) users = users.filter(u => u.tries.some(t => normalizeOutcome(t.outcome) === f.outcome));
-  if (f.event) users = users.filter(u => u.tries.some(t => issueLabel(t.rep).toLowerCase().includes(f.event.toLowerCase()) || t.steps.join(' ').toLowerCase().includes(f.event.toLowerCase())));
+  // filters (pill-driven): fk + version keep whole users; outcome narrows to matching tries
+  if (gFkFilter) users = users.filter(u => (u.fk||'').toLowerCase().includes(gFkFilter.toLowerCase()) || u.tries.some(t => (t.sessId||'').includes(gFkFilter)));
+  if (gVersionFilter !== 'all') users = users.filter(u => u.tries.some(t => String(t.app||'') === gVersionFilter));
+  if (gOutcomeFilter !== 'all') {
+    users = users.map(u => ({ ...u, tries: u.tries.filter(t => normalizeOutcome(t.outcome) === gOutcomeFilter) })).filter(u => u.tries.length);
+    users.forEach(u => { u.uStart = Math.min(...u.tries.map(t=>t.start)); u.uEnd = Math.max(...u.tries.map(t=>t.end)); });
+  }
 
   // Greedy interval packing by user span → minimal number of lines (= peak parallel users that day).
   // Each user keeps all its tries together on its assigned line; non-overlapping users share a line.
@@ -2005,85 +2036,182 @@ function buildGanttModel() {
     if (o==='approve') summary.approve++; else if (o==='failed') summary.failed++; else if (o==='aborted') summary.aborted++; else summary.other++;
     if (t.reviewed) summary.approved++;
   }
-  return { tracks, dayKeys, dayMin: allStart, dayMax: allEnd, summary };
+  return { tracks, users, dayKeys, summary };
 }
 
-const MIN_BOX_SEC = 60; // sessions shorter than this render as a bubble+arrow instead of a scaled box
+// Compressed pixel time-map: active intervals scaled by GSCALE, empty gaps collapsed to GGAP.
+function buildTimeMap(tries) {
+  const iv = tries.map(t => [t.start, Math.max(t.end, t.start + 1000)]).filter(p => isFinite(p[0])).sort((a,b)=>a[0]-b[0]);
+  const segs = [];
+  for (const [s,e] of iv) {
+    const last = segs[segs.length-1];
+    if (last && s - last.e <= GMERGE*1000) last.e = Math.max(last.e, e);
+    else segs.push({ s, e });
+  }
+  let cursor = GPAD;
+  for (const seg of segs) { seg.x0 = cursor; seg.x1 = cursor + ((seg.e - seg.s)/1000)*GSCALE; cursor = seg.x1 + GGAP; }
+  const totalW = (segs.length ? segs[segs.length-1].x1 : 0) + GPAD;
+  const tsToX = ts => {
+    if (!segs.length) return GPAD;
+    if (ts <= segs[0].s) return segs[0].x0;
+    for (let i=0;i<segs.length;i++){
+      const seg = segs[i];
+      if (ts <= seg.e) return seg.x0 + Math.max(0,(ts-seg.s)/1000)*GSCALE;
+      const next = segs[i+1];
+      if (next && ts < next.s) return seg.x1 + GGAP/2;
+    }
+    return segs[segs.length-1].x1;
+  };
+  let axis = '';
+  for (let i=0;i<segs.length;i++){
+    const seg = segs[i];
+    axis += `<div class="gantt-tick" style="left:${seg.x0}px"><span class="gantt-tick-label">${pad(new Date(seg.s).getHours())}:${pad(new Date(seg.s).getMinutes())}</span></div>`;
+    const h = new Date(seg.s); h.setMinutes(0,0,0);
+    for (let tt = h.getTime()+3600000; tt <= seg.e; tt += 3600000)
+      axis += `<div class="gantt-tick" style="left:${tsToX(tt)}px"><span class="gantt-tick-label">${pad(new Date(tt).getHours())}:00</span></div>`;
+    if (i < segs.length-1) axis += `<div class="gantt-break" style="left:${seg.x1}px" title="gap until ${pad(new Date(segs[i+1].s).getHours())}:${pad(new Date(segs[i+1].s).getMinutes())}"></div>`;
+  }
+  return { tsToX, totalW, axis };
+}
 
+// Main entry: updates chrome, then renders the active view.
 function renderGantt() {
-  const chart = document.getElementById('ganttChart');
-  if (!chart) return;
   const m = buildGanttModel();
-
   const lbl = document.getElementById('ganttDayLabel');
-  if (gDayKey) {
-    const d = new Date(gDayKey + 'T00:00:00');
-    lbl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
-  } else lbl.textContent = '—';
+  if (gDayKey) { const d = new Date(gDayKey + 'T00:00:00'); lbl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }); }
+  else lbl.textContent = '—';
   const idx = m.dayKeys.indexOf(gDayKey);
   document.getElementById('ganttPrev').disabled = idx <= 0;
   document.getElementById('ganttNext').disabled = idx < 0 || idx >= m.dayKeys.length - 1;
 
-  const summ = document.getElementById('ganttSummary');
-  const sub  = document.getElementById('ganttSubtitle');
-  if (m.summary && m.tracks.length) {
-    const chip = (color, n, label) => `<span class="g-chip"><span class="g-dot" style="background:${color}"></span><b>${n}</b> ${label}</span>`;
-    const fchips = Object.entries(gFilter).filter(([,v])=>v).map(([k,v]) =>
-      `<span class="gantt-filter-tag" onclick="clearGanttFilter('${k}')">${k}: ${esc(v)} ✕</span>`).join(' ');
+  renderGanttFilters();
+
+  const summ = document.getElementById('ganttSummary'), sub = document.getElementById('ganttSubtitle');
+  if (m.summary && m.users.length) {
+    const chip = (c,n,l) => `<span class="g-chip"><span class="g-dot" style="background:${c}"></span><b>${n}</b> ${l}</span>`;
     summ.innerHTML =
       `<span><b>${m.summary.peak}</b> line${m.summary.peak!==1?'s':''} = max parallel</span>` +
       `<span><b>${m.summary.users}</b> users · <b>${m.summary.tries}</b> tries</span>` +
       chip('var(--green)', m.summary.approve, 'appr/fin') + chip('var(--yellow)', m.summary.failed, 'failed') +
       chip('var(--red)', m.summary.aborted, 'aborted') + chip('#475569', m.summary.other, 'other') +
-      (fchips ? `<span style="margin-left:auto">${fchips}</span>` : '');
+      (gFkFilter ? `<button class="filter-btn active" style="margin-left:auto" onclick="clearGanttFk()">session: ${esc(gFkFilter.slice(0,12))}… ✕</button>` : '');
   } else summ.innerHTML = '';
-  if (sub) sub.textContent = m.tracks.length ? `— ${m.summary.peak} line${m.summary.peak!==1?'s':''} · ${m.summary.users} users` : '';
+  if (sub) sub.textContent = m.users.length ? `— ${m.summary.peak} line${m.summary.peak!==1?'s':''} · ${m.summary.users} users` : '';
 
-  if (!m.tracks.length) {
-    chart.innerHTML = `<div class="empty">No sessions for this day${Object.values(gFilter).some(Boolean)?' with the current filter':''}.</div>`;
-    return;
-  }
+  document.getElementById('gViewTimeline').classList.toggle('active', gView==='timeline');
+  document.getElementById('gViewList').classList.toggle('active', gView==='list');
+  const chart = document.getElementById('ganttChart'), list = document.getElementById('ganttList');
+  if (gView === 'list') { chart.style.display='none'; list.style.display=''; renderGanttList(m); }
+  else { list.style.display='none'; chart.style.display=''; renderGanttTimeline(m); }
+}
 
-  const span = Math.max(1, m.dayMax - m.dayMin);
-  const xpct = ts => ((ts - m.dayMin) / span) * 100;
-
-  const ticks = [];
-  const firstTick = new Date(m.dayMin); firstTick.setMinutes(0,0,0);
-  for (let t = firstTick.getTime(); t <= m.dayMax; t += 3600*1000) {
-    if (t < m.dayMin) continue;
-    ticks.push(`<div class="gantt-tick" style="left:${xpct(t)}%"><span class="gantt-tick-label">${pad(new Date(t).getHours())}:00</span></div>`);
-  }
+function renderGanttTimeline(m) {
+  const chart = document.getElementById('ganttChart');
+  if (!m.users.length) { chart.innerHTML = `<div class="empty">No sessions for this day${gFilterActive()?' with the current filter':''}.</div>`; return; }
+  const tm = buildTimeMap(m.users.flatMap(u => u.tries));
+  const W = Math.max(tm.totalW, 320);
 
   const renderTry = (t, u) => {
     const colorClass = t.reviewed ? 'g-green' : gOutcomeColor(t.outcome);
-    const left = xpct(t.start);
-    const lbl  = t.lastStep !== '—' ? t.lastStep : t.outcome;
-    const tip  = `FaceKom ${u.fk||'(none)'} · Firebase ${t.sessId.slice(0,8)}… · ${t.outcome} · start ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
-    if (t.dur >= MIN_BOX_SEC) {
-      const wpct = ((t.end - t.start) / span) * 100;
+    const left = tm.tsToX(t.start), w = t.dur * GSCALE;
+    const eid = t.rep.event_id || t.sessId;
+    const tip = `FaceKom ${u.fk||'(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${eid} · ${t.outcome} · ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
+    if (w >= GMINBOX) {
       const prog = t.reviewed ? '' : `<div class="gantt-prog" style="width:${Math.min(100, Math.round((t.steps.length / GANTT_CANON) * 100))}%"></div>`;
-      const label = t.reviewed ? '' : `<div class="gantt-box-label">${esc(lbl)}</div>`;
-      return `<div class="gantt-box ${colorClass}${t.reviewed?' approved':''}" style="left:${left}%;width:max(22px,${wpct}%)" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${prog}${label}</div>`;
+      const label = t.reviewed ? '' : `<div class="gantt-box-label">${esc(eid)}${t.lastStep!=='—'?' · '+esc(t.lastStep):''}</div>`;
+      return `<div class="gantt-box ${colorClass}${t.reviewed?' approved':''}" style="left:${left}px;width:${w}px" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${prog}${label}</div>`;
     }
-    // short session: tiny scaled mark on the line + bubble above with a caret pointing to it
-    const wpct = ((t.end - t.start) / span) * 100;
-    return `<div class="gantt-scaledbox ${colorClass}" style="left:${left}%;width:${wpct}%"></div>` +
-      `<div class="gantt-bubble ${colorClass}${t.reviewed?' approved':''}" style="left:${left}%" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${esc(lbl)} · ${t.dur}s</div>`;
+    const lbl = t.lastStep !== '—' ? t.lastStep : t.outcome;
+    return `<div class="gantt-scaledbox ${colorClass}" style="left:${left}px;width:${Math.max(3,w)}px"></div>` +
+      `<div class="gantt-bubble ${colorClass}${t.reviewed?' approved':''}" style="left:${left}px" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${esc(lbl)} · ${t.dur}s</div>`;
   };
 
-  const tracksHtml = m.tracks.map((tr, ti) => {
+  const lanesHtml = m.tracks.map((tr, ti) => {
     const content = tr.users.map(u => {
-      const bandL = xpct(u.uStart), bandW = xpct(u.uEnd) - xpct(u.uStart);
+      const bL = tm.tsToX(u.uStart), bR = tm.tsToX(u.uEnd);
       const idLabel = (u.fbOnly ? 'FB ' : '') + (u.fk || u.tries[0].sessId || '').slice(0, 12) + '…';
-      const band = `<div class="gantt-userband" style="left:${bandL}%;width:max(3px,${bandW}%)"></div>` +
-        `<div class="gantt-userband-id" style="left:${bandL}%" onclick="ganttFilterToLane('${escAttr(u.fbOnly?('fb:'+u.tries[0].sessId):(u.fk||''))}',${u.fbOnly})" title="${escAttr(u.fk||u.tries[0].sessId)} · ${u.tries.length} tr · ${esc(u.model||'?')} · ${esc(u.os||'?')}">${esc(idLabel)}</div>`;
+      const band = `<div class="gantt-userband" style="left:${bL}px;width:${Math.max(4,bR-bL)}px"></div>` +
+        `<div class="gantt-userband-id" style="left:${bL}px" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr((u.fk||u.tries[0].sessId)+' · '+u.tries.length+' tr · '+(u.model||'?')+' · '+(u.os||'?'))}">${esc(idLabel)}</div>`;
       return band + u.tries.map(t => renderTry(t, u)).join('');
     }).join('');
-    return `<div class="gantt-lane"><div class="gantt-lane-num">${ti+1}</div><div class="gantt-track">${content}</div></div>`;
+    return `<div class="gantt-lane"><div class="gantt-lane-num">${ti+1}</div><div class="gantt-track" style="width:${W}px">${content}</div></div>`;
   }).join('');
 
-  chart.innerHTML = `<div class="gantt-wrap"><div class="gantt-axis">${ticks.join('')}</div><div class="gantt-scroll">${tracksHtml}</div></div>`;
+  const axisHtml = `<div class="gantt-axis"><div class="gantt-axis-spacer"></div><div class="gantt-axis-track" style="width:${W}px">${tm.axis}</div></div>`;
+  chart.innerHTML = `<div class="gantt-wrap"><div class="gantt-scroll">${axisHtml}${lanesHtml}</div></div>`;
 }
+
+function renderGanttList(m) {
+  const list = document.getElementById('ganttList');
+  if (!m.users.length) { list.innerHTML = `<div class="empty">No sessions for this day${gFilterActive()?' with the current filter':''}.</div>`; return; }
+  const rows = m.users.map(u => ({
+    u,
+    startMin: Math.min(...u.tries.map(t=>t.start)),
+    durTotal: u.tries.reduce((a,t)=>a+t.dur,0),
+    outcome: normalizeOutcome(u.tries[u.tries.length-1].outcome),
+    fkId: u.fk || u.tries[0].sessId,
+  }));
+  const dir = gSortDir;
+  rows.sort((a,b) => {
+    switch (gSortCol) {
+      case 'fk': return dir * String(a.fkId).localeCompare(String(b.fkId));
+      case 'dur': return dir * (a.durTotal - b.durTotal);
+      case 'outcome': return dir * String(a.outcome).localeCompare(String(b.outcome));
+      case 'tries': return dir * (a.u.tries.length - b.u.tries.length);
+      default: return dir * (a.startMin - b.startMin);
+    }
+  });
+  const ind = col => gSortCol===col ? (dir>0?' ▲':' ▼') : '';
+  const th = (col,label) => `<th class="${gSortCol===col?'active':''}" onclick="ganttSort('${col}')">${label}${ind(col)}</th>`;
+
+  const body = rows.map((r,i) => {
+    const u = r.u;
+    const eids = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
+    const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
+    const durs = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
+    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}</div>`; }).join('');
+    return `<tr>
+      <td class="gl-num">${i+1}</td>
+      <td><span class="gl-fk" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr(r.fkId)} — filter to this session">${u.fbOnly?'FB ':''}${esc(r.fkId.slice(0,18))}${r.fkId.length>18?'…':''}</span></td>
+      <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td>
+    </tr>`;
+  }).join('');
+
+  const s = m.summary, tt = s.tries || 1;
+  const avg = Math.round(m.users.flatMap(u=>u.tries).reduce((a,t)=>a+t.dur,0) / tt);
+  const seg = (n,c) => n>0 ? `<span style="width:${n/tt*100}%;background:${c}" title="${n}"></span>` : '';
+  const bar = `<span class="gl-outbar">${seg(s.approve,'var(--green)')}${seg(s.failed,'var(--yellow)')}${seg(s.aborted,'var(--red)')}${seg(s.other,'#475569')}</span>`;
+  const pct = n => Math.round(n/tt*100);
+
+  list.innerHTML = `<div class="table-wrap"><table class="gantt-list-table">
+    <thead><tr><th>#</th>${th('fk','FaceKom session')}<th>Event IDs</th>${th('start','Start')}${th('dur','Duration')}${th('outcome','Outcome')}</tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr class="gl-foot"><td></td><td>${s.users} users</td><td>${s.tries} events</td><td>avg ${avg}s</td><td colspan="2">${bar} <span style="font-size:11px;color:var(--muted);margin-left:8px">${pct(s.approve)}% appr · ${pct(s.aborted)}% abort</span></td></tr></tfoot>
+  </table></div>`;
+}
+
+function renderGanttFilters() {
+  const oOpts = [
+    { key:'all', label:'All', cls:'' },
+    { key:'approve', label:'Approved/Finished', cls:'btn-green' },
+    { key:'failed', label:'Failed', cls:'btn-yellow' },
+    { key:'aborted', label:'Aborted', cls:'btn-red' },
+    { key:'other', label:'Other', cls:'' },
+  ];
+  document.getElementById('ganttOutcomeFilters').innerHTML = oOpts.map(o =>
+    `<button class="filter-btn${o.cls?' '+o.cls:''}${gOutcomeFilter===o.key?' active':''}" onclick="setGanttOutcome('${o.key}')">${o.label}</button>`).join('');
+  const vers = [...new Set(events.map(e=>e.app_version).filter(Boolean))].sort().reverse();
+  const vOpts = [{ key:'all', label:'All' }, ...vers.map(v=>({ key:v, label:v }))];
+  document.getElementById('ganttVersionFilters').innerHTML = vOpts.map(o =>
+    `<button class="filter-btn${gVersionFilter===o.key?' active':''}" onclick="setGanttVersion('${escAttr(o.key)}')">${esc(o.label)}</button>`).join('');
+}
+
+function setGanttView(v) { gView = v; renderGantt(); }
+function setGanttOutcome(o) { gOutcomeFilter = o; renderGantt(); }
+function setGanttVersion(v) { gVersionFilter = v; renderGantt(); }
+function setGanttFk(fk) { gFkFilter = fk; renderGantt(); }
+function clearGanttFk() { gFkFilter = ''; renderGantt(); }
+function ganttSort(col) { if (gSortCol === col) gSortDir = -gSortDir; else { gSortCol = col; gSortDir = 1; } renderGantt(); }
 
 function ganttDay(delta) {
   const m = buildGanttModel();
@@ -2094,42 +2222,6 @@ function ganttDay(delta) {
 function ganttLatest() {
   const m = buildGanttModel();
   if (m.dayKeys.length) { gDayKey = m.dayKeys[m.dayKeys.length-1]; renderGantt(); }
-}
-function ganttFilterToLane(key, fbOnly) {
-  gFilter.fk = fbOnly ? key.replace(/^fb:/,'') : key;
-  renderGantt();
-}
-function clearGanttFilter(k) { gFilter[k] = ''; renderGantt(); }
-
-function runGanttCmd(raw) {
-  let s = (raw||'').trim();
-  if (!s) return;
-  s = s.replace(/^\//,'');
-  const lower = s.toLowerCase();
-  if (lower === 'clear' || lower === 'reset') { gFilter = { fk:'', outcome:'', os:'', appversion:'', event:'' }; renderGantt(); return; }
-  let mm = s.match(/^(?:filterfacekomsession|facekomsession|facekom|fk)\s+(.+)$/i);
-  if (mm) { gFilter.fk = mm[1].trim(); jumpGanttToFk(gFilter.fk); return; }
-  if (/^filter\b/i.test(s)) {
-    const rest = s.replace(/^filter\s*/i,''); const re = /(\w+)\s*=\s*("[^"]*"|\S+)/g; let mt;
-    while ((mt = re.exec(rest))) {
-      const key = mt[1].toLowerCase(); const val = mt[2].replace(/^"|"$/g,'');
-      if (key==='outcome') gFilter.outcome = normalizeOutcome(val);
-      else if (key==='os'||key==='iosversion'||key==='ios') gFilter.os = val;
-      else if (key==='appversion'||key==='app'||key==='version') gFilter.appversion = val;
-      else if (key==='event'||key==='issue'||key==='step') gFilter.event = val;
-      else if (key==='facekom'||key==='fk') gFilter.fk = val;
-    }
-    renderGantt(); return;
-  }
-  gFilter.fk = s; jumpGanttToFk(s);
-}
-function jumpGanttToFk(idStr) {
-  const needle = idStr.toLowerCase();
-  const match = events.find(ev =>
-    (facekomSessionId(ev)||'').toLowerCase().includes(needle) ||
-    (ev.session_id_base||'').toLowerCase().includes(needle));
-  if (match) { const k = gDayKeyOf(gStartTs(match)); if (k) gDayKey = k; }
-  renderGantt();
 }
 
 function openGanttCard(sessId) {
