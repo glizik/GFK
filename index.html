@@ -261,26 +261,36 @@
   .gantt-filter-tag { background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.35); color: var(--accent2); border-radius: 12px; padding: 2px 10px; font-size: 11px; font-family: monospace; cursor: pointer; }
   .gantt-filter-tag:hover { border-color: var(--accent2); }
 
-  .gantt-wrap { --lane-w: 172px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .gantt-wrap { --lane-w: 38px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
   .gantt-axis { position: relative; height: 22px; margin-left: var(--lane-w); border-bottom: 1px solid var(--border); background: var(--surface2); }
   .gantt-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border); }
   .gantt-tick-label { position: absolute; top: 4px; left: 4px; font-size: 10px; color: var(--muted); font-family: monospace; white-space: nowrap; }
-  .gantt-scroll { max-height: 62vh; overflow-y: auto; }
+  .gantt-scroll { max-height: 64vh; overflow-y: auto; }
 
-  .gantt-lane { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); min-height: 38px; }
+  .gantt-lane { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); min-height: 60px; }
   .gantt-lane:last-child { border-bottom: none; }
-  .gantt-lane:hover { background: var(--surface2); }
-  .gantt-lane-label { width: var(--lane-w); flex-shrink: 0; padding: 5px 10px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; gap: 2px; cursor: pointer; }
-  .gantt-lane-label:hover .gantt-lane-fk { text-decoration: underline; }
-  .gantt-lane-fk { font-family: monospace; font-size: 11px; color: var(--accent2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gantt-lane-meta { font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gantt-lane-num { width: var(--lane-w); flex-shrink: 0; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
   .gantt-track { position: relative; flex: 1; min-width: 0; }
 
-  .gantt-box { position: absolute; top: 50%; transform: translateY(-50%); height: 26px; border-radius: 5px; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.3); overflow: hidden; transition: filter .12s, box-shadow .12s; }
-  .gantt-box:hover { filter: brightness(1.2); box-shadow: 0 0 0 2px var(--accent); z-index: 5; }
-  .gantt-box.approved { height: 12px; }
+  /* user "bubble" band — one FaceKom session's tries grouped on a shared line */
+  .gantt-userband { position: absolute; top: 50%; transform: translateY(-50%); height: 30px; background: rgba(167,139,250,0.07); border: 1px dashed rgba(167,139,250,0.28); border-radius: 7px; pointer-events: none; }
+  .gantt-userband-id { position: absolute; top: 3px; font-size: 9px; color: var(--accent2); font-family: monospace; white-space: nowrap; cursor: pointer; opacity: 0.85; z-index: 3; }
+  .gantt-userband-id:hover { opacity: 1; text-decoration: underline; }
+
+  /* duration-scaled box (session >= 1 min) */
+  .gantt-box { position: absolute; top: 50%; transform: translateY(-50%); height: 24px; border-radius: 5px; cursor: pointer; box-sizing: border-box; border: 1px solid rgba(0,0,0,0.3); overflow: hidden; transition: filter .12s, box-shadow .12s; z-index: 2; }
+  .gantt-box:hover { filter: brightness(1.2); box-shadow: 0 0 0 2px var(--accent); z-index: 6; }
+  .gantt-box.approved { height: 11px; }
   .gantt-box-label { position: absolute; left: 6px; right: 4px; top: 50%; transform: translateY(-50%); font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,0.6); pointer-events: none; }
   .gantt-prog { position: absolute; left: 0; top: 0; height: 4px; background: rgba(255,255,255,0.55); pointer-events: none; }
+
+  /* short session (< 1 min): tiny scaled mark on the line + bubble above pointing to it */
+  .gantt-scaledbox { position: absolute; top: 50%; transform: translateY(-50%); height: 16px; min-width: 2px; border-radius: 3px; opacity: 0.95; z-index: 2; }
+  .gantt-bubble { position: absolute; bottom: calc(50% + 11px); transform: translateX(-50%); padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; color: #fff; white-space: nowrap; cursor: pointer; z-index: 4; border: 1px solid rgba(0,0,0,0.3); box-shadow: 0 2px 6px rgba(0,0,0,0.4); transition: filter .12s, box-shadow .12s; }
+  .gantt-bubble:hover { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--accent); z-index: 7; }
+  .gantt-bubble::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: inherit; transform: translateX(-50%) rotate(45deg); border-right: 1px solid rgba(0,0,0,0.3); border-bottom: 1px solid rgba(0,0,0,0.3); }
+  .gantt-bubble.approved { box-shadow: 0 0 0 1px rgba(34,197,94,0.6); }
+
   .g-green  { background: var(--green); }
   .g-yellow { background: var(--yellow); }
   .g-red    { background: var(--red); }
@@ -627,15 +637,22 @@ async function loadData() {
       ...(eventsCsv370 ? parseCsv(eventsCsv370) : []),
       ...(eventsCsv371 ? parseCsv(eventsCsv371) : []),
     ];
-    events = await Promise.all(rawEvents.map(async ev => {
+    // Fetch per-event logs with limited concurrency. A single Promise.all over
+    // ~1900 events overwhelms the local HTTP/1.1 server (ERR_INSUFFICIENT_RESOURCES)
+    // and many logs silently fail — which breaks duration/step derivation.
+    const fetchEventLog = async ev => {
       const eventId = (ev.session_event_key || '').split('_').pop();
       const log = eventId
-        ? await fetch(`data/logs/${eventId}.log?_=${ts}`).then(r => r.json()).catch(() => null)
+        ? await fetch(`data/logs/${eventId}.log?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null)
         : null;
       const logs = log ? processLogs(log.logs_and_breadcrumbs) : [];
-      const startTs = logs[0]?.rawTs || null;
-      return { ...ev, logs, startTs };
-    }));
+      return { ...ev, logs, startTs: logs[0]?.rawTs || null };
+    };
+    events = [];
+    const LOG_CONCURRENCY = 20;
+    for (let i = 0; i < rawEvents.length; i += LOG_CONCURRENCY) {
+      events.push(...await Promise.all(rawEvents.slice(i, i + LOG_CONCURRENCY).map(fetchEventLog)));
+    }
 
     // Load reviewed sessions from server file if it has entries; else keep localStorage
     if (reviewedRaw && Array.isArray(reviewedRaw) && reviewedRaw.length > 0) {
@@ -1931,7 +1948,7 @@ function buildGanttModel() {
     tryMap.get(tk).push(ev);
   }
 
-  let lanes = [];
+  let users = [];
   for (const [lk, tryMap] of laneMap) {
     const tries = [];
     for (const [tk, reps] of tryMap) {
@@ -1950,37 +1967,48 @@ function buildGanttModel() {
     }
     tries.sort((a,b) => a.start - b.start);
     const first = tries[0];
-    lanes.push({
+    users.push({
       key: lk, tries, fk: first.fk, fbOnly: lk.startsWith('fb:'),
       model: first.model, os: first.os, app: first.app,
-      laneStart: Math.min(...tries.map(t=>t.start)), laneEnd: Math.max(...tries.map(t=>t.end)),
+      uStart: Math.min(...tries.map(t=>t.start)), uEnd: Math.max(...tries.map(t=>t.end)),
     });
   }
 
   const f = gFilter;
-  if (f.fk) lanes = lanes.filter(l => (l.fk||'').toLowerCase().includes(f.fk.toLowerCase()) || l.tries.some(t => (t.sessId||'').includes(f.fk)));
-  if (f.os) lanes = lanes.filter(l => l.tries.some(t => String(t.os||'').toLowerCase().includes(f.os.toLowerCase()) || String(t.rep.os_major_version||'')===f.os));
-  if (f.appversion) lanes = lanes.filter(l => l.tries.some(t => String(t.app||'').includes(f.appversion)));
-  if (f.outcome) lanes = lanes.filter(l => l.tries.some(t => normalizeOutcome(t.outcome) === f.outcome));
-  if (f.event) lanes = lanes.filter(l => l.tries.some(t => issueLabel(t.rep).toLowerCase().includes(f.event.toLowerCase()) || t.steps.join(' ').toLowerCase().includes(f.event.toLowerCase())));
+  if (f.fk) users = users.filter(u => (u.fk||'').toLowerCase().includes(f.fk.toLowerCase()) || u.tries.some(t => (t.sessId||'').includes(f.fk)));
+  if (f.os) users = users.filter(u => u.tries.some(t => String(t.os||'').toLowerCase().includes(f.os.toLowerCase()) || String(t.rep.os_major_version||'')===f.os));
+  if (f.appversion) users = users.filter(u => u.tries.some(t => String(t.app||'').includes(f.appversion)));
+  if (f.outcome) users = users.filter(u => u.tries.some(t => normalizeOutcome(t.outcome) === f.outcome));
+  if (f.event) users = users.filter(u => u.tries.some(t => issueLabel(t.rep).toLowerCase().includes(f.event.toLowerCase()) || t.steps.join(' ').toLowerCase().includes(f.event.toLowerCase())));
 
-  lanes.sort((a,b) => a.laneStart - b.laneStart);
+  // Greedy interval packing by user span → minimal number of lines (= peak parallel users that day).
+  // Each user keeps all its tries together on its assigned line; non-overlapping users share a line.
+  users.sort((a,b) => a.uStart - b.uStart);
+  const tracks = [];
+  for (const u of users) {
+    let placed = null;
+    for (const tr of tracks) { if (u.uStart >= tr.lastEnd) { placed = tr; break; } }
+    if (!placed) { placed = { users: [], lastEnd: -Infinity }; tracks.push(placed); }
+    placed.users.push(u); placed.lastEnd = Math.max(placed.lastEnd, u.uEnd);
+  }
 
-  let allStart = Math.min(...lanes.flatMap(l => l.tries.map(t=>t.start)).filter(Boolean));
-  let allEnd   = Math.max(...lanes.flatMap(l => l.tries.map(t=>t.end)).filter(Boolean));
+  let allStart = Math.min(...users.map(u=>u.uStart).filter(isFinite));
+  let allEnd   = Math.max(...users.map(u=>u.uEnd).filter(isFinite));
   const dayBase = new Date(gDayKey + 'T00:00:00').getTime();
   if (!isFinite(allStart)) allStart = dayBase;
   if (!isFinite(allEnd) || allEnd <= allStart) allEnd = allStart + 60000;
 
-  const summary = { lanes: lanes.length, tries: 0, approve:0, failed:0, aborted:0, other:0, approved:0 };
-  for (const l of lanes) for (const t of l.tries) {
+  const summary = { users: users.length, tries: 0, approve:0, failed:0, aborted:0, other:0, approved:0, peak: tracks.length };
+  for (const u of users) for (const t of u.tries) {
     summary.tries++;
     const o = normalizeOutcome(t.outcome);
     if (o==='approve') summary.approve++; else if (o==='failed') summary.failed++; else if (o==='aborted') summary.aborted++; else summary.other++;
     if (t.reviewed) summary.approved++;
   }
-  return { lanes, dayKeys, dayMin: allStart, dayMax: allEnd, summary };
+  return { tracks, dayKeys, dayMin: allStart, dayMax: allEnd, summary };
 }
+
+const MIN_BOX_SEC = 60; // sessions shorter than this render as a bubble+arrow instead of a scaled box
 
 function renderGantt() {
   const chart = document.getElementById('ganttChart');
@@ -1998,20 +2026,20 @@ function renderGantt() {
 
   const summ = document.getElementById('ganttSummary');
   const sub  = document.getElementById('ganttSubtitle');
-  if (m.summary && m.lanes.length) {
+  if (m.summary && m.tracks.length) {
     const chip = (color, n, label) => `<span class="g-chip"><span class="g-dot" style="background:${color}"></span><b>${n}</b> ${label}</span>`;
     const fchips = Object.entries(gFilter).filter(([,v])=>v).map(([k,v]) =>
       `<span class="gantt-filter-tag" onclick="clearGanttFilter('${k}')">${k}: ${esc(v)} ✕</span>`).join(' ');
     summ.innerHTML =
-      `<span><b>${m.summary.lanes}</b> FaceKom session${m.summary.lanes!==1?'s':''}</span>` +
-      `<span><b>${m.summary.tries}</b> tries</span>` +
+      `<span><b>${m.summary.peak}</b> line${m.summary.peak!==1?'s':''} = max parallel</span>` +
+      `<span><b>${m.summary.users}</b> users · <b>${m.summary.tries}</b> tries</span>` +
       chip('var(--green)', m.summary.approve, 'appr/fin') + chip('var(--yellow)', m.summary.failed, 'failed') +
       chip('var(--red)', m.summary.aborted, 'aborted') + chip('#475569', m.summary.other, 'other') +
       (fchips ? `<span style="margin-left:auto">${fchips}</span>` : '');
   } else summ.innerHTML = '';
-  if (sub) sub.textContent = m.lanes.length ? `— ${m.summary.lanes} sessions · ${m.summary.tries} tries` : '';
+  if (sub) sub.textContent = m.tracks.length ? `— ${m.summary.peak} line${m.summary.peak!==1?'s':''} · ${m.summary.users} users` : '';
 
-  if (!m.lanes.length) {
+  if (!m.tracks.length) {
     chart.innerHTML = `<div class="empty">No sessions for this day${Object.values(gFilter).some(Boolean)?' with the current filter':''}.</div>`;
     return;
   }
@@ -2026,28 +2054,35 @@ function renderGantt() {
     ticks.push(`<div class="gantt-tick" style="left:${xpct(t)}%"><span class="gantt-tick-label">${pad(new Date(t).getHours())}:00</span></div>`);
   }
 
-  const lanesHtml = m.lanes.map(l => {
-    const boxes = l.tries.map(t => {
-      const left = xpct(t.start);
+  const renderTry = (t, u) => {
+    const colorClass = t.reviewed ? 'g-green' : gOutcomeColor(t.outcome);
+    const left = xpct(t.start);
+    const lbl  = t.lastStep !== '—' ? t.lastStep : t.outcome;
+    const tip  = `FaceKom ${u.fk||'(none)'} · Firebase ${t.sessId.slice(0,8)}… · ${t.outcome} · start ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
+    if (t.dur >= MIN_BOX_SEC) {
       const wpct = ((t.end - t.start) / span) * 100;
-      const colorClass = t.reviewed ? 'g-green' : gOutcomeColor(t.outcome);
-      const prog = Math.min(100, Math.round((t.steps.length / GANTT_CANON) * 100));
-      const tip = `FaceKom ${l.fk||'(none)'} · Firebase ${t.sessId.slice(0,8)}… · ${t.outcome} · start ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
-      const label = t.reviewed ? '' : `<div class="gantt-box-label">${esc(t.lastStep!=='—'?t.lastStep:t.outcome)}</div>`;
-      const progBar = t.reviewed ? '' : `<div class="gantt-prog" style="width:${prog}%"></div>`;
-      return `<div class="gantt-box ${colorClass}${t.reviewed?' approved':''}" style="left:${left}%;width:max(8px,${wpct}%)" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${progBar}${label}</div>`;
+      const prog = t.reviewed ? '' : `<div class="gantt-prog" style="width:${Math.min(100, Math.round((t.steps.length / GANTT_CANON) * 100))}%"></div>`;
+      const label = t.reviewed ? '' : `<div class="gantt-box-label">${esc(lbl)}</div>`;
+      return `<div class="gantt-box ${colorClass}${t.reviewed?' approved':''}" style="left:${left}%;width:max(22px,${wpct}%)" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${prog}${label}</div>`;
+    }
+    // short session: tiny scaled mark on the line + bubble above with a caret pointing to it
+    const wpct = ((t.end - t.start) / span) * 100;
+    return `<div class="gantt-scaledbox ${colorClass}" style="left:${left}%;width:${wpct}%"></div>` +
+      `<div class="gantt-bubble ${colorClass}${t.reviewed?' approved':''}" style="left:${left}%" title="${escAttr(tip)}" onclick="openGanttCard('${escAttr(t.sessId)}')">${esc(lbl)} · ${t.dur}s</div>`;
+  };
+
+  const tracksHtml = m.tracks.map((tr, ti) => {
+    const content = tr.users.map(u => {
+      const bandL = xpct(u.uStart), bandW = xpct(u.uEnd) - xpct(u.uStart);
+      const idLabel = (u.fbOnly ? 'FB ' : '') + (u.fk || u.tries[0].sessId || '').slice(0, 12) + '…';
+      const band = `<div class="gantt-userband" style="left:${bandL}%;width:max(3px,${bandW}%)"></div>` +
+        `<div class="gantt-userband-id" style="left:${bandL}%" onclick="ganttFilterToLane('${escAttr(u.fbOnly?('fb:'+u.tries[0].sessId):(u.fk||''))}',${u.fbOnly})" title="${escAttr(u.fk||u.tries[0].sessId)} · ${u.tries.length} tr · ${esc(u.model||'?')} · ${esc(u.os||'?')}">${esc(idLabel)}</div>`;
+      return band + u.tries.map(t => renderTry(t, u)).join('');
     }).join('');
-    const fkLabel = l.fbOnly ? `FB ${(l.tries[0].sessId||'').slice(0,10)}…` : `${(l.fk||'').slice(0,12)}…`;
-    return `<div class="gantt-lane">
-      <div class="gantt-lane-label" onclick="ganttFilterToLane('${escAttr(l.fbOnly?('fb:'+l.tries[0].sessId):(l.fk||''))}',${l.fbOnly})" title="${escAttr(l.fk||l.tries[0].sessId)}">
-        <span class="gantt-lane-fk">${esc(fkLabel)}</span>
-        <span class="gantt-lane-meta">${l.tries.length} tr · ${esc(l.model||'?')} · ${esc(l.os||'?')}</span>
-      </div>
-      <div class="gantt-track">${boxes}</div>
-    </div>`;
+    return `<div class="gantt-lane"><div class="gantt-lane-num">${ti+1}</div><div class="gantt-track">${content}</div></div>`;
   }).join('');
 
-  chart.innerHTML = `<div class="gantt-wrap"><div class="gantt-axis">${ticks.join('')}</div><div class="gantt-scroll">${lanesHtml}</div></div>`;
+  chart.innerHTML = `<div class="gantt-wrap"><div class="gantt-axis">${ticks.join('')}</div><div class="gantt-scroll">${tracksHtml}</div></div>`;
 }
 
 function ganttDay(delta) {
