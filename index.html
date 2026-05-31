@@ -15,7 +15,7 @@
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  .page { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .page { max-width: 96vw; margin: 0 auto; padding: 24px; }
 
   .header { margin-bottom: 28px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
   .header-left h1 { font-size: 24px; font-weight: 700; color: #fff; }
@@ -271,8 +271,8 @@
   .gantt-track { position: relative; flex-shrink: 0; }
 
   /* user "bubble" band — groups one FaceKom session's tries on a shared line */
-  .gantt-userband { position: absolute; top: 50%; transform: translateY(-50%); height: 30px; background: rgba(167,139,250,0.07); border: 1px dashed rgba(167,139,250,0.28); border-radius: 7px; pointer-events: none; }
-  .gantt-userband-id { position: absolute; top: 3px; font-size: 9px; color: var(--accent2); font-family: monospace; white-space: nowrap; cursor: pointer; opacity: 0.85; z-index: 3; }
+  .gantt-userband { position: absolute; top: 50%; transform: translateY(-50%); height: 30px; background: rgba(249,115,22,0.10); border: 1px dashed rgba(249,115,22,0.6); border-radius: 7px; pointer-events: none; }
+  .gantt-userband-id { position: absolute; top: 2px; font-size: 9px; color: var(--orange); font-weight: 600; font-family: monospace; white-space: nowrap; cursor: pointer; opacity: 0.9; z-index: 3; }
   .gantt-userband-id:hover { opacity: 1; text-decoration: underline; }
 
   /* duration-scaled box (>= ~1 min wide) */
@@ -295,6 +295,13 @@
   .g-muted  { background: #475569; }
 
   /* Day list (table) view */
+  .gantt-list-head { font-size: 13px; font-weight: 700; color: #fff; margin: 20px 0 8px; }
+  .gl-rev-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; padding: 1px 7px; font-size: 11px; }
+  .gl-rev-btn.on { color: var(--green); border-color: var(--green); }
+  .gl-task { font-size: 10px; border-radius: 8px; padding: 1px 7px; white-space: nowrap; display: inline-block; border: 1px solid var(--border); }
+  .gl-task.open { color: var(--yellow); border-color: rgba(245,158,11,0.4); }
+  .gl-task.done { color: var(--green); border-color: rgba(34,197,94,0.4); }
+  .gl-task.wontfix { color: var(--muted); }
   .gantt-list-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .gantt-list-table th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
   .gantt-list-table th:hover { color: var(--text); }
@@ -376,10 +383,6 @@
           <button class="btn btn-ghost btn-sm" id="ganttNext" onclick="ganttDay(1)">Next →</button>
           <button class="btn btn-ghost btn-sm" onclick="ganttLatest()" title="Jump to the most recent day with data">⤓ Latest</button>
         </div>
-        <div class="gantt-viewtoggle">
-          <button class="filter-btn active" id="gViewTimeline" onclick="setGanttView('timeline')">▦ Timeline</button>
-          <button class="filter-btn" id="gViewList" onclick="setGanttView('list')">☰ List</button>
-        </div>
       </div>
       <div class="filter-group" style="margin-bottom:8px">
         <span class="filter-label">Outcome</span>
@@ -391,7 +394,8 @@
       </div>
       <div class="gantt-summary" id="ganttSummary"></div>
       <div id="ganttChart"></div>
-      <div id="ganttList" style="display:none"></div>
+      <div class="gantt-list-head">Day list</div>
+      <div id="ganttList"></div>
     </div>
   </div>
 
@@ -1634,7 +1638,8 @@ function renderSessionCard(group, idx) {
   const hasAttached = attachedTasks.length > 0;
   const isReviewed = reviewedSessions.has(primary.session_id_base);
   const attachBtnHtml = primary.session_id_base
-    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${hasAttached ? ';border-color:var(--accent2);color:#fff;background:var(--accent2)' : ''}" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="${hasAttached ? attachedTasks.length + ' task(s) attached' : 'Attach to developer task'}">📎</button>
+    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${hasAttached ? ';border-color:var(--accent2);color:#fff;background:var(--accent2)' : ''}" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="${hasAttached ? attachedTasks.length + ' task(s) attached' : 'Attach to existing task'}">📎</button>
+       <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="newTaskFromSession('${escAttr(primary.session_id_base)}')" title="Create a new task with this session attached">➕ Task</button>
        <button class="btn btn-ghost btn-sm" style="flex-shrink:0${isReviewed ? ';color:var(--green);border-color:var(--green)' : ''}" onclick="toggleReviewed('${escAttr(primary.session_id_base)}')" title="${isReviewed ? 'Reviewed — click to unmark' : 'Mark as reviewed'}">✓ Reviewed</button>`
     : '';
 
@@ -2115,11 +2120,9 @@ function renderGantt() {
   } else summ.innerHTML = '';
   if (sub) sub.textContent = m.users.length ? `— ${m.summary.peak} line${m.summary.peak!==1?'s':''} · ${m.summary.users} users` : '';
 
-  document.getElementById('gViewTimeline').classList.toggle('active', gView==='timeline');
-  document.getElementById('gViewList').classList.toggle('active', gView==='list');
-  const chart = document.getElementById('ganttChart'), list = document.getElementById('ganttList');
-  if (gView === 'list') { chart.style.display='none'; list.style.display=''; renderGanttList(m); }
-  else { list.style.display='none'; chart.style.display=''; renderGanttTimeline(m); }
+  // Timeline + list are shown together (few lines leave room for the list below).
+  renderGanttTimeline(m);
+  renderGanttList(m);
 }
 
 function renderGanttTimeline(m) {
@@ -2146,7 +2149,7 @@ function renderGanttTimeline(m) {
   const lanesHtml = m.tracks.map((tr, ti) => {
     const content = tr.users.map(u => {
       const bL = tm.tsToX(u.uStart), bR = tm.tsToX(u.uEnd);
-      const idLabel = (u.fbOnly ? 'FB ' : '') + (u.fk || u.tries[0].sessId || '').slice(0, 12) + '…';
+      const idLabel = (u.fbOnly ? 'FB ' : '') + (u.fk || u.tries[0].sessId || '');
       const band = `<div class="gantt-userband" style="left:${bL}px;width:${Math.max(4,bR-bL)}px"></div>` +
         `<div class="gantt-userband-id" style="left:${bL}px" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr((u.fk||u.tries[0].sessId)+' · '+u.tries.length+' tr · '+(u.model||'?')+' · '+(u.os||'?'))}">${esc(idLabel)}</div>`;
       return band + u.tries.map(t => renderTry(t, u)).join('');
@@ -2161,11 +2164,14 @@ function renderGanttTimeline(m) {
 function renderGanttList(m) {
   const list = document.getElementById('ganttList');
   if (!m.users.length) { list.innerHTML = `<div class="empty">No sessions for this day${gFilterActive()?' with the current filter':''}.</div>`; return; }
+  const taskCls = r => r==='open' ? 'open' : (r==='wont-fix' ? 'wontfix' : 'done');
   const rows = m.users.map(u => ({
     u,
     startMin: Math.min(...u.tries.map(t=>t.start)),
     durTotal: u.tries.reduce((a,t)=>a+t.dur,0),
     outcome: normalizeOutcome(u.tries[u.tries.length-1].outcome),
+    reviewedCount: u.tries.filter(t=>t.reviewed).length,
+    taskCount: u.tries.reduce((a,t)=>a + getTasksForSession(t.sessId).length, 0),
     fkId: u.fk || u.tries[0].sessId,
   }));
   const dir = gSortDir;
@@ -2174,7 +2180,8 @@ function renderGanttList(m) {
       case 'fk': return dir * String(a.fkId).localeCompare(String(b.fkId));
       case 'dur': return dir * (a.durTotal - b.durTotal);
       case 'outcome': return dir * String(a.outcome).localeCompare(String(b.outcome));
-      case 'tries': return dir * (a.u.tries.length - b.u.tries.length);
+      case 'reviewed': return dir * (a.reviewedCount - b.reviewedCount);
+      case 'task': return dir * (a.taskCount - b.taskCount);
       default: return dir * (a.startMin - b.startMin);
     }
   });
@@ -2187,10 +2194,15 @@ function renderGanttList(m) {
     const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
     const durs = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
     const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}</div>`; }).join('');
+    const revs = u.tries.map(t => `<div class="gl-line"><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>`).join('');
+    const tasks = u.tries.map(t => {
+      const ts = getTasksForSession(t.sessId);
+      return `<div class="gl-line">${ts.length ? ts.map(tk => `<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)}">${esc(tk.resolution||'open')}</span>`).join(' ') : '<span style="color:var(--muted)">—</span>'}</div>`;
+    }).join('');
     return `<tr>
       <td class="gl-num">${i+1}</td>
-      <td><span class="gl-fk" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr(r.fkId)} — filter to this session">${u.fbOnly?'FB ':''}${esc(r.fkId.slice(0,18))}${r.fkId.length>18?'…':''}</span></td>
-      <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td>
+      <td><span class="gl-fk" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr(r.fkId)} — filter to this session">${u.fbOnly?'FB ':''}${esc(r.fkId)}</span></td>
+      <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td><td>${revs}</td><td>${tasks}</td>
     </tr>`;
   }).join('');
 
@@ -2201,9 +2213,9 @@ function renderGanttList(m) {
   const pct = n => Math.round(n/tt*100);
 
   list.innerHTML = `<div class="table-wrap"><table class="gantt-list-table">
-    <thead><tr><th>#</th>${th('fk','FaceKom session')}<th>Event IDs</th>${th('start','Start')}${th('dur','Duration')}${th('outcome','Outcome')}</tr></thead>
+    <thead><tr><th>#</th>${th('fk','FaceKom session')}<th>Event IDs</th>${th('start','Start')}${th('dur','Duration')}${th('outcome','Outcome')}${th('reviewed','Reviewed')}${th('task','Dev task')}</tr></thead>
     <tbody>${body}</tbody>
-    <tfoot><tr class="gl-foot"><td></td><td>${s.users} users</td><td>${s.tries} events</td><td>avg ${avg}s</td><td colspan="2">${bar} <span style="font-size:11px;color:var(--muted);margin-left:8px">${pct(s.approve)}% appr · ${pct(s.aborted)}% abort</span></td></tr></tfoot>
+    <tfoot><tr class="gl-foot"><td></td><td>${s.users} users</td><td>${s.tries} events</td><td>avg ${avg}s</td><td></td><td colspan="3">${bar} <span style="font-size:11px;color:var(--muted);margin-left:8px">${pct(s.approve)}% appr · ${pct(s.aborted)}% abort</span></td></tr></tfoot>
   </table></div>`;
 }
 
@@ -2228,6 +2240,19 @@ function setGanttOutcome(o) { gOutcomeFilter = o; renderGantt(); }
 function setGanttVersion(v) { gVersionFilter = v; renderGantt(); }
 function setGanttFk(fk) { gFkFilter = fk; renderGantt(); }
 function clearGanttFk() { gFkFilter = ''; renderGantt(); }
+function gReviewToggle(sessId) { toggleReviewed(sessId); renderGantt(); }
+function newTaskFromSession(sessId) {
+  const title = prompt('New task title:', '');
+  if (!title) return;
+  const nums = devTasks.map(t => parseInt((String(t.id).match(/(\d+)$/) || [])[1] || '0', 10)).filter(n => !isNaN(n));
+  const id = 'task_t' + ((nums.length ? Math.max(...nums) : 0) + 1);
+  devTasks.push({ id, title, priority: 'medium', resolution: 'open', category: 'ios', noteFile: '', attachedSessions: [sessId] });
+  saveDevTasks();
+  if (typeof saveDevTasksToFile === 'function') { try { saveDevTasksToFile(); } catch {} }
+  renderDevTasks();
+  if (typeof rerenderEventCards === 'function') rerenderEventCards();
+  renderGantt();
+}
 function ganttSort(col) { if (gSortCol === col) gSortDir = -gSortDir; else { gSortCol = col; gSortDir = 1; } renderGantt(); }
 
 function ganttDay(delta) {
@@ -2399,6 +2424,7 @@ async function loadDevTasksFromCSV() {
       }
       localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
       renderDevTasks();
+      if (typeof renderGantt === 'function') renderGantt();   // populate the Day list "Dev task" column
     }
     renderDevConnectBtn();
   } catch {}
