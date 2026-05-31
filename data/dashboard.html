@@ -1913,6 +1913,7 @@ function filterToDay(dayKey) {
 // ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
 let gDayKey = null;
 let gOutcomeFilter = 'all', gVersionFilter = 'all', gFkFilter = '';
+let gVersionInit = false;               // default Version pill to newest (3.7.1) on first render
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
 const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
@@ -1958,55 +1959,66 @@ function gOutcomeColor(outcome) {
   if (o === 'aborted') return 'g-red';
   return 'g-muted';
 }
+// Canonical FaceKom session = the videoID UUID; drop any trailing "-<unix ts>" suffix so the
+// same identification groups together whether or not the timestamp was captured on the link.
+function fkBase(fk) {
+  if (!fk) return fk;
+  const m = String(fk).match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return m ? m[0] : fk;
+}
 
 function buildGanttModel() {
+  // Version scope first, so day-nav only offers days that have the selected version.
+  const scoped = gVersionFilter === 'all' ? events : events.filter(e => (e.app_version||'') === gVersionFilter);
   const dayKeysSet = new Set();
-  for (const ev of events) { const k = gDayKeyOf(gStartTs(ev)); if (k) dayKeysSet.add(k); }
+  for (const ev of scoped) { const k = gDayKeyOf(gStartTs(ev)); if (k) dayKeysSet.add(k); }
   const dayKeys = [...dayKeysSet].sort();
-  if (!dayKeys.length) return { lanes: [], dayKeys: [], dayMin: 0, dayMax: 0, summary: null };
+  if (!dayKeys.length) return { tracks: [], users: [], dayKeys: [], summary: null };
   if (!gDayKey || !dayKeys.includes(gDayKey)) gDayKey = dayKeys[dayKeys.length - 1];
 
-  const dayEvents = events.filter(ev => gDayKeyOf(gStartTs(ev)) === gDayKey);
+  const dayEvents = scoped.filter(ev => gDayKeyOf(gStartTs(ev)) === gDayKey);
 
-  const laneMap = new Map();
+  // Group by Firebase session (session_id_base) FIRST — across all its crash reports —
+  // then resolve the FaceKom id from any report that carries it. (Some reports of the same
+  // session have a blank user_id_base; keying per-report would split one session into a
+  // real lane + a phantom "FB" lane.)
+  const fbMap = new Map();
   for (const ev of dayEvents) {
-    const lk = gLaneKey(ev);
-    if (!laneMap.has(lk)) laneMap.set(lk, new Map());
-    const tryMap = laneMap.get(lk);
     const tk = ev.session_id_base || ev.event_id || '?';
-    if (!tryMap.has(tk)) tryMap.set(tk, []);
-    tryMap.get(tk).push(ev);
+    if (!fbMap.has(tk)) fbMap.set(tk, []);
+    fbMap.get(tk).push(ev);
+  }
+  const triesByLane = new Map();
+  for (const [tk, evs] of fbMap) {
+    const group = deduplicateGroupEvents(evs.slice().sort((a,b)=>(+a.report_index||0)-(+b.report_index||0)));
+    const rep = group.reduce((best, e) => (e.logs?.length||0) > (best.logs?.length||0) ? e : best, group[0]);
+    const fk = fkBase(evs.map(facekomSessionId).find(Boolean) || '');   // any report's FaceKom id, canonicalized
+    const laneKey = fk ? 'fk:' + fk : 'fb:' + tk;
+    const start = gStartTs(rep), end = gEndTs(rep);
+    const tryObj = {
+      sessId: tk, group, rep, start, end,
+      dur: Math.max(0, Math.round((end - start) / 1000)),
+      outcome: deriveSessionOutcome(group), lastStep: deriveLastStep(rep),
+      steps: extractStepSequence(rep.logs || []), reviewed: reviewedSessions.has(tk),
+      fk, laneKey, model: rep.model, os: rep.os_version, app: rep.app_version,
+    };
+    if (!triesByLane.has(laneKey)) triesByLane.set(laneKey, []);
+    triesByLane.get(laneKey).push(tryObj);
   }
 
   let users = [];
-  for (const [lk, tryMap] of laneMap) {
-    const tries = [];
-    for (const [tk, reps] of tryMap) {
-      const group = deduplicateGroupEvents(reps.slice().sort((a,b)=>(+a.report_index||0)-(+b.report_index||0)));
-      const rep = group.reduce((best, e) => (e.logs?.length||0) > (best.logs?.length||0) ? e : best, group[0]);
-      const start = gStartTs(rep), end = gEndTs(rep);
-      tries.push({
-        sessId: tk, group, rep, start, end,
-        dur: Math.max(0, Math.round((end - start) / 1000)),
-        outcome: deriveSessionOutcome(group),
-        lastStep: deriveLastStep(rep),
-        steps: extractStepSequence(rep.logs || []),
-        reviewed: reviewedSessions.has(tk),
-        fk: facekomSessionId(rep), model: rep.model, os: rep.os_version, app: rep.app_version,
-      });
-    }
+  for (const [laneKey, tries] of triesByLane) {
     tries.sort((a,b) => a.start - b.start);
     const first = tries[0];
     users.push({
-      key: lk, tries, fk: first.fk, fbOnly: lk.startsWith('fb:'),
+      key: laneKey, tries, fk: first.fk, fbOnly: laneKey.startsWith('fb:'),
       model: first.model, os: first.os, app: first.app,
       uStart: Math.min(...tries.map(t=>t.start)), uEnd: Math.max(...tries.map(t=>t.end)),
     });
   }
 
-  // filters (pill-driven): fk + version keep whole users; outcome narrows to matching tries
+  // filters (version already applied at event scope): fk keeps whole users; outcome narrows tries
   if (gFkFilter) users = users.filter(u => (u.fk||'').toLowerCase().includes(gFkFilter.toLowerCase()) || u.tries.some(t => (t.sessId||'').includes(gFkFilter)));
-  if (gVersionFilter !== 'all') users = users.filter(u => u.tries.some(t => String(t.app||'') === gVersionFilter));
   if (gOutcomeFilter !== 'all') {
     users = users.map(u => ({ ...u, tries: u.tries.filter(t => normalizeOutcome(t.outcome) === gOutcomeFilter) })).filter(u => u.tries.length);
     users.forEach(u => { u.uStart = Math.min(...u.tries.map(t=>t.start)); u.uEnd = Math.max(...u.tries.map(t=>t.end)); });
@@ -2076,6 +2088,11 @@ function buildTimeMap(tries) {
 
 // Main entry: updates chrome, then renders the active view.
 function renderGantt() {
+  if (!gVersionInit) {
+    const vers = [...new Set(events.map(e=>e.app_version).filter(Boolean))].sort();
+    if (vers.length) gVersionFilter = vers[vers.length - 1];   // newest, e.g. "3.7.1 (2759)"
+    gVersionInit = true;
+  }
   const m = buildGanttModel();
   const lbl = document.getElementById('ganttDayLabel');
   if (gDayKey) { const d = new Date(gDayKey + 'T00:00:00'); lbl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }); }
