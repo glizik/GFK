@@ -221,6 +221,8 @@
   .dev-sess-chip-date { font-size: 10px; color: var(--muted); line-height: 1.2; }
   .dev-sess-chip-remove { font-size: 10px; opacity: 0.5; cursor: pointer; align-self: flex-end; }
   .dev-filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .global-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-bottom: 24px; position: sticky; top: 0; z-index: 50; }
+  .gf-note { font-size: 11px; color: var(--muted); margin-left: 6px; }
   .dev-user-box { border: 1px dashed rgba(249,115,22,0.55); background: rgba(249,115,22,0.06); border-radius: 8px; padding: 6px 8px; align-self: flex-start; }
   .dev-user-box.fb { border-color: var(--border); background: rgba(0,0,0,0.12); }
   .dev-user-head { display: flex; align-items: center; gap: 6px; font-family: monospace; font-size: 10px; color: var(--orange); margin-bottom: 5px; }
@@ -388,6 +390,8 @@
   </div>
   <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
+  <div class="global-filters" id="globalFilters"></div>
+
   <div class="section" id="ganttSection">
     <div class="section-header" onclick="toggleGantt()">
       <div class="section-title" style="margin-bottom:0">
@@ -402,14 +406,6 @@
           <button class="btn btn-ghost btn-sm" id="ganttNext" onclick="ganttDay(1)">Next →</button>
           <button class="btn btn-ghost btn-sm" onclick="ganttLatest()" title="Jump to the most recent day with data">⤓ Latest</button>
         </div>
-      </div>
-      <div class="filter-group" style="margin-bottom:8px">
-        <span class="filter-label">Outcome</span>
-        <div id="ganttOutcomeFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-      </div>
-      <div class="filter-group" style="margin-bottom:12px">
-        <span class="filter-label">Version</span>
-        <div id="ganttVersionFilters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
       <div class="gantt-summary" id="ganttSummary"></div>
       <div id="ganttChart"></div>
@@ -626,7 +622,6 @@ const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
 let reviewedSessions = new Set();
 let investigations = {};   // FaceKom UUID → { outcome, note, ts } — investigated + outcome override
-let devVersionFilter = '3.7.1';   // Developer-section session version filter (focus on 3.7.1)
 let attachMenuSessId = '';
 let tlPageDate = new Date();
 let csvFileHandle = null;
@@ -662,68 +657,75 @@ function mergeIssuesByName(primary, secondary) {
   return merged.filter(i => i.rank > 0).sort((a, b) => a.rank - b.rank);
 }
 
+let loadedVersions = new Set();
+function neededVersions() { return gVersionFilter === 'all' ? ['3.7.1', '3.7.0'] : [gVersionFilter]; }
+
+// One event's log (breadcrumbs), concurrency-limited by the caller.
+async function fetchEventLog(ev) {
+  const eventId = (ev.session_event_key || '').split('_').pop();
+  const log = eventId
+    ? await fetch(`data/logs/${eventId}.log?_=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null)
+    : null;
+  const logs = log ? processLogs(log.logs_and_breadcrumbs) : [];
+  return { ...ev, logs, startTs: logs[0]?.rawTs || null };
+}
+
+// Load each needed version's events+logs once (cached). 3.7.0 is large, so it's only
+// loaded when the global Version filter asks for it — keeps the default (3.7.1) load fast.
+// Logs fetched at concurrency 20 (a single ~1900-wide Promise.all starves the local server).
+async function ensureVersionsLoaded() {
+  for (const v of neededVersions()) {
+    if (loadedVersions.has(v)) continue;
+    const csv = await fetch(`data/events_${v}.csv?_=${Date.now()}`).then(r => r.ok ? r.text() : '').catch(() => '');
+    const raw = csv ? parseCsv(csv) : [];
+    for (let i = 0; i < raw.length; i += 20) events.push(...await Promise.all(raw.slice(i, i + 20).map(fetchEventLog)));
+    loadedVersions.add(v);
+  }
+}
+
+function renderAll() {
+  renderGlobalFilters();
+  renderStats();
+  renderIssueChips();
+  renderIssuesTable();
+  renderAnalytics();
+  renderStepFunnel();
+  renderEventsFromActiveIssues();
+  renderTimeline();
+  renderGantt();
+  renderDevTasks();
+}
+
 async function loadData() {
   try {
     const ts = Date.now();
-    const [issuesCsv370, eventsCsv370, issuesCsv371, eventsCsv371, releasesCsv, reviewedRaw, invRaw] = await Promise.all([
+    const [issuesCsv370, issuesCsv371, releasesCsv, reviewedRaw, invRaw] = await Promise.all([
       fetch(`data/issues_3.7.0.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
-      fetch(`data/events_3.7.0.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/issues_3.7.1.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
-      fetch(`data/events_3.7.1.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/reviewed_sessions.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/investigations.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (invRaw && typeof invRaw === 'object') investigations = invRaw;
-
     releases = releasesCsv ? parseCsv(releasesCsv) : [];
-
     const issues370 = issuesCsv370 ? parseCsv(issuesCsv370).map(parseIssueRow) : [];
     const issues371 = issuesCsv371 ? parseCsv(issuesCsv371).map(parseIssueRow) : [];
     issues = mergeIssuesByName(issues370, issues371);
 
-    const rawEvents = [
-      ...(eventsCsv370 ? parseCsv(eventsCsv370) : []),
-      ...(eventsCsv371 ? parseCsv(eventsCsv371) : []),
-    ];
-    // Fetch per-event logs with limited concurrency. A single Promise.all over
-    // ~1900 events overwhelms the local HTTP/1.1 server (ERR_INSUFFICIENT_RESOURCES)
-    // and many logs silently fail — which breaks duration/step derivation.
-    const fetchEventLog = async ev => {
-      const eventId = (ev.session_event_key || '').split('_').pop();
-      const log = eventId
-        ? await fetch(`data/logs/${eventId}.log?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null)
-        : null;
-      const logs = log ? processLogs(log.logs_and_breadcrumbs) : [];
-      return { ...ev, logs, startTs: logs[0]?.rawTs || null };
-    };
-    events = [];
-    const LOG_CONCURRENCY = 20;
-    for (let i = 0; i < rawEvents.length; i += LOG_CONCURRENCY) {
-      events.push(...await Promise.all(rawEvents.slice(i, i + LOG_CONCURRENCY).map(fetchEventLog)));
-    }
+    events = []; loadedVersions = new Set();
+    await ensureVersionsLoaded();   // default loads only 3.7.1; 3.7.0 on demand
 
-    // Load reviewed sessions from server file if it has entries; else keep localStorage
     if (reviewedRaw && Array.isArray(reviewedRaw) && reviewedRaw.length > 0) {
       reviewedSessions = new Set(reviewedRaw);
       localStorage.setItem('gfk_reviewed', JSON.stringify(reviewedRaw));
     }
-
     const last = issues.map(i => i.last_scraped).filter(Boolean).sort().pop();
     if (last) document.getElementById('updated').textContent =
       new Date(last).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
     hideError();
     activeIssueIds = new Set(issues.map(i => String(i.rank)));
-    renderStats();
-    renderIssueChips();
-    renderIssuesTable();
-    renderAnalytics();
-    renderStepFunnel();
-    renderEventsFromActiveIssues();
-    renderTimeline();
-    renderGantt();
-    renderDevTasks();
+    renderAll();
     renderDevConnectBtn();
     loadDevTasksFromCSV();
   } catch (e) {
@@ -1955,8 +1957,7 @@ function filterToDay(dayKey) {
 
 // ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
 let gDayKey = null;
-let gOutcomeFilter = 'all', gVersionFilter = 'all', gFkFilter = '';
-let gVersionInit = false;               // default Version pill to newest (3.7.1) on first render
+let gOutcomeFilter = 'all', gVersionFilter = '3.7.1', gFkFilter = '';   // global filters (version is a key: 3.7.1 / 3.7.0 / all)
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
 const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
@@ -2012,7 +2013,7 @@ function fkBase(fk) {
 
 function buildGanttModel() {
   // Version scope first, so day-nav only offers days that have the selected version.
-  const scoped = gVersionFilter === 'all' ? events : events.filter(e => (e.app_version||'') === gVersionFilter);
+  const scoped = gVersionFilter === 'all' ? events : events.filter(e => (e.app_version||'').startsWith(gVersionFilter));
   const dayKeysSet = new Set();
   for (const ev of scoped) { const k = gDayKeyOf(gStartTs(ev)); if (k) dayKeysSet.add(k); }
   const dayKeys = [...dayKeysSet].sort();
@@ -2133,11 +2134,6 @@ function buildTimeMap(tries) {
 
 // Main entry: updates chrome, then renders the active view.
 function renderGantt() {
-  if (!gVersionInit) {
-    const vers = [...new Set(events.map(e=>e.app_version).filter(Boolean))].sort();
-    if (vers.length) gVersionFilter = vers[vers.length - 1];   // newest, e.g. "3.7.1 (2759)"
-    gVersionInit = true;
-  }
   const m = buildGanttModel();
   const lbl = document.getElementById('ganttDayLabel');
   if (gDayKey) { const d = new Date(gDayKey + 'T00:00:00'); lbl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }); }
@@ -2145,8 +2141,6 @@ function renderGantt() {
   const idx = m.dayKeys.indexOf(gDayKey);
   document.getElementById('ganttPrev').disabled = idx <= 0;
   document.getElementById('ganttNext').disabled = idx < 0 || idx >= m.dayKeys.length - 1;
-
-  renderGanttFilters();
 
   const summ = document.getElementById('ganttSummary'), sub = document.getElementById('ganttSubtitle');
   if (m.summary && m.users.length) {
@@ -2260,25 +2254,31 @@ function renderGanttList(m) {
   </table></div>`;
 }
 
-function renderGanttFilters() {
-  const oOpts = [
-    { key:'all', label:'All', cls:'' },
-    { key:'approve', label:'Approved/Finished', cls:'btn-green' },
-    { key:'failed', label:'Failed', cls:'btn-yellow' },
-    { key:'aborted', label:'Aborted', cls:'btn-red' },
-    { key:'other', label:'Other', cls:'' },
-  ];
-  document.getElementById('ganttOutcomeFilters').innerHTML = oOpts.map(o =>
-    `<button class="filter-btn${o.cls?' '+o.cls:''}${gOutcomeFilter===o.key?' active':''}" onclick="setGanttOutcome('${o.key}')">${o.label}</button>`).join('');
-  const vers = [...new Set(events.map(e=>e.app_version).filter(Boolean))].sort().reverse();
-  const vOpts = [{ key:'all', label:'All' }, ...vers.map(v=>({ key:v, label:v }))];
-  document.getElementById('ganttVersionFilters').innerHTML = vOpts.map(o =>
-    `<button class="filter-btn${gVersionFilter===o.key?' active':''}" onclick="setGanttVersion('${escAttr(o.key)}')">${esc(o.label)}</button>`).join('');
+// Global filter bar (top of page): Version (gates which data is loaded) + Outcome. Applies page-wide.
+function renderGlobalFilters() {
+  const el = document.getElementById('globalFilters');
+  if (!el) return;
+  const vOpts = [['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All']];
+  const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', '']];
+  const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
+  el.innerHTML =
+    `<span class="filter-label">Version</span>` +
+    vOpts.map(([v, l]) => `<button class="filter-btn${gVersionFilter === v ? ' active' : ''}" onclick="setGlobalVersion('${v}')">${l}</button>`).join('') +
+    `<span class="filter-label" style="margin-left:14px">Outcome</span>` +
+    oOpts.map(([k, l, c]) => `<button class="filter-btn${c ? ' ' + c : ''}${gOutcomeFilter === k ? ' active' : ''}" onclick="setGlobalOutcome('${k}')">${l}</button>`).join('') +
+    loadHint;
 }
+async function setGlobalVersion(v) {
+  if (gVersionFilter === v) return;
+  gVersionFilter = v;
+  const el = document.getElementById('globalFilters');
+  if (el && !neededVersions().every(x => loadedVersions.has(x))) el.insertAdjacentHTML('beforeend', '<span class="gf-note" id="gfLoading">· loading…</span>');
+  await ensureVersionsLoaded();
+  renderAll();
+}
+function setGlobalOutcome(o) { gOutcomeFilter = o; renderAll(); }
 
 function setGanttView(v) { gView = v; renderGantt(); }
-function setGanttOutcome(o) { gOutcomeFilter = o; renderGantt(); }
-function setGanttVersion(v) { gVersionFilter = v; renderGantt(); }
 function setGanttFk(fk) { gFkFilter = fk; renderGantt(); }
 function clearGanttFk() { gFkFilter = ''; renderGantt(); }
 function gReviewToggle(sessId) { toggleReviewed(sessId); renderGantt(); }
@@ -2873,11 +2873,6 @@ function getSessionOutcome(sid) {
   return null;
 }
 
-function setDevVersion(v) { devVersionFilter = v; renderDevTasks(); }
-function devFilterBar() {
-  const opts = [['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All versions']];
-  return `<div class="dev-filter-bar"><span class="filter-label">Sessions</span>${opts.map(([v, l]) => `<button class="filter-btn${devVersionFilter === v ? ' active' : ''}" onclick="setDevVersion('${v}')">${l}</button>`).join('')}</div>`;
-}
 
 // Resolve a Firebase session → FaceKom id, app version, date, outcome (override-aware).
 function devSessionInfo(sid) {
@@ -2899,14 +2894,18 @@ function renderTaskSessions(task) {
   const groups = new Map(); let hidden = 0;
   for (const sid of task.attachedSessions) {
     const info = devSessionInfo(sid);
-    if (devVersionFilter !== 'all' && !(info.app || '').includes(devVersionFilter)) { hidden++; continue; }
+    if (gVersionFilter !== 'all' && !(info.app || '').includes(gVersionFilter)) { hidden++; continue; }
     const key = info.fk || ('fb:' + sid);
     if (!groups.has(key)) groups.set(key, { fk: info.fk, fbOnly: info.fbOnly, app: info.app, sessions: [] });
     groups.get(key).sessions.push(info);
   }
-  if (!groups.size) return `<span style="font-size:11px;color:var(--muted)">No ${esc(devVersionFilter)} sessions here${hidden ? ` (${hidden} hidden by filter)` : ''}.</span>`;
+  if (!groups.size) return `<span style="font-size:11px;color:var(--muted)">No ${esc(gVersionFilter)} sessions here${hidden ? ` (${hidden} hidden by filter)` : ''}.</span>`;
   const ocColor = oc => oc === 'approve' ? 'var(--green)' : oc === 'failed' ? 'var(--yellow)' : oc === 'aborted' ? 'var(--red)' : 'var(--muted)';
-  const boxes = [...groups.values()].map(g => {
+  // order tries within each FaceKom session by time, and order the boxes by their first try
+  const gArr = [...groups.values()];
+  for (const g of gArr) g.sessions.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  gArr.sort((a, b) => ((a.sessions[0] && a.sessions[0].date) || '').localeCompare((b.sessions[0] && b.sessions[0].date) || ''));
+  const boxes = gArr.map(g => {
     const head = g.fbOnly ? `FB ${g.sessions[0].sid.slice(0, 12)}…` : g.fk;
     const copyFk = g.fk ? `<button class="dev-task-btn" style="padding:0 5px;font-size:10px" onclick="event.stopPropagation();copyToClipboard('${escAttr(g.fk)}',this)" title="Copy FaceKom session id">📋</button>` : '';
     const chips = g.sessions.map(s => `<span class="dev-sess-chip${s.reviewed ? ' reviewed' : ''}" onclick="showSessionInEvents('${escAttr(s.sid)}')" title="${escAttr(s.sid)}">
@@ -2919,7 +2918,7 @@ function renderTaskSessions(task) {
       <div class="dev-user-sessions">${chips}</div>
     </div>`;
   }).join('');
-  return boxes + (hidden ? `<div class="dev-hidden-note">+ ${hidden} session${hidden !== 1 ? 's' : ''} hidden (not ${esc(devVersionFilter)})</div>` : '');
+  return boxes + (hidden ? `<div class="dev-hidden-note">+ ${hidden} session${hidden !== 1 ? 's' : ''} hidden (not ${esc(gVersionFilter)})</div>` : '');
 }
 
 function renderDevTasks() {
@@ -2931,7 +2930,7 @@ function renderDevTasks() {
     el.innerHTML = `<div class="empty">No tasks yet. Click "+ New Task" to add one.</div>`;
     return;
   }
-  el.innerHTML = devFilterBar() + devTasks.map((task, idx) => {
+  el.innerHTML = devTasks.map((task, idx) => {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
     const hasNoteFile = !!(task.noteFile || '').trim();
     const ticketNum = parseInt((task.id.match(/\d+$/) || ['0'])[0]);
