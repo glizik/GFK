@@ -1,21 +1,31 @@
-# CustomerPortrait: silent rejection loop
+# CustomerPortrait: néma elutasítási hurok
 
-**Affected:** 17 users
+## 3.7.0 — az eredeti probléma (17 felhasználó)
 
-## What happens
+1. FaceKom munkamenet elindult ✅
+2. voice-liveness-check (élő hang/arc) ✅
+3. deepfake-detection ✅
+4. a szerver elküldi a `customerPortrait` lépést ✅
+5. ennél a lépésnél az SDK újracsatlakozik (`connecting → connected`)
+6. **FaceKomSDK.FaceKomError 46 — timeOut (időtúllépés)**
+7. a felhasználó újrakezdi, az integritás-ellenőrzés megszakad
+8. ismét voice → deepfake → portré, és **ismét timeOut**…
 
-1. FaceKom session started ✅
-2. User passes voice-liveness-check ✅
-3. and deepfake-detection ✅ 
-4. Server sends `customerPortrait` ✅ 
-5. step SDK triggers reconnect (`connecting → connected`) 
-6. FaceKomSDK.FaceKomError hiba 46 — timeOut
-7. User starts over, integrity check aborting ✅
-8. User pass voice-liveness-check, deepfake-detection and then customerPortrait again and timeOut again... and just give suggestions here in console.
+**Statisztika (3.7.0):**
+- Legrosszabb eset: 1 felhasználó **22 portré-próbálkozás** 5 teljes cikluson át, sosem sikerült.
+- Sikeresség: **csak 4/17 (23%)** ment át végül.
+- Nincs megfigyelhető különbség a sikeres és az elakadt munkamenetek közt — szerverfüggőnek tűnik.
+- (A 3.7.0-s munkamenetekhez **nincs FaceKom azonosító**, csak Firebase azonosító.)
 
-## Attempt statistics
+## 3.7.1 — frissített kép (2026-06-01-i újragyűjtés)
 
-- Worst case: 1 user made **22 portrait attempts** across 5 full voice→deepfake→portrait restart cycles, never succeeded
-- Recovery rate: **4/17 (23%)** eventually passed customerPortrait within the same session after repeated retries
-Approved (05dd8149937448f3b80e5259d65e6f0e, 75763682d7df4aaea31df399156eef8f, 9c0a89f6ae4f4139b1692ac3dfd2ce08, 4510de9401294e07a062d3af25956407)
-- No observable behavioral difference between recovered and stuck sessions — recovery appears server-dependent (same number of restarts can lead to either outcome)
+**A hurok továbbra is létezik, de már szinte mindig sikerrel zárul.** 31 FaceKom munkamenet futott bele a customerPortrait-hurokba, és **30/31 (≈97%) végül jóváhagyva lett** (3.7.0-ban ez 23% volt).
+
+- A próbálkozásszám viszont magas maradt: a legrosszabb esetben **34 portré-próbálkozás** egyetlen munkameneten belül (`9071cd7a…`), egy másiknál **19 + timeOut** (`70ed4a7d…`) — vagyis az élmény még mindig rossz, de a végén átmegy.
+- Explicit `timeOut (46)` már csak 2 munkamenetnél fordult elő, és ott is jóváhagyással zárult.
+- **Egyetlen 3.7.1-es munkamenet sem akadt el magán a customerPortrait lépésen.** A jóvá nem hagyott `17001e11…` valójában **átment a portrén**, és utána a **2-factor** lépésnél morzsolódott le (háromszor háttérbe tette az appot, majd bezárta) — ez tehát nem portré-hiba (lásd Task-004).
+
+**Következtetés:** a 3.7.0-s néma elutasítási hurok a 3.7.1-ben **gyakorlatilag megszűnt** (a portré ~100%-ban átmegy); ami maradt, az a túl sok újrapróbálkozás okozta rossz UX.
+
+## Bizonyíték a produkciós ellenőrzéshez
+A csatolt munkamenetek FaceKom azonosítói + időbélyegei a 3.7.1-es mintából származnak — az exportált fájl „Érintett FaceKom munkamenetek” szakasza tartalmazza őket, produkciós visszakereséshez.

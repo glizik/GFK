@@ -220,6 +220,16 @@
   .dev-sess-chip-id { font-size: 11px; line-height: 1.3; }
   .dev-sess-chip-date { font-size: 10px; color: var(--muted); line-height: 1.2; }
   .dev-sess-chip-remove { font-size: 10px; opacity: 0.5; cursor: pointer; align-self: flex-end; }
+  .dev-filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .dev-user-box { border: 1px dashed rgba(249,115,22,0.55); background: rgba(249,115,22,0.06); border-radius: 8px; padding: 6px 8px; align-self: flex-start; }
+  .dev-user-box.fb { border-color: var(--border); background: rgba(0,0,0,0.12); }
+  .dev-user-head { display: flex; align-items: center; gap: 6px; font-family: monospace; font-size: 10px; color: var(--orange); margin-bottom: 5px; }
+  .dev-user-box.fb .dev-user-head { color: var(--muted); }
+  .dev-user-fk { font-weight: 700; }
+  .dev-user-app { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; color: var(--accent2); font-size: 9px; }
+  .dev-user-count { color: var(--muted); font-size: 9px; }
+  .dev-user-sessions { display: flex; flex-wrap: wrap; gap: 5px; }
+  .dev-hidden-note { font-size: 10px; color: var(--muted); width: 100%; margin-top: 4px; }
   .reviewed-check { font-size: 10px; color: var(--green); font-weight: 700; }
   .dev-select-group { display: flex; flex-direction: column; gap: 2px; }
   .dev-select-label { font-size: 10px; color: var(--muted); line-height: 1; padding-left: 2px; }
@@ -616,6 +626,7 @@ const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
 let reviewedSessions = new Set();
 let investigations = {};   // FaceKom UUID → { outcome, note, ts } — investigated + outcome override
+let devVersionFilter = '3.7.1';   // Developer-section session version filter (focus on 3.7.1)
 let attachMenuSessId = '';
 let tlPageDate = new Date();
 let csvFileHandle = null;
@@ -2663,9 +2674,13 @@ async function exportTaskMD(id) {
   const ticketNum = parseInt((t.id.match(/\d+$/) || ['0'])[0]);
   const ticket = `Task-${String(ticketNum).padStart(3,'0')}`;
   const date = new Date().toISOString().slice(0,10);
+  const HU_PRIO = { critical: 'Kritikus', high: 'Magas', medium: 'Közepes', low: 'Alacsony' };
+  const HU_CAT = { ios: 'iOS hiba', backend: 'Backend hiba', 'user-error': 'Felhasználói hiba', other: 'Egyéb' };
+  const HU_RES = { open: 'Nyitott', 'waiting-approval': 'Jóváhagyásra vár', 'waiting-po': 'PO-ra vár', investigating: 'Vizsgálat alatt', fixed: 'Javítva', 'wont-fix': 'Nem javítjuk', 'needs-info': 'Információ szükséges' };
+  const HU_OUT = { approve: 'jóváhagyva', finished: 'jóváhagyva', aborted: 'megszakítva', failed: 'sikertelen', reject: 'elutasítva' };
   const parts = [];
   parts.push(`# ${t.title}\n\n`);
-  parts.push(`**Priority:** ${t.priority[0].toUpperCase()+t.priority.slice(1)} | **Category:** ${CATEGORY_LABELS[t.category]||t.category} | **Resolution:** ${RESOLUTION_LABELS[t.resolution||'open']}\n`);
+  parts.push(`**Prioritás:** ${HU_PRIO[t.priority] || t.priority} | **Kategória:** ${HU_CAT[t.category] || t.category} | **Megoldás:** ${HU_RES[t.resolution || 'open']}\n`);
   if (t.noteFile) {
     let content = noteCache[t.id];
     if (content === undefined) {
@@ -2682,11 +2697,26 @@ async function exportTaskMD(id) {
     if (content) parts.push(`\n${content.trim()}\n`);
   }
   if (t.attachedSessions && t.attachedSessions.length > 0) {
-    parts.push(`\n## Involved Sessions:\n\n`);
-    t.attachedSessions.forEach((sid, i) => {
-      const dt = getSessionStartDate(sid);
-      parts.push(`- #${i+1}  ${sid}${dt ? '  '+dt : ''}\n`);
-    });
+    // Group by FaceKom session so the boss can look each up in production.
+    const groups = new Map();
+    for (const sid of t.attachedSessions) {
+      const info = devSessionInfo(sid);
+      const key = info.fk || ('fb:' + sid);
+      if (!groups.has(key)) groups.set(key, { fk: info.fk, fbOnly: info.fbOnly, app: info.app, rows: [] });
+      groups.get(key).rows.push(info);
+    }
+    parts.push(`\n## Érintett FaceKom munkamenetek\n\n`);
+    let i = 0;
+    for (const g of groups.values()) {
+      i++;
+      if (g.fbOnly) parts.push(`### ${i}. Firebase munkamenet: \`${g.rows[0].sid}\` (${g.app || '?'}) — nincs FaceKom azonosító (3.7.0)\n`);
+      else parts.push(`### ${i}. FaceKom munkamenet: \`${g.fk}\` (${g.app || '?'})\n`);
+      for (const r of g.rows) {
+        const out = HU_OUT[r.outcome] || r.outcome || '—';
+        parts.push(`- ${r.date || '?'} · **${out}**${r.investigated ? ' 🔎' : ''} · Firebase: \`${r.sid}\`\n`);
+      }
+      parts.push('\n');
+    }
   }
   const blob = new Blob([parts.join('')], { type: 'text/markdown' });
   const a = document.createElement('a');
@@ -2843,6 +2873,55 @@ function getSessionOutcome(sid) {
   return null;
 }
 
+function setDevVersion(v) { devVersionFilter = v; renderDevTasks(); }
+function devFilterBar() {
+  const opts = [['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All versions']];
+  return `<div class="dev-filter-bar"><span class="filter-label">Sessions</span>${opts.map(([v, l]) => `<button class="filter-btn${devVersionFilter === v ? ' active' : ''}" onclick="setDevVersion('${v}')">${l}</button>`).join('')}</div>`;
+}
+
+// Resolve a Firebase session → FaceKom id, app version, date, outcome (override-aware).
+function devSessionInfo(sid) {
+  const all = events.filter(e => e.session_id_base === sid);
+  const ev = all[0] || {};
+  const fk = fkBase(all.map(facekomSessionId).find(Boolean) || '');
+  const inv = fk ? investigations[fk] : null;
+  return {
+    sid, fk, fbOnly: !fk, app: ev.app_version || '',
+    date: getSessionStartDate(sid),
+    outcome: (inv && inv.outcome) ? inv.outcome : (getSessionOutcome(sid) || ''),
+    investigated: !!inv, reviewed: reviewedSessions.has(sid),
+  };
+}
+
+// Group a task's sessions into dashed FaceKom-session boxes (timeline style), version-filtered.
+function renderTaskSessions(task) {
+  if (!task.attachedSessions.length) return '<span style="font-size:11px;color:var(--muted)">No sessions attached — use 📎 on event cards.</span>';
+  const groups = new Map(); let hidden = 0;
+  for (const sid of task.attachedSessions) {
+    const info = devSessionInfo(sid);
+    if (devVersionFilter !== 'all' && !(info.app || '').includes(devVersionFilter)) { hidden++; continue; }
+    const key = info.fk || ('fb:' + sid);
+    if (!groups.has(key)) groups.set(key, { fk: info.fk, fbOnly: info.fbOnly, app: info.app, sessions: [] });
+    groups.get(key).sessions.push(info);
+  }
+  if (!groups.size) return `<span style="font-size:11px;color:var(--muted)">No ${esc(devVersionFilter)} sessions here${hidden ? ` (${hidden} hidden by filter)` : ''}.</span>`;
+  const ocColor = oc => oc === 'approve' ? 'var(--green)' : oc === 'failed' ? 'var(--yellow)' : oc === 'aborted' ? 'var(--red)' : 'var(--muted)';
+  const boxes = [...groups.values()].map(g => {
+    const head = g.fbOnly ? `FB ${g.sessions[0].sid.slice(0, 12)}…` : g.fk;
+    const copyFk = g.fk ? `<button class="dev-task-btn" style="padding:0 5px;font-size:10px" onclick="event.stopPropagation();copyToClipboard('${escAttr(g.fk)}',this)" title="Copy FaceKom session id">📋</button>` : '';
+    const chips = g.sessions.map(s => `<span class="dev-sess-chip${s.reviewed ? ' reviewed' : ''}" onclick="showSessionInEvents('${escAttr(s.sid)}')" title="${escAttr(s.sid)}">
+        <span class="dev-sess-chip-id">${s.investigated ? '🔎 ' : ''}${s.reviewed ? '✓ ' : ''}${esc(s.sid.slice(0, 12))}…${s.outcome ? ` <span style="color:${ocColor(s.outcome)};font-weight:700">${esc(s.outcome)}</span>` : ''}</span>
+        ${s.date ? `<span class="dev-sess-chip-date">${esc(s.date)}</span>` : ''}
+        <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(s.sid)}')" title="Remove from task">✕</span>
+      </span>`).join('');
+    return `<div class="dev-user-box${g.fbOnly ? ' fb' : ''}">
+      <div class="dev-user-head"><span class="dev-user-fk">${esc(head)}</span>${g.app ? `<span class="dev-user-app">${esc(g.app)}</span>` : ''}${copyFk}<span class="dev-user-count">${g.sessions.length} ${g.sessions.length === 1 ? 'try' : 'tries'}</span></div>
+      <div class="dev-user-sessions">${chips}</div>
+    </div>`;
+  }).join('');
+  return boxes + (hidden ? `<div class="dev-hidden-note">+ ${hidden} session${hidden !== 1 ? 's' : ''} hidden (not ${esc(devVersionFilter)})</div>` : '');
+}
+
 function renderDevTasks() {
   const el = document.getElementById('devTaskList');
   if (!el) return;
@@ -2852,7 +2931,7 @@ function renderDevTasks() {
     el.innerHTML = `<div class="empty">No tasks yet. Click "+ New Task" to add one.</div>`;
     return;
   }
-  el.innerHTML = devTasks.map((task, idx) => {
+  el.innerHTML = devFilterBar() + devTasks.map((task, idx) => {
     const prioColor = PRIORITY_COLORS[task.priority] || 'var(--muted)';
     const hasNoteFile = !!(task.noteFile || '').trim();
     const ticketNum = parseInt((task.id.match(/\d+$/) || ['0'])[0]);
@@ -2896,22 +2975,7 @@ function renderDevTasks() {
         <button class="dev-task-btn" onclick="exportTaskMD('${escAttr(task.id)}')" title="Export as MD">⬇</button>
         <button class="dev-task-btn" style="color:var(--red);border-color:rgba(239,68,68,0.3)" onclick="deleteDevTask('${escAttr(task.id)}')" title="Delete task">✕</button>
       </div>
-      <div class="dev-task-sessions">
-        ${task.attachedSessions.length === 0
-          ? '<span style="font-size:11px;color:var(--muted)">No sessions attached — use 📎 on event cards.</span>'
-          : task.attachedSessions.map(sid => {
-              const dt = getSessionStartDate(sid);
-              const rev = reviewedSessions.has(sid);
-              const outcome = getSessionOutcome(sid);
-              const approvedBadge = outcome === 'approve' ? '<span style="color:var(--green);font-size:9px;font-weight:700"> ✓ approved</span>' : '';
-              return `<span class="dev-sess-chip${rev ? ' reviewed' : ''}" onclick="showSessionInEvents('${escAttr(sid)}')">
-                <span class="dev-sess-chip-id">${rev ? '<span class="reviewed-check">✓ </span>' : ''}${esc(sid)}${approvedBadge}</span>
-                ${dt ? `<span class="dev-sess-chip-date">${esc(dt)}</span>` : ''}
-                <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(sid)}')" title="Remove">✕</span>
-              </span>`;
-            }).join('')
-        }
-      </div>
+      <div class="dev-task-sessions">${renderTaskSessions(task)}</div>
       <div class="dev-task-note">
         <div class="dev-task-note-toggle" onclick="toggleTaskNote('${escAttr(task.id)}')">
           <span id="tnote-icon-${escAttr(task.id)}">▸</span>
