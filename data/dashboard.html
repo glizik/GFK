@@ -2713,14 +2713,17 @@ async function exportTaskMD(id) {
       groups.get(key).rows.push(info);
     }
     parts.push(`\n## Érintett FaceKom munkamenetek\n\n`);
+    const gArr = [...groups.values()];
+    for (const g of gArr) g.rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));   // tries by date
+    gArr.sort((a, b) => ((a.rows[0] && a.rows[0].date) || '').localeCompare((b.rows[0] && b.rows[0].date) || ''));  // sessions by date
     let i = 0;
-    for (const g of groups.values()) {
+    for (const g of gArr) {
       i++;
       if (g.fbOnly) parts.push(`### ${i}. Firebase munkamenet: \`${g.rows[0].sid}\` (${g.app || '?'}) — nincs FaceKom azonosító (3.7.0)\n`);
       else parts.push(`### ${i}. FaceKom munkamenet: \`${g.fk}\` (${g.app || '?'})\n`);
       for (const r of g.rows) {
         const out = HU_OUT[r.outcome] || r.outcome || '—';
-        parts.push(`- ${r.date || '?'} · **${out}**${r.investigated ? ' 🔎' : ''} · Firebase: \`${r.sid}\`\n`);
+        parts.push(`- ${r.date || '?'} · **${out}**${r.investigated ? ' 🔎' : ''}\n`);   // date started + outcome only
       }
       parts.push('\n');
     }
