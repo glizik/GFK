@@ -1522,6 +1522,13 @@ function renderEventsGrid(filtered) {
     }
   }
   const sessions = [...sessionMap.values()];
+  // keep time ordering: sort session cards by server-start time (oldest → newest)
+  const groupStart = g => {
+    const rep = g.reduce((b, e) => (e.logs?.length || 0) > (b.logs?.length || 0) ? e : b, g[0]);
+    const s = serverStartLog(rep.logs || []);
+    return (s && s.rawTs) ? s.rawTs : (parseTs(rep.date) || 0);
+  };
+  sessions.sort((a, b) => groupStart(a) - groupStart(b));
 
   if (q) {
     countEl.textContent = `${filtered.length} event${filtered.length !== 1 ? 's' : ''} · ${sessions.length} session${sessions.length !== 1 ? 's' : ''} across all ranks`;
