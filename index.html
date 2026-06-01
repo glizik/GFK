@@ -936,6 +936,28 @@ function getEndReason(group) {
   return null;
 }
 
+// Short human cause of how a session ended (shown next to the outcome).
+function getAbortCause(group) {
+  let bg = null, closed = false, consent = false, reason = null, unexpected = false;
+  for (const ev of group) {
+    const desc = ev.nslocalized_description || '';
+    if (/Unexpected error|Ismeretlen hiba/i.test(desc)) unexpected = true;
+    for (const log of ev.logs || []) {
+      const m = log.msg || '';
+      if (m.includes('consent timer expired')) consent = true;
+      else if (m.includes('user initiated closing') && m.includes('isAlreadyClosed: false')) closed = true;
+      else if (m.includes('did enter background at step:')) { const mm = m.match(/at step: ([a-zA-Z0-9-]+)/); bg = mm ? mm[1] : 'app'; }
+      if (m.includes('end(') && m.includes('reason = "')) reason = m.split('reason = "')[1].split('"')[0];
+    }
+  }
+  if (reason) return reason;
+  if (consent) return 'consent timeout';
+  if (closed) return 'user closed';
+  if (bg) return bg === 'app' ? 'backgrounded' : 'backgrounded @' + bg;
+  if (unexpected) return 'unexpected error';
+  return null;
+}
+
 function detectDocType(group) {
   for (const ev of group) {
     for (const log of ev.logs) {
@@ -982,13 +1004,13 @@ function renderSessionListItems(groups, labelFn) {
       const norm    = deriveSessionOutcome(group);
       const sessId  = primary.session_id_base || primary.session_event_key || '?';
       const url     = group.find(ev => ev.event_url)?.event_url || '';
-      const reason  = norm === 'failed' ? getEndReason(group) : null;
+      const cause   = norm !== 'approve' ? getAbortCause(group) : null;
       const extra   = labelFn ? labelFn(group) : null;
       return `<div class="session-list-item">
         <span class="session-list-date">${esc(fmtDate(ts))}</span>
         <span class="session-list-id">${esc(sessId.slice(0, 12))}…</span>
         <span class="badge ${outcomeBadgeClass(norm)}" style="font-size:10px">${esc(outcomeLabel(norm))}</span>
-        ${reason ? `<span style="font-size:10px;color:var(--yellow);font-family:monospace">${esc(reason)}</span>` : ''}
+        ${cause ? `<span style="font-size:10px;color:var(--yellow);font-family:monospace">${esc(cause)}</span>` : ''}
         ${extra  ? `<span style="font-size:10px;color:var(--accent2);font-family:monospace">${esc(extra)}</span>` : ''}
         ${group.length > 1 ? `<span style="font-size:11px;color:var(--muted)">${group.length} rep</span>` : ''}
         <span style="flex:1"></span>
@@ -2212,7 +2234,8 @@ function renderGanttTimeline(m) {
     const left = tm.tsToX(t.start), w = t.dur * GSCALE;
     const eid = t.rep.event_id || t.sessId;
     const mk = t.investigated ? '🔎 ' : '';
-    const tip = `FaceKom ${u.fk||'(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${eid} · ${t.outcome}${t.investigated?' (investigated/override)':''} · ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
+    const cause = (normalizeOutcome(t.outcome) !== 'approve' && !t.investigated) ? getAbortCause(t.group) : null;
+    const tip = `FaceKom ${u.fk||'(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${eid} · ${t.outcome}${cause?' ('+cause+')':''}${t.investigated?' (investigated/override)':''} · ${fmtTs(t.start)} · ${t.dur}s · steps: ${t.steps.join(' → ')||'—'} · last: ${t.lastStep}`;
     if (w >= GMINBOX) {
       const prog = t.reviewed ? '' : `<div class="gantt-prog" style="width:${Math.min(100, Math.round((t.steps.length / GANTT_CANON) * 100))}%"></div>`;
       const label = t.reviewed ? '' : `<div class="gantt-box-label">${mk}${esc(eid)}${t.lastStep!=='—'?' · '+esc(t.lastStep):''}</div>`;
@@ -2270,7 +2293,7 @@ function renderGanttList(m) {
     const eids = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
     const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
     const durs = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
-    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}</div>`; }).join('');
+    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</div>`; }).join('');
     const revs = u.tries.map(t => `<div class="gl-line"><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>`).join('');
     const tasks = u.tries.map(t => {
       const ts = getTasksForSession(t.sessId);
@@ -2925,10 +2948,11 @@ function devSessionInfo(sid) {
   const ev = all[0] || {};
   const fk = fkBase(all.map(facekomSessionId).find(Boolean) || '');
   const inv = fk ? investigations[fk] : null;
+  const outcome = (inv && inv.outcome) ? inv.outcome : (getSessionOutcome(sid) || '');
   return {
     sid, fk, fbOnly: !fk, app: ev.app_version || '',
-    date: getSessionStartDate(sid),
-    outcome: (inv && inv.outcome) ? inv.outcome : (getSessionOutcome(sid) || ''),
+    date: getSessionStartDate(sid), outcome,
+    cause: (inv && inv.outcome) ? '' : (normalizeOutcome(outcome) !== 'approve' ? (getAbortCause(all) || '') : ''),
     investigated: !!inv, reviewed: reviewedSessions.has(sid),
   };
 }
@@ -2954,7 +2978,7 @@ function renderTaskSessions(task) {
     const head = g.fbOnly ? `FB ${g.sessions[0].sid.slice(0, 12)}…` : g.fk;
     const copyFk = g.fk ? `<button class="dev-task-btn" style="padding:0 5px;font-size:10px" onclick="event.stopPropagation();copyToClipboard('${escAttr(g.fk)}',this)" title="Copy FaceKom session id">📋</button>` : '';
     const chips = g.sessions.map(s => `<span class="dev-sess-chip${s.reviewed ? ' reviewed' : ''}" onclick="showSessionInEvents('${escAttr(s.sid)}')" title="${escAttr(s.sid)}">
-        <span class="dev-sess-chip-id">${s.investigated ? '🔎 ' : ''}${s.reviewed ? '✓ ' : ''}${esc(s.sid.slice(0, 12))}…${s.outcome ? ` <span style="color:${ocColor(s.outcome)};font-weight:700">${esc(s.outcome)}</span>` : ''}</span>
+        <span class="dev-sess-chip-id">${s.investigated ? '🔎 ' : ''}${s.reviewed ? '✓ ' : ''}${esc(s.sid.slice(0, 12))}…${s.outcome ? ` <span style="color:${ocColor(s.outcome)};font-weight:700">${esc(s.outcome)}</span>` : ''}${s.cause ? ` <span style="color:var(--muted);font-weight:400">· ${esc(s.cause)}</span>` : ''}</span>
         ${s.date ? `<span class="dev-sess-chip-date">${esc(s.date)}</span>` : ''}
         <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(s.sid)}')" title="Remove from task">✕</span>
       </span>`).join('');
