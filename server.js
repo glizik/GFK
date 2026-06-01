@@ -13,6 +13,7 @@ const LOGS_DIR = path.join(DATA_DIR, 'logs');
 const ISSUES_CSV = path.join(DATA_DIR, 'issues_3.7.0.csv');
 const EVENTS_CSV = path.join(DATA_DIR, 'events_3.7.0.csv');
 const REVIEWED_JSON = path.join(DATA_DIR, 'reviewed_sessions.json');
+const INVESTIGATIONS_JSON = path.join(DATA_DIR, 'investigations.json');
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,23 @@ const server = http.createServer((req, res) => {
         const { sessions } = JSON.parse(body);
         if (!Array.isArray(sessions)) { res.writeHead(400); res.end('Bad request'); return; }
         fs.writeFileSync(REVIEWED_JSON, JSON.stringify(sessions, null, 2), 'utf8');
+        cors(res);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) { res.writeHead(500); res.end(e.message); }
+    });
+    return;
+  }
+
+  // POST /api/save-investigations  { investigations: { "<fkUuid>": { outcome, note, ts } } }
+  if (req.method === 'POST' && pathname === '/api/save-investigations') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { investigations } = JSON.parse(body);
+        if (!investigations || typeof investigations !== 'object') { res.writeHead(400); res.end('Bad request'); return; }
+        fs.writeFileSync(INVESTIGATIONS_JSON, JSON.stringify(investigations, null, 2), 'utf8');
         cors(res);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
