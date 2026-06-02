@@ -2536,36 +2536,46 @@ function renderReport() {
     const list = byDay.get(dk).sort((a,b)=>a.start-b.start);
     const dLabel = dk==='?' ? 'Unknown date' : new Date(dk+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
     let dTries = 0, dDur = 0, dAbortExits = 0;
-    bodyRows += `<tr class="rep-day"><td colspan="8">${esc(dLabel)} — ${list.length} session${list.length!==1?'s':''}</td></tr>`;
+    bodyRows += `<tr class="rep-day"><td colspan="7">${esc(dLabel)} — ${list.length} session${list.length!==1?'s':''}</td></tr>`;
     for (const u of list) {
       const fkVal  = u.fbOnly ? u.tries[0].sessId : (u.fk || '');
-      const eids   = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
-      const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
-      const durs   = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
-      const outs   = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</div>`; }).join('');
-      const steps  = u.tries.map(t => { const s=deriveLastStepSmart(t.rep); return `<div class="gl-line">${s && s!=='—' ? esc(s) : mute('—')}</div>`; }).join('');
-      const exitData = u.tries.map(t => deriveAbortExits(t.group));
-      exitData.forEach(e => dAbortExits += e.aborts.length);
-      const exits  = exitData.map(e => {
-        const lines = e.aborts.map(a => { const w = a.waitSec!=null ? ` · ⏱ ${a.waitSec}s` : ''; const tip = (a.fromTs&&a.toTs) ? `utolsó üzenet ${fmtTs(a.fromTs)} → bezárás ${fmtTs(a.toTs)}` : ''; return `<div class="gl-line"><span style="color:var(--red)" title="${escAttr(tip)}">${esc(a.step)}</span>${w}</div>`; });
-        for (const x of e.bg) lines.push(`<div class="gl-line">${mute(`${esc(x.step)}: ${x.count}× háttér (SMS, nem abort)`)}</div>`);
-        return lines.length ? lines.join('') : `<div class="gl-line">${mute('—')}</div>`;
-      }).join('');
-      const tasks  = u.tries.map(t => { const ts=getTasksForSession(t.sessId); return `<div class="gl-line">${ts.length ? ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' ') : mute('—')}</div>`; }).join('');
-      dTries += u.tries.length; dDur += u.durTotal;
+      // Per-event blocks: each abort gets its own line; the event's value columns show on the block's
+      // first line (blank after) so every abort step·wait aligns with the event it belongs to.
+      const cEid=[], cStart=[], cLsw=[], cDur=[], cOut=[], cTask=[];
+      for (const t of u.tries) {
+        const { aborts, bg } = deriveAbortExits(t.group);
+        dAbortExits += aborts.length;
+        const lsw = [];
+        for (const a of aborts) { const w = a.waitSec!=null?` · ⏱ ${a.waitSec}s`:''; const tip=(a.fromTs&&a.toTs)?`utolsó üzenet ${fmtTs(a.fromTs)} → bezárás ${fmtTs(a.toTs)}`:''; lsw.push(`<span style="color:var(--red)" title="${escAttr(tip)}">${esc(a.step)}</span>${w}`); }
+        for (const x of bg) lsw.push(mute(`${esc(x.step)}: ${x.count}× háttér (SMS, nem abort)`));
+        if (!lsw.length) lsw.push(mute('—'));
+        const n = lsw.length;
+        const tDay = gDayKeyOf(t.start);
+        const datePrefix = (tDay && tDay !== dk) ? `<span style="color:var(--muted)">${esc(new Date(t.start).toLocaleDateString('en-US',{month:'short',day:'numeric'}))} </span>` : '';
+        const o=normalizeOutcome(t.outcome); const cause=o!=='approve'?getAbortCause(t.group):null; const ts=getTasksForSession(t.sessId);
+        const eidHtml=`<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id||t.sessId)}</span>`;
+        const startHtml=`${datePrefix}${fmtTs(t.start)}`;
+        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>`;
+        const taskHtml=ts.length?ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' '):mute('—');
+        const block = (first) => { let h=`<div class="gl-line">${first}</div>`; for (let i=1;i<n;i++) h+=`<div class="gl-line">&nbsp;</div>`; return h; };
+        cEid.push(block(eidHtml)); cStart.push(block(startHtml)); cDur.push(block(`${t.dur}s`)); cOut.push(block(outHtml)); cTask.push(block(taskHtml));
+        for (const l of lsw) cLsw.push(`<div class="gl-line">${l}</div>`);
+        dDur += t.dur;
+      }
+      dTries += u.tries.length;
       bodyRows += `<tr>
         <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
-        <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td><td>${steps}</td><td>${exits}</td><td>${tasks}</td>
+        <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
     }
-    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dDur}s</td><td colspan="2">${dAbortExits} abort exit${dAbortExits!==1?'s':''}</td><td colspan="2"></td></tr>`;
+    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dAbortExits} abort exit${dAbortExits!==1?'s':''}</td><td>${dDur}s</td><td colspan="2"></td></tr>`;
     gSess += list.length; gTries += dTries; gDur += dDur; gAbortExits += dAbortExits;
   }
-  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gDur}s</td><td colspan="2">${gAbortExits} abort exits</td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
+  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td>${gDur}s</td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
   if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''} · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
-    <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Duration</th><th>Outcome</th><th>Last step</th><th>Aborts (step · wait)</th><th>Dev task</th></tr></thead>
+    <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Last step - wait</th><th>Duration</th><th>Outcome</th><th>Dev task</th></tr></thead>
     <tbody>${bodyRows}</tbody>
     <tfoot>${totalRow}</tfoot>
   </table></div>`;
