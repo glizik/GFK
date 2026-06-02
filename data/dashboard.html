@@ -2551,11 +2551,10 @@ function renderReport() {
       // first line (blank after) so every abort step·wait aligns with the event it belongs to.
       const cEid=[], cStart=[], cLsw=[], cDur=[], cOut=[], cTask=[];
       for (const t of u.tries) {
-        const { aborts, bg } = deriveAbortExits(t.group);
+        const { aborts } = deriveAbortExits(t.group);
         dAbortExits += aborts.length;
         const lsw = [];
         for (const a of aborts) { const w = a.waitSec!=null?` · ⏱ ${a.waitSec}s`:''; const tip=(a.fromTs&&a.toTs)?`utolsó üzenet ${fmtTs(a.fromTs)} → bezárás ${fmtTs(a.toTs)}`:''; lsw.push(`<span style="color:var(--red)" title="${escAttr(tip)}">${esc(a.step)}</span>${w}`); }
-        for (const x of bg) lsw.push(mute(`${esc(x.step)}: ${x.count}× háttér (SMS, nem abort)`));
         if (!lsw.length) lsw.push(mute('—'));
         const n = lsw.length;
         const tDay = gDayKeyOf(t.start);
