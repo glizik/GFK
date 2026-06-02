@@ -1572,7 +1572,7 @@ function deriveLastStep(ev) {
 // i.e. the step the user was looking at when nothing happened and they quit (e.g. deepfake-detection).
 function deriveStuckStep(ev) {
   const logs = ev.logs || [];
-  const skip = /user initiated closing|SelfService stopped|status changed|finished with state|stopStream|aborted state|disconnected/;
+  const skip = /user initiated closing|enter background|SelfService stopped|status changed|finished with state|stopStream|aborted state|disconnected/;
   for (let i = logs.length - 1; i >= 0; i--) {
     const m = logs[i].msg || '';
     if (skip.test(m)) continue;
@@ -1599,24 +1599,30 @@ function deriveLastStepSmart(ev) {
 }
 
 // How long the user waited (nothing happening) from the last activity message until they closed.
-// Only when there's a genuine user-initiated close (isAlreadyClosed: false). Returns {sec, fromTs, toTs}.
+// A single Firebase session can capture SEVERAL genuine closings (isAlreadyClosed:false) when the
+// user retried — return the LONGEST such stall (the most the user tolerated before giving up), plus
+// how many closings there were. Returns {sec, fromTs, toTs, count}.
 function deriveStall(ev) {
   const logs = ev.logs || [];
-  const skip = /user initiated closing|SelfService stopped|status changed|finished with state|stopStream|aborted state|disconnected/;
-  let closeIdx = -1;
-  for (let i = logs.length - 1; i >= 0; i--) {
-    const m = logs[i].msg || '';
-    if (/user initiated closing/.test(m) && /isAlreadyClosed:\s*false/.test(m)) { closeIdx = i; break; }
+  const skip = /user initiated closing|enter background|SelfService stopped|status changed|finished with state|stopStream|aborted state|disconnected/;
+  let best = null, count = 0, prevClose = -1;
+  for (let c = 0; c < logs.length; c++) {
+    const m = logs[c].msg || '';
+    if (!(/user initiated closing/.test(m) && /isAlreadyClosed:\s*false/.test(m))) continue;
+    count++;
+    const toTs = logs[c].rawTs;
+    for (let i = c - 1; i > prevClose; i--) {      // last real activity since the previous close
+      if (skip.test(logs[i].msg || '')) continue;
+      const fromTs = logs[i].rawTs;
+      if (toTs && fromTs) {
+        const sec = Math.max(0, Math.round((toTs - fromTs) / 1000));
+        if (!best || sec > best.sec) best = { sec, fromTs, toTs };
+      }
+      break;
+    }
+    prevClose = c;
   }
-  if (closeIdx < 1) return null;
-  const toTs = logs[closeIdx].rawTs;
-  for (let i = closeIdx - 1; i >= 0; i--) {
-    if (skip.test(logs[i].msg || '')) continue;
-    const fromTs = logs[i].rawTs;
-    if (toTs && fromTs) return { sec: Math.max(0, Math.round((toTs - fromTs) / 1000)), fromTs, toTs };
-    break;
-  }
-  return null;
+  return best ? { ...best, count } : null;
 }
 
 function issueLabel(ev) {
@@ -2473,7 +2479,7 @@ function renderReport() {
       const durs   = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
       const outs   = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</div>`; }).join('');
       const steps  = u.tries.map(t => { const s=deriveLastStepSmart(t.rep); return `<div class="gl-line">${s && s!=='—' ? esc(s) : mute('—')}</div>`; }).join('');
-      const waits  = u.tries.map(t => { const st=deriveStall(t.rep); return `<div class="gl-line">${st ? `<span title="utolsó üzenet ${fmtTs(st.fromTs)} → user bezárta ${fmtTs(st.toTs)}">⏱ ${st.sec}s</span>` : mute('—')}</div>`; }).join('');
+      const waits  = u.tries.map(t => { const st=deriveStall(t.rep); if(!st) return `<div class="gl-line">${mute('—')}</div>`; const tip = `leghosszabb várakozás: utolsó üzenet ${fmtTs(st.fromTs)} → user bezárta ${fmtTs(st.toTs)}${st.count>1?` · ${st.count} kilépés ebben a munkamenetben`:''}`; const cnt = st.count>1?` <span style="color:var(--muted);font-size:10px">×${st.count}</span>`:''; return `<div class="gl-line"><span title="${escAttr(tip)}">⏱ ${st.sec}s</span>${cnt}</div>`; }).join('');
       const tasks  = u.tries.map(t => { const ts=getTasksForSession(t.sessId); return `<div class="gl-line">${ts.length ? ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' ') : mute('—')}</div>`; }).join('');
       dTries += u.tries.length; dDur += u.durTotal;
       bodyRows += `<tr>
