@@ -1843,15 +1843,16 @@ function renderTimelineContent(logs) {
 
 function renderSessionCard(group, idx) {
   const cardId  = `card-${idx}`;
+  // Order the crash reports by when they ENDED: earliest-ended first, latest (usually the most
+  // complete — "contains everything") last and selected by default.
+  group = [...group].sort((a, b) => gEndTs(a) - gEndTs(b));
   sessionGroups.set(cardId, group);
   const primary = group[group.length - 1];
   const defaultRepIdx = group.length - 1;
   const outcome = deriveSessionOutcome(group);
   const fbSess   = primary.session_id_base || '';
   const fkSess   = facekomSessionId(primary);
-  const title = fkSess
-    ? `FaceKom: ${fkSess.slice(0, 18)}…`
-    : fbSess ? `Firebase: ${fbSess.slice(0, 12)}…` : `Event ${idx + 1}`;
+  const title = fkSess || fbSess || `Event ${idx + 1}`;   // just the id (no "FaceKom:" label)
 
   const attachedTasks = getTasksForSession(primary.session_id_base);
   const taskBadgesHtml = attachedTasks.map(t =>
@@ -1893,6 +1894,13 @@ function renderSessionCard(group, idx) {
   const invFk = fkBase(facekomSessionId(primary) || '');
   const inv = invFk ? getInvestigation(invFk) : null;
   const effOutcome = (inv && inv.outcome) ? inv.outcome : outcome;
+  // Next to the outcome: the cause (reject reason / "user closed" / …) + last step — same as the Report.
+  const notApprove = normalizeOutcome(effOutcome) !== 'approve';
+  const cardCause = notApprove ? getAbortCause(group) : null;
+  const cardLastStep = notApprove ? deriveLastStepSmart(primary) : null;
+  const outcomeExtra = (cardCause || (cardLastStep && cardLastStep !== '—'))
+    ? `<span style="font-size:11px;color:var(--muted);font-weight:400">${cardCause ? ' · ' + esc(cardCause) : ''}${(cardLastStep && cardLastStep !== '—') ? ' · ' + esc(cardLastStep) : ''}</span>`
+    : '';
   const OUTS = ['', 'approve', 'aborted', 'failed', 'reject'];
   const invBar = invFk ? `<div class="investigate-bar">
       <span class="inv-label">🔎 Investigate</span>
@@ -1907,8 +1915,8 @@ function renderSessionCard(group, idx) {
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
-        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span> <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${fbSess ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px" title="Firebase session">FB: ' + esc(fbSess.slice(0, 8)) + '…</span>' : ''}</div>
+        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
+        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>
