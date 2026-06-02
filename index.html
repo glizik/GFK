@@ -2562,11 +2562,11 @@ function renderReport() {
   const outColor = o => o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)';
   const mute = s => `<span style="color:var(--muted)">${s}</span>`;
 
-  let gSess = 0, gTries = 0, gDur = 0, gAbortExits = 0, gRecovered = 0, bodyRows = '';
+  let gSess = 0, gTries = 0, gAbortExits = 0, gRecovered = 0, bodyRows = '';
   for (const dk of days) {
     const list = byDay.get(dk).sort((a,b)=>a.start-b.start);
     const dLabel = dk==='?' ? 'Unknown date' : new Date(dk+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-    let dTries = 0, dDur = 0, dAbortExits = 0;
+    let dTries = 0, dAbortExits = 0;
     bodyRows += `<tr class="rep-day"><td colspan="7">${esc(dLabel)} — ${list.length} session${list.length!==1?'s':''}</td></tr>`;
     for (const u of list) {
       const fkVal  = u.fbOnly ? u.tries[0].sessId : (u.fk || '');
@@ -2596,7 +2596,6 @@ function renderReport() {
         const block = (first) => { let h=`<div class="gl-line">${first}</div>`; for (let i=1;i<n;i++) h+=`<div class="gl-line">&nbsp;</div>`; return h; };
         cEid.push(block(eidHtml)); cStart.push(block(startHtml)); cDur.push(block(`${t.dur}s`)); cOut.push(block(outHtml)); cTask.push(block(taskHtml));
         for (const l of lsw) cLsw.push(`<div class="gl-line">${l}</div>`);
-        dDur += t.dur;
       }
       dTries += u.tries.length;
       bodyRows += `<tr${recovered?' class="rep-recovered-row"':''}>
@@ -2604,10 +2603,10 @@ function renderReport() {
         <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
     }
-    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dAbortExits} abort exit${dAbortExits!==1?'s':''}</td><td>${dDur}s</td><td colspan="2"></td></tr>`;
-    gSess += list.length; gTries += dTries; gDur += dDur; gAbortExits += dAbortExits;
+    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dAbortExits} abort exit${dAbortExits!==1?'s':''}</td><td colspan="3"></td></tr>`;
+    gSess += list.length; gTries += dTries; gAbortExits += dAbortExits;
   }
-  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td>${gDur}s</td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
+  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td></td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
   if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
