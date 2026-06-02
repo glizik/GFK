@@ -2067,13 +2067,9 @@ function gOutcomeColor(outcome) {
   if (o === 'aborted') return 'g-red';
   return 'g-muted';
 }
-// Canonical FaceKom session = the videoID UUID; drop any trailing "-<unix ts>" suffix so the
-// same identification groups together whether or not the timestamp was captured on the link.
-function fkBase(fk) {
-  if (!fk) return fk;
-  const m = String(fk).match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-  return m ? m[0] : fk;
-}
+// FaceKom session id = the FULL videoID token, INCLUDING the "-<unix ts>" suffix. The suffix is
+// part of the identifier: <uuid>-<ts> and <uuid> (or a different -<ts>) are DIFFERENT identifications.
+function fkBase(fk) { return fk || ''; }
 
 function buildGanttModel() {
   // Version scope first, so day-nav only offers days that have the selected version.
@@ -2983,7 +2979,7 @@ function renderTaskSessions(task) {
         <span class="dev-sess-chip-remove" onclick="event.stopPropagation();toggleSessionInTask('${escAttr(task.id)}','${escAttr(s.sid)}')" title="Remove from task">✕</span>
       </span>`).join('');
     return `<div class="dev-user-box${g.fbOnly ? ' fb' : ''}">
-      <div class="dev-user-head"><span class="dev-user-fk">${esc(head)}</span>${g.app ? `<span class="dev-user-app">${esc(g.app)}</span>` : ''}${copyFk}<span class="dev-user-count">${g.sessions.length} ${g.sessions.length === 1 ? 'try' : 'tries'}</span></div>
+      <div class="dev-user-head"><span class="dev-user-fk">${esc(head)}</span>${copyFk}${g.app ? `<span class="dev-user-app">${esc(g.app)}</span>` : ''}<span class="dev-user-count">${g.sessions.length} ${g.sessions.length === 1 ? 'try' : 'tries'}</span></div>
       <div class="dev-user-sessions">${chips}</div>
     </div>`;
   }).join('');
