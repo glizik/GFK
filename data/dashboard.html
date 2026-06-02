@@ -1678,8 +1678,12 @@ function deriveAbortExits(group) {
     const b = m.match(/did enter background at step:\s*([^,.]+),\s*isVideoStep:\s*(true|false)/);
     if (b) { if (b[2] === 'false') { const s = b[1].trim(); bg[s] = (bg[s] || 0) + 1; } continue; }
     if (isExit.test(m)) continue;                // exits/teardown aren't "activity"
-    if (ts) lastRealTs = ts;
     const s = stepFromMsg(m); if (s && s !== 'end') lastRealStep = s;
+    // Anchor the wait on the step's START transition, not on the breadcrumbs that keep firing while the
+    // user just sits on a (stalling) step — `-> StepMessage: guide(...)` server prompts repeat every ~2s,
+    // and SDK lifecycle lines like "WebRTC started" land mid-step. Counting those collapses the wait to
+    // the gap before the close; we want step-start → close.
+    if (ts && /nextStep:|handleNewMessageStep:/.test(m)) lastRealTs = ts;
   }
   return { aborts, bg: Object.entries(bg).map(([step, count]) => ({ step, count })) };
 }
