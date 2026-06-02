@@ -1678,14 +1678,36 @@ function deriveAbortExits(group) {
     const b = m.match(/did enter background at step:\s*([^,.]+),\s*isVideoStep:\s*(true|false)/);
     if (b) { if (b[2] === 'false') { const s = b[1].trim(); bg[s] = (bg[s] || 0) + 1; } continue; }
     if (isExit.test(m)) continue;                // exits/teardown aren't "activity"
-    const s = stepFromMsg(m); if (s && s !== 'end') lastRealStep = s;
-    // Anchor the wait on the step's START transition, not on the breadcrumbs that keep firing while the
-    // user just sits on a (stalling) step — `-> StepMessage: guide(...)` server prompts repeat every ~2s,
-    // and SDK lifecycle lines like "WebRTC started" land mid-step. Counting those collapses the wait to
-    // the gap before the close; we want step-start → close.
-    if (ts && /nextStep:|handleNewMessageStep:/.test(m)) lastRealTs = ts;
+    const s = stepFromMsg(m);
+    if (s && s !== 'end') {
+      // Anchor the wait on the FIRST entry into a step. Retries of the SAME step (auto `retry Step`
+      // after a connection drop) and the breadcrumbs that keep firing while the user sits on a
+      // stalling step (`-> StepMessage:` prompts every ~2s, SDK lifecycle like "WebRTC started")
+      // must NOT re-anchor — otherwise the wait collapses to the last gap before the close. Only a
+      // transition into a *different* step resets the clock, so the wait spans the whole struggle.
+      const isTransition = /nextStep:|handleNewMessageStep:/.test(m);
+      if (isTransition && s !== lastRealStep && ts) lastRealTs = ts;
+      lastRealStep = s;
+    }
   }
   return { aborts, bg: Object.entries(bg).map(([step, count]) => ({ step, count })) };
+}
+
+// How many times the realtime connection dropped and came back mid-session (`status changed:
+// connecting` after a prior `connected`). Connection drops force the SDK to stop the video stream
+// and re-issue the current step (`retry Step`); repeated drops are a real abort driver. The very
+// first connect isn't a drop. (`stopStream` itself isn't counted — the SDK also fires it normally
+// at every video→non-video step boundary and on teardown, so it's not an instability signal.)
+function countReconnects(group) {
+  const logs = mergeGroupLogs(group);
+  let n = 0, last = null;
+  for (const l of logs) {
+    const cs = (l.msg || '').match(/status changed:\s*(\w+)/);
+    if (!cs) continue;
+    if (cs[1] === 'connecting' && last === 'connected') n++;
+    last = cs[1];
+  }
+  return n;
 }
 
 function issueLabel(ev) {
@@ -2559,6 +2581,8 @@ function renderReport() {
         dAbortExits += aborts.length;
         const lsw = [];
         for (const a of aborts) { const w = a.waitSec!=null?` · ⏱ ${a.waitSec}s`:''; const tip=(a.fromTs&&a.toTs)?`utolsó üzenet ${fmtTs(a.fromTs)} → bezárás ${fmtTs(a.toTs)}`:''; lsw.push(`<span style="color:var(--red)" title="${escAttr(tip)}">${esc(a.step)}</span>${w}`); }
+        const rc = countReconnects(t.group);
+        if (rc>0) lsw.push(`<span style="color:var(--yellow)" title="a kapcsolat ennyiszer szakadt meg és állt vissza a munkamenet alatt — minden szakadás után a lépés újraindul (retry), gyakori abort-ok">🔌 ${rc}× kapcsolat-szakadás</span>`);
         if (!lsw.length) lsw.push(mute('—'));
         const n = lsw.length;
         const tDay = gDayKeyOf(t.start);
