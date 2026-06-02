@@ -339,6 +339,8 @@
   .report-table .rep-day td { background: var(--surface2); font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); }
   .report-table .rep-subtotal td { color: var(--muted); font-size: 11px; font-style: italic; border-bottom: 1px solid var(--border); }
   .report-table .rep-total td { border-top: 3px double var(--text); font-weight: 700; color: #fff; background: var(--surface2); }
+  .report-table tr.rep-recovered-row td:first-child { box-shadow: inset 3px 0 0 var(--green); }
+  .rep-recovered { font-size: 10px; color: var(--green); border: 1px solid rgba(34,197,94,0.4); border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
   .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
@@ -2517,7 +2519,10 @@ function renderReport() {
   const sub = document.getElementById('reportSubtitle');
   const host = document.getElementById('reportTable');
   if (!host) return;
-  const aborts = buildReportSessions().filter(u => u.finalOutcome !== 'approve');
+  // Include non-approved sessions AND sessions that aborted a video step but later got approved
+  // ("recovered after abort") — same user/lane, the abort + the eventual approve shown together.
+  const laneAbortExits = u => u.tries.reduce((s, t) => s + deriveAbortExits(t.group).aborts.length, 0);
+  const aborts = buildReportSessions().filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0);
   if (!aborts.length) {
     if (sub) sub.textContent = '0 aborts';
     host.innerHTML = `<div class="empty">No aborted sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
@@ -2531,7 +2536,7 @@ function renderReport() {
   const outColor = o => o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)';
   const mute = s => `<span style="color:var(--muted)">${s}</span>`;
 
-  let gSess = 0, gTries = 0, gDur = 0, gAbortExits = 0, bodyRows = '';
+  let gSess = 0, gTries = 0, gDur = 0, gAbortExits = 0, gRecovered = 0, bodyRows = '';
   for (const dk of days) {
     const list = byDay.get(dk).sort((a,b)=>a.start-b.start);
     const dLabel = dk==='?' ? 'Unknown date' : new Date(dk+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
@@ -2539,6 +2544,9 @@ function renderReport() {
     bodyRows += `<tr class="rep-day"><td colspan="7">${esc(dLabel)} — ${list.length} session${list.length!==1?'s':''}</td></tr>`;
     for (const u of list) {
       const fkVal  = u.fbOnly ? u.tries[0].sessId : (u.fk || '');
+      // In this list, finalOutcome 'approve' can only mean the lane aborted a video step then recovered.
+      const recovered = u.finalOutcome === 'approve';
+      if (recovered) gRecovered++;
       // Per-event blocks: each abort gets its own line; the event's value columns show on the block's
       // first line (blank after) so every abort step·wait aligns with the event it belongs to.
       const cEid=[], cStart=[], cLsw=[], cDur=[], cOut=[], cTask=[];
@@ -2555,7 +2563,8 @@ function renderReport() {
         const o=normalizeOutcome(t.outcome); const cause=o!=='approve'?getAbortCause(t.group):null; const ts=getTasksForSession(t.sessId);
         const eidHtml=`<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id||t.sessId)}</span>`;
         const startHtml=`${datePrefix}${fmtTs(t.start)}`;
-        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>`;
+        const recoverBadge = (recovered && o==='approve') ? ` <span class="rep-recovered" title="ezt a munkamenetet egy video-lépés megszakítása (abort) után később jóváhagyták — jóváhagyva: ${escAttr(fmtTs(t.start))}">♻️ recovered after abort</span>` : '';
+        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>${recoverBadge}`;
         const taskHtml=ts.length?ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' '):mute('—');
         const block = (first) => { let h=`<div class="gl-line">${first}</div>`; for (let i=1;i<n;i++) h+=`<div class="gl-line">&nbsp;</div>`; return h; };
         cEid.push(block(eidHtml)); cStart.push(block(startHtml)); cDur.push(block(`${t.dur}s`)); cOut.push(block(outHtml)); cTask.push(block(taskHtml));
@@ -2563,7 +2572,7 @@ function renderReport() {
         dDur += t.dur;
       }
       dTries += u.tries.length;
-      bodyRows += `<tr>
+      bodyRows += `<tr${recovered?' class="rep-recovered-row"':''}>
         <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
         <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
@@ -2573,7 +2582,7 @@ function renderReport() {
   }
   const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td>${gDur}s</td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
-  if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''} · ${days.length} day${days.length!==1?'s':''}`;
+  if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
     <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Last step - wait</th><th>Duration</th><th>Outcome</th><th>Dev task</th></tr></thead>
     <tbody>${bodyRows}</tbody>
