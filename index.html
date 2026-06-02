@@ -1567,6 +1567,58 @@ function deriveLastStep(ev) {
   return '—';
 }
 
+// The terminal `end(status: "aborted")` is just our reaction to the user closing — it's NOT where
+// the user actually got stuck. This finds the last REAL verification step before the close/end,
+// i.e. the step the user was looking at when nothing happened and they quit (e.g. deepfake-detection).
+function deriveStuckStep(ev) {
+  const logs = ev.logs || [];
+  const skip = /user initiated closing|SelfService stopped|status changed|finished with state|stopStream|aborted state|disconnected/;
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const m = logs[i].msg || '';
+    if (skip.test(m)) continue;
+    let mm;
+    if ((mm = m.match(/nextStep:\s*custom\(type:\s*"([^"]+)"/))) return mm[1];
+    if ((mm = m.match(/StepMessage:\s*\w+\(step:\s*"([^"]+)"/))) return mm[1];
+    if ((mm = m.match(/handleNewMessageStep:.*?currentStep:\s*([A-Za-z0-9\-]+)/)) && mm[1] !== 'end') return mm[1];
+    if ((mm = m.match(/nextStep:\s*([A-Za-z0-9\-]+)/)) && mm[1] !== 'end') return mm[1];
+  }
+  return null;
+}
+
+// Last step for the Report: if the session genuinely completed (end · finished/approved) show that;
+// otherwise the end is an abort/close, so show the real step the user was stuck on.
+function deriveLastStepSmart(ev) {
+  const logs = ev.logs || [];
+  let endStatus = null;
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const mm = (logs[i].msg || '').match(/nextStep:\s*end\(status:\s*"([^"]+)"/);
+    if (mm) { endStatus = mm[1]; break; }
+  }
+  if (endStatus && /finish|approv|success/i.test(endStatus)) return 'end · ' + endStatus;
+  return deriveStuckStep(ev) || deriveLastStep(ev);
+}
+
+// How long the user waited (nothing happening) from the last activity message until they closed.
+// Only when there's a genuine user-initiated close (isAlreadyClosed: false). Returns {sec, fromTs, toTs}.
+function deriveStall(ev) {
+  const logs = ev.logs || [];
+  const skip = /user initiated closing|SelfService stopped|status changed|finished with state|stopStream|aborted state|disconnected/;
+  let closeIdx = -1;
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const m = logs[i].msg || '';
+    if (/user initiated closing/.test(m) && /isAlreadyClosed:\s*false/.test(m)) { closeIdx = i; break; }
+  }
+  if (closeIdx < 1) return null;
+  const toTs = logs[closeIdx].rawTs;
+  for (let i = closeIdx - 1; i >= 0; i--) {
+    if (skip.test(logs[i].msg || '')) continue;
+    const fromTs = logs[i].rawTs;
+    if (toTs && fromTs) return { sec: Math.max(0, Math.round((toTs - fromTs) / 1000)), fromTs, toTs };
+    break;
+  }
+  return null;
+}
+
 function issueLabel(ev) {
   const iss = issues.find(i => i.issue_id === ev.issue_id);
   return iss ? `#${iss.rank} ${iss.issue_name}` : (ev.nserror_domain ? `${ev.nserror_domain} · ${ev.nserror_code}` : '');
@@ -2402,7 +2454,7 @@ function renderReport() {
   }
   const byDay = new Map();
   for (const u of aborts) { const k = u.dayKey || '?'; if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(u); }
-  const days = [...byDay.keys()].sort().reverse();   // newest day first
+  const days = [...byDay.keys()].sort();   // oldest day first (May 27 → …)
 
   const taskCls = r => r==='open' ? 'open' : (r==='wont-fix' ? 'wontfix' : 'done');
   const outColor = o => o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)';
@@ -2413,31 +2465,44 @@ function renderReport() {
     const list = byDay.get(dk).sort((a,b)=>a.start-b.start);
     const dLabel = dk==='?' ? 'Unknown date' : new Date(dk+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
     let dTries = 0, dDur = 0;
-    bodyRows += `<tr class="rep-day"><td colspan="7">${esc(dLabel)} — ${list.length} abort${list.length!==1?'s':''}</td></tr>`;
+    bodyRows += `<tr class="rep-day"><td colspan="8">${esc(dLabel)} — ${list.length} abort${list.length!==1?'s':''}</td></tr>`;
     for (const u of list) {
+      const fkVal  = u.fbOnly ? u.tries[0].sessId : (u.fk || '');
       const eids   = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
       const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
       const durs   = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
       const outs   = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</div>`; }).join('');
-      const steps  = u.tries.map(t => `<div class="gl-line">${t.lastStep && t.lastStep!=='—' ? esc(t.lastStep) : mute('—')}</div>`).join('');
+      const steps  = u.tries.map(t => { const s=deriveLastStepSmart(t.rep); return `<div class="gl-line">${s && s!=='—' ? esc(s) : mute('—')}</div>`; }).join('');
+      const waits  = u.tries.map(t => { const st=deriveStall(t.rep); return `<div class="gl-line">${st ? `<span title="utolsó üzenet ${fmtTs(st.fromTs)} → user bezárta ${fmtTs(st.toTs)}">⏱ ${st.sec}s</span>` : mute('—')}</div>`; }).join('');
       const tasks  = u.tries.map(t => { const ts=getTasksForSession(t.sessId); return `<div class="gl-line">${ts.length ? ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' ') : mute('—')}</div>`; }).join('');
       dTries += u.tries.length; dDur += u.durTotal;
       bodyRows += `<tr>
-        <td><span class="gl-fk" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr(u.fk||u.tries[0].sessId)} — show this session in the timeline">${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
-        <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td><td>${steps}</td><td>${tasks}</td>
+        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
+        <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td><td>${steps}</td><td>${waits}</td><td>${tasks}</td>
       </tr>`;
     }
-    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dDur}s</td><td colspan="3"></td></tr>`;
+    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dDur}s</td><td colspan="4"></td></tr>`;
     gSess += list.length; gTries += dTries; gDur += dDur;
   }
-  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gDur}s</td><td colspan="3">across ${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
+  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gDur}s</td><td colspan="4">across ${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
   if (sub) sub.textContent = `${gSess} abort${gSess!==1?'s':''} · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
-    <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Duration</th><th>Outcome</th><th>Last step</th><th>Dev task</th></tr></thead>
+    <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Duration</th><th>Outcome</th><th>Last step</th><th>Wait</th><th>Dev task</th></tr></thead>
     <tbody>${bodyRows}</tbody>
     <tfoot>${totalRow}</tfoot>
   </table></div>`;
+}
+
+// Click a FaceKom id in the Report → jump the Day timeline to that session's day and filter to it.
+function reportFilterFk(fk, dayKey) {
+  if (dayKey) gDayKey = dayKey;
+  gFkFilter = fk;
+  renderGantt();
+  const panel = document.getElementById('ganttPanel');
+  if (panel && panel.classList.contains('collapsed')) toggleGantt();
+  const sec = document.getElementById('ganttSection');
+  if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // Global filter bar (top of page): Version (gates which data is loaded) + Outcome. Applies page-wide.
