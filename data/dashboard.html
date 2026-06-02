@@ -334,6 +334,12 @@
   .gl-outbar { display: inline-flex; height: 16px; width: 180px; border-radius: 4px; overflow: hidden; vertical-align: middle; border: 1px solid var(--border); }
   .gl-outbar span { height: 100%; }
 
+  /* Report view (aborts grouped by day) */
+  .report-panel.collapsed { display: none; }
+  .report-table .rep-day td { background: var(--surface2); font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); }
+  .report-table .rep-subtotal td { color: var(--muted); font-size: 11px; font-style: italic; border-bottom: 1px solid var(--border); }
+  .report-table .rep-total td { border-top: 3px double var(--text); font-weight: 700; color: #fff; background: var(--surface2); }
+
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
   .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
   .gantt-modal .event-card { background: var(--surface); }
@@ -395,6 +401,17 @@
   <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
   <div class="global-filters" id="globalFilters"></div>
+
+  <div class="section" id="reportSection">
+    <div class="section-header" onclick="toggleReport()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon open" id="reportToggleIcon">▶</span>Report <span class="count" id="reportSubtitle"></span>
+      </div>
+    </div>
+    <div class="report-panel" id="reportPanel">
+      <div id="reportTable"></div>
+    </div>
+  </div>
 
   <div class="section" id="ganttSection">
     <div class="section-header" onclick="toggleGantt()">
@@ -696,6 +713,7 @@ function renderAll() {
   renderStepFunnel();
   renderEventsFromActiveIssues();
   renderTimeline();
+  renderReport();
   renderGantt();
   renderDevTasks();
 }
@@ -2293,7 +2311,7 @@ function renderGanttList(m) {
     const revs = u.tries.map(t => `<div class="gl-line"><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>`).join('');
     const tasks = u.tries.map(t => {
       const ts = getTasksForSession(t.sessId);
-      return `<div class="gl-line">${ts.length ? ts.map(tk => `<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)}">${esc(tk.resolution||'open')}</span>`).join(' ') : '<span style="color:var(--muted)">—</span>'}</div>`;
+      return `<div class="gl-line">${ts.length ? ts.map(tk => `<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' ') : '<span style="color:var(--muted)">—</span>'}</div>`;
     }).join('');
     return `<tr>
       <td class="gl-num">${i+1}</td>
@@ -2312,6 +2330,113 @@ function renderGanttList(m) {
     <thead><tr><th>#</th>${th('fk','FaceKom session')}<th>Event IDs</th>${th('start','Start')}${th('dur','Duration')}${th('outcome','Outcome')}${th('reviewed','Reviewed')}${th('task','Dev task')}</tr></thead>
     <tbody>${body}</tbody>
     <tfoot><tr class="gl-foot"><td></td><td>${s.users} users</td><td>${s.tries} events</td><td>avg ${avg}s</td><td></td><td colspan="3">${bar} <span style="font-size:11px;color:var(--muted);margin-left:8px">${pct(s.approve)}% appr · ${pct(s.aborted)}% abort</span></td></tr></tfoot>
+  </table></div>`;
+}
+
+// ── Report view: abort sessions across ALL days, grouped by day ──────────────────
+// A FaceKom session is an "abort" when its FINAL try did not approve. Rows are per FaceKom
+// session (like the Day list), grouped under a day header, with a per-day subtotal and a
+// grand total below a double line. Respects the global Version filter.
+function ticketOf(taskId) {
+  const m = String(taskId || '').match(/(\d+)\s*$/);
+  return m ? 'Task-' + m[1].padStart(3, '0') : (taskId || '?');
+}
+
+function toggleReport() {
+  const panel = document.getElementById('reportPanel');
+  const icon  = document.getElementById('reportToggleIcon');
+  const open  = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', open);
+  icon.classList.toggle('open', !open);
+}
+
+// Group ALL version-scoped events into FaceKom-session lanes (same grouping as buildGanttModel,
+// but across every day instead of the selected one). Each lane = one FaceKom session.
+function buildReportSessions() {
+  const scoped = gVersionFilter === 'all' ? events : events.filter(e => (e.app_version||'').startsWith(gVersionFilter));
+  const fbMap = new Map();
+  for (const ev of scoped) {
+    const tk = ev.session_id_base || ev.event_id || '?';
+    if (!fbMap.has(tk)) fbMap.set(tk, []);
+    fbMap.get(tk).push(ev);
+  }
+  const triesByLane = new Map();
+  for (const [tk, evs] of fbMap) {
+    const group = deduplicateGroupEvents(evs.slice().sort((a,b)=>(+a.report_index||0)-(+b.report_index||0)));
+    const rep = group.reduce((best, e) => (e.logs?.length||0) > (best.logs?.length||0) ? e : best, group[0]);
+    const fk = fkBase(evs.map(facekomSessionId).find(Boolean) || '');
+    const laneKey = fk ? 'fk:' + fk : 'fb:' + tk;
+    const start = gStartTs(rep), end = gEndTs(rep);
+    const inv = fk ? investigations[fk] : null;
+    if (!triesByLane.has(laneKey)) triesByLane.set(laneKey, []);
+    triesByLane.get(laneKey).push({
+      sessId: tk, group, rep, start, end,
+      dur: Math.max(0, Math.round((end - start) / 1000)),
+      outcome: (inv && inv.outcome) ? inv.outcome : deriveSessionOutcome(group),
+      investigated: !!inv, lastStep: deriveLastStep(rep), fk,
+    });
+  }
+  const users = [];
+  for (const [laneKey, tries] of triesByLane) {
+    tries.sort((a,b) => a.start - b.start);
+    const first = tries[0], last = tries[tries.length-1];
+    users.push({
+      key: laneKey, tries, fk: first.fk, fbOnly: laneKey.startsWith('fb:'),
+      start: first.start, dayKey: gDayKeyOf(first.start),
+      finalOutcome: normalizeOutcome(last.outcome),
+      durTotal: tries.reduce((a,t)=>a+t.dur,0),
+    });
+  }
+  return users;
+}
+
+function renderReport() {
+  const sub = document.getElementById('reportSubtitle');
+  const host = document.getElementById('reportTable');
+  if (!host) return;
+  const aborts = buildReportSessions().filter(u => u.finalOutcome !== 'approve');
+  if (!aborts.length) {
+    if (sub) sub.textContent = '0 aborts';
+    host.innerHTML = `<div class="empty">No aborted sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
+    return;
+  }
+  const byDay = new Map();
+  for (const u of aborts) { const k = u.dayKey || '?'; if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(u); }
+  const days = [...byDay.keys()].sort().reverse();   // newest day first
+
+  const taskCls = r => r==='open' ? 'open' : (r==='wont-fix' ? 'wontfix' : 'done');
+  const outColor = o => o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)';
+  const mute = s => `<span style="color:var(--muted)">${s}</span>`;
+
+  let gSess = 0, gTries = 0, gDur = 0, bodyRows = '';
+  for (const dk of days) {
+    const list = byDay.get(dk).sort((a,b)=>a.start-b.start);
+    const dLabel = dk==='?' ? 'Unknown date' : new Date(dk+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    let dTries = 0, dDur = 0;
+    bodyRows += `<tr class="rep-day"><td colspan="7">${esc(dLabel)} — ${list.length} abort${list.length!==1?'s':''}</td></tr>`;
+    for (const u of list) {
+      const eids   = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
+      const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
+      const durs   = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
+      const outs   = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</div>`; }).join('');
+      const steps  = u.tries.map(t => `<div class="gl-line">${t.lastStep && t.lastStep!=='—' ? esc(t.lastStep) : mute('—')}</div>`).join('');
+      const tasks  = u.tries.map(t => { const ts=getTasksForSession(t.sessId); return `<div class="gl-line">${ts.length ? ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' ') : mute('—')}</div>`; }).join('');
+      dTries += u.tries.length; dDur += u.durTotal;
+      bodyRows += `<tr>
+        <td><span class="gl-fk" onclick="setGanttFk('${escAttr(u.fbOnly?u.tries[0].sessId:(u.fk||''))}')" title="${escAttr(u.fk||u.tries[0].sessId)} — show this session in the timeline">${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
+        <td>${eids}</td><td>${starts}</td><td>${durs}</td><td>${outs}</td><td>${steps}</td><td>${tasks}</td>
+      </tr>`;
+    }
+    bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dDur}s</td><td colspan="3"></td></tr>`;
+    gSess += list.length; gTries += dTries; gDur += dDur;
+  }
+  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gDur}s</td><td colspan="3">across ${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
+
+  if (sub) sub.textContent = `${gSess} abort${gSess!==1?'s':''} · ${days.length} day${days.length!==1?'s':''}`;
+  host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
+    <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Duration</th><th>Outcome</th><th>Last step</th><th>Dev task</th></tr></thead>
+    <tbody>${bodyRows}</tbody>
+    <tfoot>${totalRow}</tfoot>
   </table></div>`;
 }
 
@@ -2527,6 +2652,7 @@ async function loadDevTasksFromCSV() {
       localStorage.setItem('gfk_dev_tasks', JSON.stringify(devTasks));
       renderDevTasks();
       if (typeof renderGantt === 'function') renderGantt();   // populate the Day list "Dev task" column
+      if (typeof renderReport === 'function') renderReport();  // and the Report "Dev task" column
     }
     renderDevConnectBtn();
   } catch {}
