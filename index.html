@@ -1658,7 +1658,7 @@ function mergeGroupLogs(group) {
 function deriveAbortExits(group) {
   const logs = mergeGroupLogs(group);
   const isExit = /user initiated closing|enter background|SelfService stopped|status changed|stopStream|aborted state|finished with state|disconnected/;
-  let lastRealTs = null, lastRealStep = null;
+  let lastRealTs = null, lastRealStep = null, lastDet = null;
   const aborts = [], bg = {};
   for (let i = 0; i < logs.length; i++) {
     const m = logs[i].msg || '', ts = logs[i].rawTs;
@@ -1671,8 +1671,8 @@ function deriveAbortExits(group) {
         if (/user initiated closing, isAlreadyClosed:\s*false/.test(mj)) { exitTs = logs[j].rawTs; break; }
       }
       const waitSec = (lastRealTs && exitTs) ? Math.max(0, Math.round((exitTs - lastRealTs) / 1000)) : null;
-      aborts.push({ step: step || '?', waitSec, fromTs: lastRealTs, toTs: exitTs, isVideo });
-      lastRealTs = null; lastRealStep = null;   // next retry starts fresh
+      aborts.push({ step: step || '?', waitSec, fromTs: lastRealTs, toTs: exitTs, isVideo, det: lastDet });
+      lastRealTs = null; lastRealStep = null; lastDet = null;   // next retry starts fresh
       continue;
     }
     const b = m.match(/did enter background at step:\s*([^,.]+),\s*isVideoStep:\s*(true|false)/);
@@ -1687,8 +1687,13 @@ function deriveAbortExits(group) {
       // transition into a *different* step resets the clock, so the wait spans the whole struggle.
       const isTransition = /nextStep:|handleNewMessageStep:/.test(m);
       if (isTransition && s !== lastRealStep && ts) lastRealTs = ts;
+      if (s !== lastRealStep) lastDet = null;     // entering a different step → detection chain restarts
       lastRealStep = s;
     }
+    // Track the furthest detection sub-phase reached on the current (video) step. deepfake-detection
+    // runs face→card in sequence; aborts that never reach `card` stalled in the face sub-phase.
+    const dm = m.match(/detection:status:(\w+)/);
+    if (dm) lastDet = dm[1];
   }
   return { aborts, bg: Object.entries(bg).map(([step, count]) => ({ step, count })) };
 }
@@ -2580,7 +2585,7 @@ function renderReport() {
         const { aborts } = deriveAbortExits(t.group);
         dAbortExits += aborts.length;
         const lsw = [];
-        for (const a of aborts) { const w = a.waitSec!=null?` · ⏱ ${a.waitSec}s`:''; const tip=(a.fromTs&&a.toTs)?`utolsó üzenet ${fmtTs(a.fromTs)} → bezárás ${fmtTs(a.toTs)}`:''; lsw.push(`<span style="color:var(--red)" title="${escAttr(tip)}">${esc(a.step)}</span>${w}`); }
+        for (const a of aborts) { const w = a.waitSec!=null?` · ⏱ ${a.waitSec}s`:''; const sub=a.det?` <span style="color:var(--muted)" title="a detektálás eddig az al-fázisig jutott (deepfake: face→card sorrendben)">@${esc(a.det)}</span>`:''; const tip=(a.fromTs&&a.toTs)?`utolsó üzenet ${fmtTs(a.fromTs)} → bezárás ${fmtTs(a.toTs)}`:''; lsw.push(`<span style="color:var(--red)" title="${escAttr(tip)}">${esc(a.step)}</span>${w}${sub}`); }
         const rc = countReconnects(t.group);
         if (rc>0) lsw.push(`<span style="color:var(--yellow)" title="a kapcsolat ennyiszer szakadt meg és állt vissza a munkamenet alatt — minden szakadás után a lépés újraindul (retry), gyakori abort-ok">🔌 ${rc}× kapcsolat-szakadás</span>`);
         if (!lsw.length) lsw.push(mute('—'));
