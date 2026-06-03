@@ -1693,12 +1693,18 @@ function renderEventsFromActiveIssues() {
 function deriveOutcome(ev) {
   const csvVal = (ev.outcome || '').trim();
   if (csvVal && csvVal !== '—') return csvVal;
-  // nslocalized_description from SelfServiceRuntimeError.sessionFinished (present even without breadcrumbs)
+  // nslocalized_description from SelfServiceRuntimeError.sessionFinished (present even without breadcrumbs).
+  // It's LOCALIZED to the device language (we've seen German: "Facekom endete mit dem Status: finished"),
+  // but the status enum value (finished/aborted/expired/failed) is interpolated in English. Match it after
+  // the trailing "…: <status>" regardless of language instead of the English-only "finished with state:".
   const desc = (ev.nslocalized_description || '').trim();
-  if (desc.includes('finished with state: finished')) return 'finished';
-  if (desc.includes('finished with state: aborted')) return 'aborted';
-  if (desc.includes('finished with state: expired')) return 'failed';
-  if (desc.includes('finished with state: failed')) return 'failed';
+  const st = desc.match(/:\s*(finished|aborted|expired|failed)\b/i);
+  if (st) {
+    const s = st[1].toLowerCase();
+    if (s === 'finished') return 'finished';
+    if (s === 'aborted')  return 'aborted';
+    return 'failed';   // expired or failed
+  }
   // Fallback: breadcrumb log scanning
   let outcome = '';
   for (const log of ev.logs) {
