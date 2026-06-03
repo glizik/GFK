@@ -177,6 +177,11 @@
   .seg-legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
   .seg-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text); }
   .seg-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .seg-detail-list { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .seg-detail-head { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; padding: 5px 6px; border-radius: 6px; }
+  .seg-detail-head:hover { background: var(--surface2); }
+  .seg-chev { color: var(--muted); font-size: 9px; width: 10px; flex-shrink: 0; }
+  .seg-detail-body { padding: 4px 0 8px 18px; }
   .session-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
   .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
   .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
@@ -972,6 +977,17 @@ function toggleFlowDetails(id) {
   btn.textContent = isOpen ? 'Details' : 'Close';
 }
 
+// Collapsible per-outcome group in the Session-outcomes drill-down (keeps its colored label, just
+// flips a chevron — so the user can open only the outcome they care about).
+function toggleSegDetail(id) {
+  const el = document.getElementById(`segd-${id}`);
+  const ch = document.getElementById(`segc-${id}`);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (ch) ch.textContent = isOpen ? '▶' : '▼';
+}
+
 function outcomeLabel(norm) {
   if (norm === 'approve') return 'approved';
   if (norm === 'failed')  return 'failed';
@@ -1235,22 +1251,29 @@ function renderStepFunnel() {
   }).join('');
   const legend = present.map(([k, lbl, col]) =>
     `<span class="seg-legend"><span class="seg-dot" style="background:${col}"></span>${lbl} — ${sessOut[k]} (${total ? Math.round(sessOut[k] / total * 100) : 0}%)</span>`).join('');
-  // Group the Firebase sessions per non-approve outcome for the drill-down (shows the FaceKom user).
+  // Per-outcome drill-down (under the legend) — each outcome is its own colored, collapsible group, so
+  // you open only the one you care about (e.g. the 1 purple "rejected") and it doesn't push the rest far down.
   const outGroups = { aborted: [], failed: [], reject: [], other: [] };
   for (const sd of sessionStepData) { const o = normalizeOutcome(deriveSessionOutcome(sd.group)); if (outGroups[o]) outGroups[o].push(sd.group); }
   let detail = '';
-  for (const [k, lbl] of segDefs) {
+  for (const [k, lbl, col] of segDefs) {
     if (k === 'approve' || !outGroups[k] || !outGroups[k].length) continue;
-    detail += `<div style="font-size:12px;font-weight:600;color:var(--text);margin:10px 0 6px">${lbl} — ${outGroups[k].length} session${outGroups[k].length !== 1 ? 's' : ''}</div>
-      <div class="session-list">${renderSessionListItems(outGroups[k])}</div>`;
+    detail += `<div class="seg-detail-group">
+      <div class="seg-detail-head" onclick="toggleSegDetail('${k}')">
+        <span id="segc-${k}" class="seg-chev">▶</span>
+        <span class="seg-dot" style="background:${col}"></span>
+        <span style="color:${col};font-weight:600">${lbl}</span>
+        <span style="color:var(--muted)">— ${outGroups[k].length} session${outGroups[k].length !== 1 ? 's' : ''}</span>
+      </div>
+      <div id="segd-${k}" class="seg-detail-body" style="display:none"><div class="session-list">${renderSessionListItems(outGroups[k])}</div></div>
+    </div>`;
   }
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label" style="display:flex;align-items:center;gap:8px">Session outcomes — per Firebase session / attempt (${total} sessions)
-      <button class="btn btn-ghost btn-sm" id="fdb-sessout" onclick="toggleFlowDetails('sessout')">Details</button></div>
+    <div class="flow-outcomes-label">Session outcomes — per Firebase session / attempt (${total} sessions)</div>
     <div class="flow-outcomes-bar">${segs}</div>
     <div class="seg-legend-row">${legend}</div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">↳ ${exitTotal} abort exits across ${sessWithExit} sessions (the Report counts these ${exitTotal}). ${sessOut.aborted} sessions ended aborted; ${sessWithExit - sessOut.aborted} aborted a step but still finished/other within the session.</div>
-    <div class="flow-details-panel" id="fd-sessout" style="display:none">${detail}</div>
+    <div class="seg-detail-list">${detail}</div>
   </div>`;
 
   // ── User outcomes (per FaceKom user): passed vs not passed. An abort/fail that later approved =
@@ -2733,6 +2756,8 @@ function renderReport() {
       // In this list, finalOutcome 'approve' can only mean the lane aborted a video step then recovered.
       const recovered = u.finalOutcome === 'approve';
       if (recovered) gRecovered++;
+      // Never passed = no try ever approved (same unit as the Step-funnel's "not passed").
+      const laneNeverPassed = !u.tries.some(t => normalizeOutcome(t.outcome) === 'approve');
       // Per-event blocks: each abort gets its own line; the event's value columns show on the block's
       // first line (blank after) so every abort step·wait aligns with the event it belongs to.
       const cEid=[], cStart=[], cLsw=[], cDur=[], cOut=[], cTask=[];
@@ -2759,14 +2784,14 @@ function renderReport() {
       }
       dTries += u.tries.length;
       bodyRows += `<tr${recovered?' class="rep-recovered-row"':''}>
-        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
+        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${laneNeverPassed?'<span title="ez a user sosem jutott át" style="color:var(--red)">⛔</span> ':''}${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
         <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
     }
     bodyRows += `<tr class="rep-subtotal"><td>${esc(dLabel)} subtotal</td><td>${list.length} session${list.length!==1?'s':''}</td><td>${dTries} ${dTries!==1?'tries':'try'}</td><td>${dAbortExits} abort exit${dAbortExits!==1?'s':''}</td><td colspan="3"></td></tr>`;
     gSess += list.length; gTries += dTries; gAbortExits += dAbortExits;
   }
-  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td></td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
+  const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td><span style="color:var(--red)">⛔ ${neverPassed} never passed</span></td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
   if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ⛔ ${neverPassed} user${neverPassed!==1?'s':''} never passed · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
