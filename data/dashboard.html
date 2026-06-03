@@ -1111,7 +1111,9 @@ function renderStepFunnel() {
   const n = stepRows.length;
   const users = buildUserOutcomes(sessionStepData.map(s => s.group));
   const nUsers = users.length;
-  document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions · ${nUsers} users`;
+  const totalSteps = n + 2;   // process steps + WebRTC bar + end bar
+  let sNo = 0;                 // running step number across voice / WebRTC / … / end
+  document.getElementById('stepsSubtitle').textContent = `— ${totalSteps} steps · ${total} sessions · ${nUsers} users`;
 
   // Per-Firebase-session outcome (used by the end bar + the Session-outcomes chart so they match).
   const sessOut = { approve: 0, aborted: 0, failed: 0, reject: 0, other: 0 };
@@ -1162,8 +1164,9 @@ function renderStepFunnel() {
   html += renderFlowConnector(firstNotReached.length, firstNotReached, 'nostep');
 
   // Step bars + connectors (each connector = set diff between adjacent steps, excluding approved)
+  const stepNo = () => `${String(++sNo).padStart(2, '0')}/${String(totalSteps).padStart(2, '0')}`;
   stepRows.forEach((s, idx) => {
-    const num = `${String(idx + 1).padStart(2, '0')}/${String(n).padStart(2, '0')}`;
+    const num = stepNo();
     html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${s.cumulativePct}%">
       <span class="flow-bar-name">
         <span style="opacity:0.55;font-size:11px;font-family:monospace;flex-shrink:0">${num}</span>
@@ -1197,7 +1200,8 @@ function renderStepFunnel() {
       html += renderFlowConnector(noMedia.length, noMedia, 'nomedia');
       html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${webrtcPct}%">
         <span class="flow-bar-name">
-          <span style="opacity:0.55;font-size:11px;flex-shrink:0">🎥</span>
+          <span style="opacity:0.55;font-size:11px;font-family:monospace;flex-shrink:0">${stepNo()}</span>
+          <span style="flex-shrink:0">🎥</span>
           <span>WebRTC started (media)</span>
         </span>
         <span class="flow-bar-count">${webrtcCount} · ${webrtcPct}%</span>
@@ -1211,7 +1215,7 @@ function renderStepFunnel() {
   // ── End bar: sessions that finished (approved). Same number as Session-outcomes "approved" below. ──
   const endPct = total ? Math.round(sessOut.approve / total * 100) : 0;
   html += `<div class="flow-bar-row"><div class="flow-bar entry" style="width:${endPct}%;background:var(--green)">
-    <span class="flow-bar-name"><span style="opacity:0.55;font-size:11px;flex-shrink:0">✓</span><span>end · finished (approved)</span></span>
+    <span class="flow-bar-name"><span style="opacity:0.55;font-size:11px;font-family:monospace;flex-shrink:0">${stepNo()}</span><span style="flex-shrink:0">✓</span><span>end · finished (approved)</span></span>
     <span class="flow-bar-count">${sessOut.approve} · ${endPct}%</span>
   </div></div>`;
 
@@ -1231,11 +1235,22 @@ function renderStepFunnel() {
   }).join('');
   const legend = present.map(([k, lbl, col]) =>
     `<span class="seg-legend"><span class="seg-dot" style="background:${col}"></span>${lbl} — ${sessOut[k]} (${total ? Math.round(sessOut[k] / total * 100) : 0}%)</span>`).join('');
+  // Group the Firebase sessions per non-approve outcome for the drill-down (shows the FaceKom user).
+  const outGroups = { aborted: [], failed: [], reject: [], other: [] };
+  for (const sd of sessionStepData) { const o = normalizeOutcome(deriveSessionOutcome(sd.group)); if (outGroups[o]) outGroups[o].push(sd.group); }
+  let detail = '';
+  for (const [k, lbl] of segDefs) {
+    if (k === 'approve' || !outGroups[k] || !outGroups[k].length) continue;
+    detail += `<div style="font-size:12px;font-weight:600;color:var(--text);margin:10px 0 6px">${lbl} — ${outGroups[k].length} session${outGroups[k].length !== 1 ? 's' : ''}</div>
+      <div class="session-list">${renderSessionListItems(outGroups[k])}</div>`;
+  }
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">Session outcomes — per Firebase session (${total} sessions)</div>
+    <div class="flow-outcomes-label" style="display:flex;align-items:center;gap:8px">Session outcomes — per Firebase session / attempt (${total} sessions)
+      <button class="btn btn-ghost btn-sm" id="fdb-sessout" onclick="toggleFlowDetails('sessout')">Details</button></div>
     <div class="flow-outcomes-bar">${segs}</div>
     <div class="seg-legend-row">${legend}</div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">↳ ${exitTotal} abort exits across ${sessWithExit} sessions (the Report counts these ${exitTotal}). ${sessOut.aborted} sessions ended aborted; ${sessWithExit - sessOut.aborted} aborted a step but still finished/other within the session.</div>
+    <div class="flow-details-panel" id="fd-sessout" style="display:none">${detail}</div>
   </div>`;
 
   // ── User outcomes (per FaceKom user): passed vs not passed. An abort/fail that later approved =
@@ -1250,12 +1265,12 @@ function renderStepFunnel() {
   if (npAborted) npParts.push(`<span style="color:var(--red)">${npAborted} aborted</span>`);
   if (npFailed)  npParts.push(`<span style="color:var(--yellow)">${npFailed} failed/rejected</span>`);
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">User outcomes — ${passedU.length} of ${nUsers} users passed (${passedPct}%)</div>
+    <div class="flow-outcomes-label">User outcomes — per FaceKom user / final verdict (${passedU.length} of ${nUsers} passed, ${passedPct}%)</div>
     <div class="flow-outcomes-bar">
       ${passedPct > 0 ? `<div class="flow-outcome-seg" style="width:${passedPct}%;background:var(--green)"><span class="flow-outcome-label">${passedU.length} passed · ${passedPct}%</span></div>` : ''}
       ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${notPassed.length} not passed · ${npPct}%</span></div>` : ''}
     </div>
-    ${npParts.length ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">↳ the ${notPassed.length} not passed (final outcome, never recovered): ${npParts.join(' · ')}</div>` : ''}`;
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">↳ the funnel & session bars above are <b>per attempt</b> (one user can drop, then retry & pass) — that's why the drops there outnumber these ${notPassed.length}. Here each <b>user</b> counts once by final verdict.${npParts.length ? ` The ${notPassed.length} not passed (never recovered): ${npParts.join(' · ')}.` : ''}</div>`;
 
   // ── Of the users who passed: attempts needed (1st…5+), and where the earlier attempts came from. ──
   if (passedU.length) {
@@ -2690,7 +2705,10 @@ function renderReport() {
   // Include non-approved sessions AND sessions that aborted a video step but later got approved
   // ("recovered after abort") — same user/lane, the abort + the eventual approve shown together.
   const laneAbortExits = u => u.tries.reduce((s, t) => s + deriveAbortExits(t.group).aborts.length, 0);
-  const aborts = buildReportSessions().filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0);
+  const allLanes = buildReportSessions();
+  // User-level "never passed" (no try ever approved) — same unit as the Step-funnel's "not passed".
+  const neverPassed = allLanes.filter(u => !u.tries.some(t => normalizeOutcome(t.outcome) === 'approve')).length;
+  const aborts = allLanes.filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0);
   if (!aborts.length) {
     if (sub) sub.textContent = '0 aborts';
     host.innerHTML = `<div class="empty">No aborted sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
@@ -2750,7 +2768,7 @@ function renderReport() {
   }
   const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td></td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
-  if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ${days.length} day${days.length!==1?'s':''}`;
+  if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ⛔ ${neverPassed} user${neverPassed!==1?'s':''} never passed · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
     <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Last step - wait</th><th>Duration</th><th>Outcome</th><th>Dev task</th></tr></thead>
     <tbody>${bodyRows}</tbody>
