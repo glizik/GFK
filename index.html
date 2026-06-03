@@ -1186,12 +1186,13 @@ function renderStepFunnel() {
   const ftPct = upf(firstTryU.length), rtPct = upf(retryU.length);
   const npPct = Math.max(0, 100 - ftPct - rtPct);
 
+  const passedPct = nUsers ? Math.round(passedU.length / nUsers * 100) : 0;
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">User outcomes — ${passedU.length} of ${nUsers} users passed · ${total} Firebase sessions</div>
+    <div class="flow-outcomes-label">User outcomes — ${passedU.length} of ${nUsers} users passed (${passedPct}%) · ${total} Firebase sessions</div>
     <div class="flow-outcomes-bar">
-      ${ftPct > 0 ? `<div class="flow-outcome-seg" style="width:${ftPct}%;background:var(--green)"><span class="flow-outcome-label">${firstTryU.length} first try</span></div>` : ''}
-      ${rtPct > 0 ? `<div class="flow-outcome-seg striped" style="width:${rtPct}%;background:var(--green)" title="passed but needed more than one attempt"><span class="flow-outcome-label">${retryU.length} after retry</span></div>` : ''}
-      ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${notPassed.length} not passed</span></div>` : ''}
+      ${ftPct > 0 ? `<div class="flow-outcome-seg" style="width:${ftPct}%;background:var(--green)"><span class="flow-outcome-label">${firstTryU.length} first try · ${Math.round(ftPct)}%</span></div>` : ''}
+      ${rtPct > 0 ? `<div class="flow-outcome-seg striped" style="width:${rtPct}%;background:var(--green)" title="passed but needed more than one attempt"><span class="flow-outcome-label">${retryU.length} after retry · ${Math.round(rtPct)}%</span></div>` : ''}
+      ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${notPassed.length} not passed · ${Math.round(npPct)}%</span></div>` : ''}
     </div>`;
 
   // ── Chart B: of the users who passed, how many attempts it took (1st…5+), and where the earlier
@@ -1219,14 +1220,42 @@ function renderStepFunnel() {
       rowsB += `<div class="attempt-row">
         <span class="attempt-name">${label}</span>
         <span class="attempt-bar"><span class="attempt-fill" style="width:${w}%"></span></span>
-        <span class="attempt-count">${list.length}${src}</span>
+        <span class="attempt-count">${list.length} · ${w}%${src}</span>
       </div>`;
     }
     html += `<div class="flow-outcomes-label" style="margin-top:18px">Of the ${passedU.length} who passed — attempts needed</div>
       <div class="attempt-list">${rowsB}</div>`;
   }
+  html += `</div>`;  // /flow-outcomes (per-user)
 
-  html += `</div></div>`;
+  // ── Chart C: per-FIREBASE-SESSION outcome (the raw session view, no per-user collapsing). Note the
+  // Report counts abort EXITS (each end·aborted event), not aborted sessions — reconciled below. ──
+  const sessOut = { approve: 0, aborted: 0, failed: 0, reject: 0, other: 0 };
+  let sessWithExit = 0, exitTotal = 0;
+  for (const sd of sessionStepData) {
+    sessOut[normalizeOutcome(deriveSessionOutcome(sd.group))]++;
+    const ex = deriveAbortExits(sd.group).aborts.length;
+    if (ex > 0) sessWithExit++;
+    exitTotal += ex;
+  }
+  const segDefs = [
+    ['approve', 'approved', 'var(--green)'],
+    ['aborted', 'aborted',  'var(--red)'],
+    ['failed',  'failed',   'var(--yellow)'],
+    ['reject',  'rejected', 'var(--orange)'],
+    ['other',   'other',    'var(--muted)'],
+  ];
+  const segs = segDefs.filter(([k]) => sessOut[k] > 0).map(([k, lbl, col]) => {
+    const pc = total ? Math.round(sessOut[k] / total * 100) : 0;
+    return `<div class="flow-outcome-seg" style="width:${total ? sessOut[k] / total * 100 : 0}%;background:${col}"><span class="flow-outcome-label">${sessOut[k]} ${lbl} · ${pc}%</span></div>`;
+  }).join('');
+  html += `<div class="flow-outcomes">
+    <div class="flow-outcomes-label">Session outcomes — per Firebase session (${total} sessions)</div>
+    <div class="flow-outcomes-bar">${segs}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">↳ ${exitTotal} abort exits across ${sessWithExit} sessions (the Report counts these ${exitTotal}). ${sessOut.aborted} sessions ended aborted; ${sessWithExit - sessOut.aborted} aborted a step but still finished/other within the session.</div>
+  </div>`;
+
+  html += `</div>`;  // /flow-funnel
 
   container.innerHTML = html;
 }
