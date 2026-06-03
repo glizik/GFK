@@ -174,6 +174,9 @@
   .attempt-bar { flex: 1; height: 14px; background: var(--surface2); border-radius: 7px; overflow: hidden; }
   .attempt-fill { display: block; height: 100%; background: var(--green); border-radius: 7px; }
   .attempt-count { flex-shrink: 0; color: var(--muted); white-space: nowrap; }
+  .seg-legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+  .seg-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text); }
+  .seg-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
   .session-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
   .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
   .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
@@ -818,7 +821,7 @@ function buildStepFunnel() {
   }
 
   // Known step order per FaceKom flow — unknown steps go after, sorted by count
-  const STEP_ORDER = ['voice-liveness-check', 'deepfake-detection', 'customerPortrait', 'idFront', 'idBack', 'hologram', 'id-back-video'];
+  const STEP_ORDER = ['voice-liveness-check', 'deepfake-detection', 'customerPortrait', 'idFront', 'idBack', 'hologram', 'id-back-video', 'twoFactor'];
   const stepRows = [...stepMap.entries()]
     .sort((a, b) => {
       const ia = STEP_ORDER.indexOf(a[0]), ib = STEP_ORDER.indexOf(b[0]);
@@ -1109,6 +1112,22 @@ function renderStepFunnel() {
   const users = buildUserOutcomes(sessionStepData.map(s => s.group));
   const nUsers = users.length;
   document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions · ${nUsers} users`;
+
+  // Per-Firebase-session outcome (used by the end bar + the Session-outcomes chart so they match).
+  const sessOut = { approve: 0, aborted: 0, failed: 0, reject: 0, other: 0 };
+  let sessWithExit = 0, exitTotal = 0;
+  for (const sd of sessionStepData) {
+    sessOut[normalizeOutcome(deriveSessionOutcome(sd.group))]++;
+    const ex = deriveAbortExits(sd.group).aborts.length;
+    if (ex > 0) sessWithExit++;
+    exitTotal += ex;
+  }
+  // "WebRTC started" = media established. An approved session must have had media even if its WebRTC
+  // breadcrumb rolled out of the captured window, so count (has WebRTC log) OR (approved).
+  const hasMedia = sd => sd.group.some(ev => (ev.logs || []).some(l => /WebRTC started/.test(l.msg || ''))) ||
+                         normalizeOutcome(deriveSessionOutcome(sd.group)) === 'approve';
+  const webrtcSet = new Set(sessionStepData.filter(hasMedia));
+  const webrtcCount = webrtcSet.size, webrtcPct = total ? Math.round(webrtcCount / total * 100) : 0;
   const container = document.getElementById('stepsFunnel');
   if (!n) {
     container.innerHTML = `<div class="empty">No step data found in session logs.</div>`;
@@ -1171,32 +1190,74 @@ function renderStepFunnel() {
         <div class="session-list">${renderSessionListItems(skipGroups, detectDocType)}</div>
       </div>`;
     }
+    // WebRTC media starts right after the first video step is issued — insert it here so the funnel
+    // stays monotonic and the dip vs voice-liveness shows the sessions that reached the step with NO media.
+    if (idx === 0) {
+      const noMedia = [...s.reachedSet].filter(sd => !webrtcSet.has(sd)).map(sd => sd.group);
+      html += renderFlowConnector(noMedia.length, noMedia, 'nomedia');
+      html += `<div class="flow-bar-row"><div class="flow-bar" style="width:${webrtcPct}%">
+        <span class="flow-bar-name">
+          <span style="opacity:0.55;font-size:11px;flex-shrink:0">🎥</span>
+          <span>WebRTC started (media)</span>
+        </span>
+        <span class="flow-bar-count">${webrtcCount} · ${webrtcPct}%</span>
+      </div></div>`;
+    }
     const nextSet = idx < stepRows.length - 1 ? stepRows[idx + 1].reachedSet : new Set();
     const droppedHere = [...s.reachedSet].filter(sd => !nextSet.has(sd) && !approvedSessData.has(sd)).map(sd => sd.group);
     html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
   });
 
-  // ── Chart A: per-USER end result (success vs not). An abort/fail that later approved = SUCCESS,
-  // counted once. "after retry" = passed but needed >1 Firebase attempt. ──
-  const passedU   = users.filter(u => u.passed);
-  const firstTryU = passedU.filter(u => u.attempts === 1);
-  const retryU    = passedU.filter(u => u.attempts > 1);
-  const notPassed = users.filter(u => !u.passed);
-  const upf = c => nUsers ? (c / nUsers * 100) : 0;
-  const ftPct = upf(firstTryU.length), rtPct = upf(retryU.length);
-  const npPct = Math.max(0, 100 - ftPct - rtPct);
+  // ── End bar: sessions that finished (approved). Same number as Session-outcomes "approved" below. ──
+  const endPct = total ? Math.round(sessOut.approve / total * 100) : 0;
+  html += `<div class="flow-bar-row"><div class="flow-bar entry" style="width:${endPct}%;background:var(--green)">
+    <span class="flow-bar-name"><span style="opacity:0.55;font-size:11px;flex-shrink:0">✓</span><span>end · finished (approved)</span></span>
+    <span class="flow-bar-count">${sessOut.approve} · ${endPct}%</span>
+  </div></div>`;
 
-  const passedPct = nUsers ? Math.round(passedU.length / nUsers * 100) : 0;
+  // ── Session outcomes (per Firebase session) — placed right after the funnel so "approved" matches
+  // the end bar. The Report counts abort EXITS (each end·aborted event), reconciled below. ──
+  const segDefs = [
+    ['approve', 'approved', 'var(--green)'],
+    ['aborted', 'aborted',  'var(--red)'],
+    ['failed',  'failed',   'var(--yellow)'],
+    ['reject',  'rejected', 'var(--purple)'],
+    ['other',   'other',    'var(--muted)'],
+  ];
+  const present = segDefs.filter(([k]) => sessOut[k] > 0);
+  const segs = present.map(([k, lbl, col]) => {
+    const pc = total ? Math.round(sessOut[k] / total * 100) : 0;
+    return `<div class="flow-outcome-seg" style="width:${total ? sessOut[k] / total * 100 : 0}%;background:${col};min-width:4px"><span class="flow-outcome-label">${sessOut[k] >= 5 ? `${sessOut[k]} ${lbl} · ${pc}%` : ''}</span></div>`;
+  }).join('');
+  const legend = present.map(([k, lbl, col]) =>
+    `<span class="seg-legend"><span class="seg-dot" style="background:${col}"></span>${lbl} — ${sessOut[k]} (${total ? Math.round(sessOut[k] / total * 100) : 0}%)</span>`).join('');
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">User outcomes — ${passedU.length} of ${nUsers} users passed (${passedPct}%) · ${total} Firebase sessions</div>
-    <div class="flow-outcomes-bar">
-      ${ftPct > 0 ? `<div class="flow-outcome-seg" style="width:${ftPct}%;background:var(--green)"><span class="flow-outcome-label">${firstTryU.length} first try · ${Math.round(ftPct)}%</span></div>` : ''}
-      ${rtPct > 0 ? `<div class="flow-outcome-seg striped" style="width:${rtPct}%;background:var(--green)" title="passed but needed more than one attempt"><span class="flow-outcome-label">${retryU.length} after retry · ${Math.round(rtPct)}%</span></div>` : ''}
-      ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${notPassed.length} not passed · ${Math.round(npPct)}%</span></div>` : ''}
-    </div>`;
+    <div class="flow-outcomes-label">Session outcomes — per Firebase session (${total} sessions)</div>
+    <div class="flow-outcomes-bar">${segs}</div>
+    <div class="seg-legend-row">${legend}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">↳ ${exitTotal} abort exits across ${sessWithExit} sessions (the Report counts these ${exitTotal}). ${sessOut.aborted} sessions ended aborted; ${sessWithExit - sessOut.aborted} aborted a step but still finished/other within the session.</div>
+  </div>`;
 
-  // ── Chart B: of the users who passed, how many attempts it took (1st…5+), and where the earlier
-  // attempts failed (came from an abort vs a fail). ──
+  // ── User outcomes (per FaceKom user): passed vs not passed. An abort/fail that later approved =
+  // SUCCESS, counted once. The not-passed are broken out so they're fully accounted for. ──
+  const passedU   = users.filter(u => u.passed);
+  const notPassed  = users.filter(u => !u.passed);
+  const passedPct = nUsers ? Math.round(passedU.length / nUsers * 100) : 0;
+  const npPct     = Math.max(0, 100 - passedPct);
+  const npAborted = notPassed.filter(u => u.finalOutcome === 'aborted').length;
+  const npFailed  = notPassed.filter(u => u.finalOutcome === 'failed').length;
+  const npParts = [];
+  if (npAborted) npParts.push(`<span style="color:var(--red)">${npAborted} aborted</span>`);
+  if (npFailed)  npParts.push(`<span style="color:var(--yellow)">${npFailed} failed/rejected</span>`);
+  html += `<div class="flow-outcomes">
+    <div class="flow-outcomes-label">User outcomes — ${passedU.length} of ${nUsers} users passed (${passedPct}%)</div>
+    <div class="flow-outcomes-bar">
+      ${passedPct > 0 ? `<div class="flow-outcome-seg" style="width:${passedPct}%;background:var(--green)"><span class="flow-outcome-label">${passedU.length} passed · ${passedPct}%</span></div>` : ''}
+      ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${notPassed.length} not passed · ${npPct}%</span></div>` : ''}
+    </div>
+    ${npParts.length ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">↳ the ${notPassed.length} not passed (final outcome, never recovered): ${npParts.join(' · ')}</div>` : ''}`;
+
+  // ── Of the users who passed: attempts needed (1st…5+), and where the earlier attempts came from. ──
   if (passedU.length) {
     const maxK = 5;
     const ord = k => k === 1 ? '1st' : k === 2 ? '2nd' : k === 3 ? '3rd' : k + 'th';
@@ -1227,33 +1288,6 @@ function renderStepFunnel() {
       <div class="attempt-list">${rowsB}</div>`;
   }
   html += `</div>`;  // /flow-outcomes (per-user)
-
-  // ── Chart C: per-FIREBASE-SESSION outcome (the raw session view, no per-user collapsing). Note the
-  // Report counts abort EXITS (each end·aborted event), not aborted sessions — reconciled below. ──
-  const sessOut = { approve: 0, aborted: 0, failed: 0, reject: 0, other: 0 };
-  let sessWithExit = 0, exitTotal = 0;
-  for (const sd of sessionStepData) {
-    sessOut[normalizeOutcome(deriveSessionOutcome(sd.group))]++;
-    const ex = deriveAbortExits(sd.group).aborts.length;
-    if (ex > 0) sessWithExit++;
-    exitTotal += ex;
-  }
-  const segDefs = [
-    ['approve', 'approved', 'var(--green)'],
-    ['aborted', 'aborted',  'var(--red)'],
-    ['failed',  'failed',   'var(--yellow)'],
-    ['reject',  'rejected', 'var(--orange)'],
-    ['other',   'other',    'var(--muted)'],
-  ];
-  const segs = segDefs.filter(([k]) => sessOut[k] > 0).map(([k, lbl, col]) => {
-    const pc = total ? Math.round(sessOut[k] / total * 100) : 0;
-    return `<div class="flow-outcome-seg" style="width:${total ? sessOut[k] / total * 100 : 0}%;background:${col}"><span class="flow-outcome-label">${sessOut[k]} ${lbl} · ${pc}%</span></div>`;
-  }).join('');
-  html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">Session outcomes — per Firebase session (${total} sessions)</div>
-    <div class="flow-outcomes-bar">${segs}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:8px">↳ ${exitTotal} abort exits across ${sessWithExit} sessions (the Report counts these ${exitTotal}). ${sessOut.aborted} sessions ended aborted; ${sessWithExit - sessOut.aborted} aborted a step but still finished/other within the session.</div>
-  </div>`;
 
   html += `</div>`;  // /flow-funnel
 
