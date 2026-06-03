@@ -167,6 +167,13 @@
   .flow-outcomes-bar { height: 44px; display: flex; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
   .flow-outcome-seg { display: flex; align-items: center; justify-content: center; overflow: hidden; min-width: 0; }
   .flow-outcome-label { font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; padding: 0 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  .flow-outcome-seg.striped { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.22) 0 7px, rgba(255,255,255,0) 7px 14px); }
+  .attempt-list { display: flex; flex-direction: column; gap: 6px; }
+  .attempt-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .attempt-name { width: 96px; flex-shrink: 0; color: var(--text); }
+  .attempt-bar { flex: 1; height: 14px; background: var(--surface2); border-radius: 7px; overflow: hidden; }
+  .attempt-fill { display: block; height: 100%; background: var(--green); border-radius: 7px; }
+  .attempt-count { flex-shrink: 0; color: var(--muted); white-space: nowrap; }
   .session-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
   .session-list-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); flex-wrap: wrap; }
   .session-list-id { font-family: monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
@@ -912,6 +919,40 @@ function buildStepFunnel() {
   return { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps };
 }
 
+// Per-FaceKom-USER verdict (a user = one FaceKom session = possibly several Firebase-session tries).
+// Unlike the per-Firebase outcome bar, an abort/fail followed by a later approve is ONE success, not
+// both — so "retry" and "abort" no longer double-count the same person. Returns, per user: did they
+// ultimately pass, on which attempt (= which Firebase try first approved), and whether the earlier
+// (pre-success) tries included an abort and/or a fail.
+function buildUserOutcomes(groups) {
+  const laneMap = new Map();
+  for (const group of groups) {
+    const rep = group.reduce((b, e) => (e.logs?.length || 0) > (b.logs?.length || 0) ? e : b, group[0]);
+    const fkFull = group.map(facekomSessionId).find(Boolean) || '';
+    const key = fkFull ? 'fk:' + fkBase(fkFull) : 'fb:' + (rep.session_id_base || rep.event_id || '?');
+    const fk = fkFull ? fkBase(fkFull) : '';
+    const inv = fk ? investigations[fk] : null;
+    const outcome = (inv && inv.outcome) ? normalizeOutcome(inv.outcome) : normalizeOutcome(deriveSessionOutcome(group));
+    if (!laneMap.has(key)) laneMap.set(key, []);
+    laneMap.get(key).push({ start: gStartTs(rep) || 0, outcome });
+  }
+  const users = [];
+  for (const [key, tries] of laneMap) {
+    tries.sort((a, b) => a.start - b.start);
+    const idx = tries.findIndex(t => t.outcome === 'approve');
+    const passed = idx >= 0;
+    const prior = passed ? tries.slice(0, idx) : tries;   // tries before the first approve
+    users.push({
+      key, passed,
+      attempts: passed ? idx + 1 : tries.length,
+      hadAbort: prior.some(t => t.outcome === 'aborted'),
+      hadFail:  prior.some(t => t.outcome === 'failed' || t.outcome === 'reject'),
+      finalOutcome: passed ? 'approve' : (tries.some(t => t.outcome === 'failed' || t.outcome === 'reject') ? 'failed' : 'aborted'),
+    });
+  }
+  return users;
+}
+
 function toggleStepsPanel() {
   const panel = document.getElementById('stepsPanel');
   const icon  = document.getElementById('stepsToggleIcon');
@@ -1065,7 +1106,9 @@ function renderFlowConnector(count, groups, id) {
 function renderStepFunnel() {
   const { total, sessionStepData, stepRows, outcomeBuckets, approvedSessData, approvedNoSteps } = buildStepFunnel();
   const n = stepRows.length;
-  document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions`;
+  const users = buildUserOutcomes(sessionStepData.map(s => s.group));
+  const nUsers = users.length;
+  document.getElementById('stepsSubtitle').textContent = `— ${n} steps · ${total} sessions · ${nUsers} users`;
   const container = document.getElementById('stepsFunnel');
   if (!n) {
     container.innerHTML = `<div class="empty">No step data found in session logs.</div>`;
@@ -1133,26 +1176,57 @@ function renderStepFunnel() {
     html += renderFlowConnector(droppedHere.length, droppedHere, `step${idx}`);
   });
 
-  // Outcomes bar: approve · retry (approved after earlier failure) · failed · aborted
-  const approve      = outcomeBuckets.approve.length;
-  const retry        = outcomeBuckets.retry.length;
-  const failed       = outcomeBuckets.failed.length;
-  const aborted      = outcomeBuckets.aborted.length;
-  const outcomeTotal = approve + retry + failed + aborted;
-  const approvePct = outcomeTotal ? Math.round(approve / outcomeTotal * 100) : 0;
-  const retryPct   = outcomeTotal ? Math.round(retry   / outcomeTotal * 100) : 0;
-  const failedPct  = outcomeTotal ? Math.round(failed  / outcomeTotal * 100) : 0;
-  const abortedPct = 100 - approvePct - retryPct - failedPct;
+  // ── Chart A: per-USER end result (success vs not). An abort/fail that later approved = SUCCESS,
+  // counted once. "after retry" = passed but needed >1 Firebase attempt. ──
+  const passedU   = users.filter(u => u.passed);
+  const firstTryU = passedU.filter(u => u.attempts === 1);
+  const retryU    = passedU.filter(u => u.attempts > 1);
+  const notPassed = users.filter(u => !u.passed);
+  const upf = c => nUsers ? (c / nUsers * 100) : 0;
+  const ftPct = upf(firstTryU.length), rtPct = upf(retryU.length);
+  const npPct = Math.max(0, 100 - ftPct - rtPct);
 
   html += `<div class="flow-outcomes">
-    <div class="flow-outcomes-label">All session outcomes — all ${outcomeTotal} sessions</div>
+    <div class="flow-outcomes-label">User outcomes — ${passedU.length} of ${nUsers} users passed · ${total} Firebase sessions</div>
     <div class="flow-outcomes-bar">
-      ${approvePct > 0 ? `<div class="flow-outcome-seg" style="width:${approvePct}%;background:var(--green)"><span class="flow-outcome-label">${approvePct}% approved (${approve})</span></div>` : ''}
-      ${retryPct   > 0 ? `<div class="flow-outcome-seg" style="width:${retryPct}%;background:var(--purple)"><span class="flow-outcome-label">${retryPct}% retry (${retry})</span></div>` : ''}
-      ${failedPct  > 0 ? `<div class="flow-outcome-seg" style="width:${failedPct}%;background:var(--yellow)"><span class="flow-outcome-label">${failedPct}% failed (${failed})</span></div>` : ''}
-      ${abortedPct > 0 ? `<div class="flow-outcome-seg" style="width:${abortedPct}%;background:var(--red)"><span class="flow-outcome-label">${abortedPct}% aborted / rejected (${aborted})</span></div>` : ''}
-    </div>
-  </div></div>`;
+      ${ftPct > 0 ? `<div class="flow-outcome-seg" style="width:${ftPct}%;background:var(--green)"><span class="flow-outcome-label">${firstTryU.length} first try</span></div>` : ''}
+      ${rtPct > 0 ? `<div class="flow-outcome-seg striped" style="width:${rtPct}%;background:var(--green)" title="passed but needed more than one attempt"><span class="flow-outcome-label">${retryU.length} after retry</span></div>` : ''}
+      ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${notPassed.length} not passed</span></div>` : ''}
+    </div>`;
+
+  // ── Chart B: of the users who passed, how many attempts it took (1st…5+), and where the earlier
+  // attempts failed (came from an abort vs a fail). ──
+  if (passedU.length) {
+    const maxK = 5;
+    const ord = k => k === 1 ? '1st' : k === 2 ? '2nd' : k === 3 ? '3rd' : k + 'th';
+    let rowsB = '';
+    for (let k = 1; k <= maxK; k++) {
+      const list = passedU.filter(u => k < maxK ? u.attempts === k : u.attempts >= maxK);
+      if (!list.length) continue;
+      const w = Math.round(list.length / passedU.length * 100);
+      const label = k < maxK ? `${ord(k)} attempt` : `5+ attempts`;
+      let src = '';
+      if (k > 1) {
+        const ab = list.filter(u => u.hadAbort && !u.hadFail).length;
+        const fl = list.filter(u => u.hadFail && !u.hadAbort).length;
+        const both = list.filter(u => u.hadAbort && u.hadFail).length;
+        const parts = [];
+        if (ab)   parts.push(`<span style="color:var(--red)">${ab} ↩ from abort</span>`);
+        if (fl)   parts.push(`<span style="color:var(--yellow)">${fl} ✕ from fail</span>`);
+        if (both) parts.push(`<span style="color:var(--muted)">${both} both</span>`);
+        if (parts.length) src = ` <span style="color:var(--muted)">· ${parts.join(' · ')}</span>`;
+      }
+      rowsB += `<div class="attempt-row">
+        <span class="attempt-name">${label}</span>
+        <span class="attempt-bar"><span class="attempt-fill" style="width:${w}%"></span></span>
+        <span class="attempt-count">${list.length}${src}</span>
+      </div>`;
+    }
+    html += `<div class="flow-outcomes-label" style="margin-top:18px">Of the ${passedU.length} who passed — attempts needed</div>
+      <div class="attempt-list">${rowsB}</div>`;
+  }
+
+  html += `</div></div>`;
 
   container.innerHTML = html;
 }
