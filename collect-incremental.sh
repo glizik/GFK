@@ -113,10 +113,14 @@ for ver in "${VERSIONS[@]}"; do
   [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vnew új event (összes: $(($(wc -l < "$ecsv")-1)))"
 done
 
+# ── pre-process JSON for the dashboard (one fetch instead of per-event logs) ──
+echo "## build dashboard JSON"
+node build-data.js || echo "⚠️  build-data.js failed (dashboard falls back to CSV+logs)"
+
 # ── commit + push (autonomous) ───────────────────────────────────────────────
 if [ "$DRY" = "1" ]; then echo "dry done"; exit 0; fi
 if [ "$NO_PUSH" != "1" ]; then
-  git add data/events_3.7.1.csv data/issues_3.7.1.csv data/events_3.7.0.csv data/issues_3.7.0.csv data/logs/ 2>/dev/null
+  git add data/events_3.7.1.csv data/issues_3.7.1.csv data/events_3.7.0.csv data/issues_3.7.0.csv data/events_3.7.1.json data/events_3.7.0.json data/logs/ 2>/dev/null
   if git diff --cached --quiet; then
     echo "no changes to commit"
   else

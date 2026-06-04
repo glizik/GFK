@@ -4,6 +4,7 @@
   "description": "GFK - Firebase Crashlytics issue collector and visualiser",
   "scripts": {
     "analyze": "node utils/analyze-logs.js",
+    "build-data": "node build-data.js",
     "setup": "npx playwright test --project=setup",
     "discover": "npx playwright test tests/discover-issues.spec.ts",
     "discover:headless": "HEADLESS=true npx playwright test tests/discover-issues.spec.ts",

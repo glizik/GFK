@@ -76,6 +76,9 @@
 
   .events-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   @media (max-width: 900px) { .events-grid { grid-template-columns: 1fr; } }
+  .show-more-wrap { display: flex; justify-content: center; margin: 18px 0 4px; }
+  .show-more-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 8px 22px; font-size: 13px; color: var(--text); cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+  .show-more-btn:hover { border-color: var(--accent); color: var(--accent); }
   .event-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
   .event-card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .event-card-header h3 { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -714,6 +717,15 @@ async function fetchEventLog(ev) {
 async function ensureVersionsLoaded() {
   for (const v of neededVersions()) {
     if (loadedVersions.has(v)) continue;
+    // Fast path: a single pre-processed JSON (built by build-data.js) already
+    // contains each event's processed logs — one fetch instead of one log
+    // request per event. Falls back to CSV + per-event log fetch if absent.
+    const json = await fetch(`data/events_${v}.json?_=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    if (Array.isArray(json)) {
+      events.push(...json);
+      loadedVersions.add(v);
+      continue;
+    }
     const csv = await fetch(`data/events_${v}.csv?_=${Date.now()}`).then(r => r.ok ? r.text() : '').catch(() => '');
     const raw = csv ? parseCsv(csv) : [];
     for (let i = 0; i < raw.length; i += 20) events.push(...await Promise.all(raw.slice(i, i + 20).map(fetchEventLog)));
@@ -1525,16 +1537,7 @@ function renderAnalytics() {
     grid.innerHTML = `<div class="empty">No sessions match the selected filters.</div>`;
     return;
   }
-  grid.innerHTML = `<div class="events-grid">${filtered.map((s, idx) => renderSessionCard(s.group, `a${idx}`)).join('')}</div>`;
-  grid.querySelectorAll('.event-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const card = tab.closest('.event-card');
-      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
-      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
-    });
-  });
+  renderCardGrid('analyticsGrid', filtered.map(s => s.group), 'a');
 }
 
 // ── Issues chips ──────────────────────────────────────────────────────────────
@@ -1901,6 +1904,50 @@ function issueLabel(ev) {
   return iss ? `#${iss.rank} ${iss.issue_name}` : (ev.nserror_domain ? `${ev.nserror_domain} · ${ev.nserror_code}` : '');
 }
 
+// ── Paged session-card grid ────────────────────────────────────────────────
+// Session cards are heavy (tabs + full breadcrumb timelines). Rendering all of
+// them at once builds a huge DOM that stalls/crashes weak browsers, so cap how
+// many paint at once and reveal the rest with a "Show more" button.
+const GRID_PAGE = 60;
+const gridLimits = {};   // gridId → current visible cap
+const gridState  = {};   // gridId → { groups, idPrefix } for repaint
+function bindCardTabs(grid) {
+  grid.querySelectorAll('.event-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const card = tab.closest('.event-card');
+      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
+      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+}
+function paintGrid(gridId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  const { groups, idPrefix } = gridState[gridId];
+  const limit = gridLimits[gridId];
+  const shown = groups.slice(0, limit);
+  const remaining = groups.length - shown.length;
+  const cards = shown.map((g, idx) => renderSessionCard(g, `${idPrefix}${idx}`)).join('');
+  const more = remaining > 0
+    ? `<div class="show-more-wrap"><button class="show-more-btn" onclick="bumpGrid('${escAttr(gridId)}')">Show ${Math.min(GRID_PAGE, remaining)} more · ${remaining} remaining</button></div>`
+    : '';
+  grid.innerHTML = `<div class="events-grid">${cards}</div>${more}`;
+  bindCardTabs(grid);
+}
+// Fresh render (filter change / renderAll): reset to the first page.
+function renderCardGrid(gridId, groups, idPrefix) {
+  gridLimits[gridId] = GRID_PAGE;
+  gridState[gridId]  = { groups, idPrefix };
+  paintGrid(gridId);
+}
+// "Show more" click: reveal one more page, keep what's already shown.
+function bumpGrid(gridId) {
+  gridLimits[gridId] = (gridLimits[gridId] || GRID_PAGE) + GRID_PAGE;
+  paintGrid(gridId);
+}
+
 function renderEventsGrid(filtered) {
   const grid = document.getElementById('eventsGrid');
   const countEl = document.getElementById('searchMatchCount');
@@ -1945,16 +1992,7 @@ function renderEventsGrid(filtered) {
     return;
   }
 
-  grid.innerHTML = `<div class="events-grid">${sessions.map((group, idx) => renderSessionCard(group, idx)).join('')}</div>`;
-  grid.querySelectorAll('.event-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const card = tab.closest('.event-card');
-      card.querySelectorAll('.event-tab').forEach(t => t.classList.remove('active'));
-      card.querySelectorAll('.event-tab-content').forEach(c => c.classList.remove('active'));
-      tab.classList.add('active');
-      card.querySelector(`.event-tab-content[data-tab="${tab.dataset.tab}"]`).classList.add('active');
-    });
-  });
+  renderCardGrid('eventsGrid', sessions, '');
 }
 
 function selectReport(cardId, repIdx) {
