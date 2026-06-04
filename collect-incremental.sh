@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Incremental Crashlytics collection — SELF-REPORTING (Telegram), autonomous.
 #
-#   Usage:  ./collect-incremental.sh [1d|3d|7d]      (default: 1d)
+#   Usage:  ./collect-incremental.sh [1d|3d|7d|90d]  (default: 1d)
 #           DRY=1 ./collect-incremental.sh 1d         (plan only: no collect/commit/Telegram)
 #           NO_TG=1 ./collect-incremental.sh          (run but don't send Telegram)
 #           NO_PUSH=1 ./collect-incremental.sh        (collect but don't commit/push)
@@ -23,8 +23,8 @@ HEARTBEAT=600                        # seconds between progress pings during a l
 # ── window arg ──────────────────────────────────────────────────────────────
 WINDOW="${1:-1d}"
 case "$WINDOW" in
-  1|1d) WINDOW=1d ;; 3|3d) WINDOW=3d ;; 7|7d|1w|week) WINDOW=7d ;;
-  *) echo "Usage: $0 [1d|3d|7d]"; exit 2 ;;
+  1|1d) WINDOW=1d ;; 3|3d) WINDOW=3d ;; 7|7d|1w|week) WINDOW=7d ;; 90|90d) WINDOW=90d ;;
+  *) echo "Usage: $0 [1d|3d|7d|90d]"; exit 2 ;;
 esac
 
 export HEADLESS=true LOGS_DIR=./data/logs COLLECT_LIMIT=0
