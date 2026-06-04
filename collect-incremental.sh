@@ -1,94 +1,113 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Incremental Crashlytics collection (the daily/normal workflow).
+# Incremental Crashlytics collection — SELF-REPORTING (Telegram), autonomous.
 #
 #   Usage:  ./collect-incremental.sh [1d|3d|7d]      (default: 1d)
-#           DRY=1 ./collect-incremental.sh 1d         (plan only, no collect)
+#           DRY=1 ./collect-incremental.sh 1d         (plan only: no collect/commit/Telegram)
+#           NO_TG=1 ./collect-incremental.sh          (run but don't send Telegram)
+#           NO_PUSH=1 ./collect-incremental.sh        (collect but don't commit/push)
 #
-# What it does, in order:
-#   1) AUTH CHECK — a quick discovery; if not logged in (Google sign-in / 0 issues)
-#      it ABORTS immediately so we never spin uselessly. Fix: `npm run setup`.
-#   2) For each version (newest first: 3.7.1 then 3.7.0):
-#        a) discovery (refresh issue list + counts)
-#        b) collect each issue SMALL → LARGE, only events inside the window
-#           (event_url dedup means already-collected events are skipped → fast).
-#
-# The window only limits how far back we fetch events; the events CSVs keep
-# accumulating across runs. Builds are read from data/version_releases.csv.
+# It reports to Telegram itself, so a cron job (or one manual run) does the whole
+# daily flow — discovery + collect + commit/push — with NO model tokens (no agent
+# in the loop). Order: discovery (90d refresh + login gate) → 3.7.1 (newest)
+# small→large → 3.7.0 small→large; only COLLECT uses the narrow window. Sends a
+# 10-min heartbeat while a long issue is collecting. Aborts cleanly (and pings
+# Telegram) if not logged in — never spins.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 cd "$(dirname "$0")"
 
-# Versions to collect, NEWEST FIRST. Add a new version at the front when it ships.
-VERSIONS=("3.7.1" "3.7.0")
+VERSIONS=("3.7.1" "3.7.0")          # newest first; add a new version at the front
+HEARTBEAT=600                        # seconds between progress pings during a long issue
 
 # ── window arg ──────────────────────────────────────────────────────────────
 WINDOW="${1:-1d}"
 case "$WINDOW" in
-  1|1d)        WINDOW=1d ;;
-  3|3d)        WINDOW=3d ;;
-  7|7d|1w|week) WINDOW=7d ;;
-  *) echo "Usage: $0 [1d|3d|7d]  (default 1d)"; exit 2 ;;
+  1|1d) WINDOW=1d ;; 3|3d) WINDOW=3d ;; 7|7d|1w|week) WINDOW=7d ;;
+  *) echo "Usage: $0 [1d|3d|7d]"; exit 2 ;;
 esac
 
-export HEADLESS=true
-export LOGS_DIR=./data/logs
-export COLLECT_LIMIT=0
-DRY="${DRY:-0}"
+export HEADLESS=true LOGS_DIR=./data/logs COLLECT_LIMIT=0
+DRY="${DRY:-0}"; NO_TG="${NO_TG:-0}"; NO_PUSH="${NO_PUSH:-0}"
 
-echo "════════════════════════════════════════════════════════════"
-echo "Incremental collection — window=$WINDOW  dry=$DRY  versions=${VERSIONS[*]}"
-echo "════════════════════════════════════════════════════════════"
+# ── Telegram self-reporting (token read at runtime, NOT committed) ────────────
+TG_ENV="$HOME/.claude/channels/telegram/.env"; TG_CHAT=8428080155
+tg () {
+  [ "$NO_TG" = "1" ] && return 0; [ "$DRY" = "1" ] && return 0
+  [ -f "$TG_ENV" ] || return 0
+  local tok; tok=$(grep -E '^TELEGRAM_BOT_TOKEN=' "$TG_ENV" | cut -d= -f2-)
+  [ -z "$tok" ] && return 0
+  curl -s -o /dev/null "https://api.telegram.org/bot${tok}/sendMessage" \
+    --data-urlencode "chat_id=${TG_CHAT}" --data-urlencode "text=$1" || true
+}
+
+echo "==== incremental collection  window=$WINDOW dry=$DRY ===="
+tg "▶️ Gyűjtés indul — window=$WINDOW (3.7.1 → 3.7.0, kicsitől nagyig). Self-reporting fut."
 
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
-# Discovery always runs at 90d: keeps issue totals accurate, ordering stable, and makes the
-# login check reliable (a logged-in account always has FaceKom issues in 90d, so "0 issues"
-# unambiguously means signed out). Only COLLECT uses the narrow $WINDOW.
-discover_version () { # $1=ver $2=build $3=icsv $4=ecsv  -> prints discovery output
-  ISSUE_VERSIONS="$1 ($2)" ISSUES_CSV="$3" EVENTS_CSV="$4" ISSUE_TIME_DEFAULT="90d" \
-    npm run discover 2>&1
-}
-
-AUTH_OK=0
+AUTH_OK=0; G171=0; G170=0
 for ver in "${VERSIONS[@]}"; do
-  build="$(build_of "$ver")"
-  if [ -z "$build" ]; then echo "!! no build for $ver in version_releases.csv — skipping"; continue; fi
+  build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
   icsv="./data/issues_${ver}.csv"; ecsv="./data/events_${ver}.csv"
+  vbefore=$(($(wc -l < "$ecsv")-1))
 
-  echo; echo "########## VERSION $ver ($build) ##########"
-  echo ">>> DISCOVERY ($ver, 90d refresh)"
-  out="$(discover_version "$ver" "$build" "$icsv" "$ecsv")"
-  echo "$out" | grep -E "Issue rows containing|Σ events_total|Saved worklist" || true
+  echo "## $ver ($build) discovery (90d)"
+  out="$(ISSUE_VERSIONS="$ver ($build)" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" ISSUE_TIME_DEFAULT=90d npm run discover 2>&1)"
+  echo "$out" | grep -E "Issue rows containing|Σ events_total" || true
 
-  # ── auth gate (only needs to pass once) ──
   if [ "$AUTH_OK" -eq 0 ]; then
     if echo "$out" | grep -q 'GlifWebSignIn\|Issue rows containing "FaceKom": 0'; then
-      echo "!! NOT LOGGED IN (Google sign-in / 0 issues). Run: npm run setup — then retry."
-      echo "!! Aborting without collecting (no useless spinning)."
+      echo "NOT LOGGED IN — aborting."
+      tg "🔑 Nem vagy belépve (lejárt a session). Futtasd: npm run setup — aztán újra: collect. (Nem tekertem feleslegesen.)"
       exit 3
     fi
     AUTH_OK=1
-    echo ">>> AUTH OK"
   fi
 
-  # ── order issues SMALL → LARGE by events_total (col 7); issue_name = col 2 ──
   order="$(awk -F, 'NR>1 && $7 ~ /^[0-9]+$/ {print $7"\t"$2}' "$icsv" | sort -n | cut -f2-)"
-  echo ">>> COLLECT ORDER ($ver, small→large):"; echo "$order" | sed 's/^/      - /'
-
   while IFS= read -r issue; do
     [ -z "$issue" ] && continue
-    echo; echo ">>> COLLECT $ver :: $issue"
-    if [ "$DRY" = "1" ]; then
-      echo "    (dry-run: would collect this issue, window=$WINDOW)"
-    else
-      ISSUE_VERSIONS="$ver ($build)" ISSUE_TYPES_LIST="$issue" \
-        ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" ISSUE_TIME_DEFAULT="$WINDOW" \
-        npm run collect 2>&1 | grep -E "Collecting|new events collected|Done. Total|BLOCKER|GlifWebSignIn" || true
+    if [ "$DRY" = "1" ]; then echo "   dry: would collect $ver :: $issue"; continue; fi
+    local_before=$(($(wc -l < "$ecsv")-1))
+    echo "## collect $ver :: $issue"
+    ISSUE_VERSIONS="$ver ($build)" ISSUE_TYPES_LIST="$issue" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" \
+      ISSUE_TIME_DEFAULT="$WINDOW" npm run collect > /tmp/_gfk_collect.out 2>&1 &
+    cpid=$!
+    secs=0
+    while kill -0 "$cpid" 2>/dev/null; do
+      sleep 30; secs=$((secs+30))
+      if [ $((secs % HEARTBEAT)) -eq 0 ]; then
+        nownew=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
+        tg "⏳ $ver $issue: +$nownew új eddig (window=$WINDOW)…"
+      fi
+    done
+    wait "$cpid" || true
+    if grep -q "BLOCKER\|GlifWebSignIn" /tmp/_gfk_collect.out; then
+      tg "🔑 Közben lejárt a session ($ver $issue). Lépj be (npm run setup) és indítsd újra: collect."
+      exit 3
     fi
+    newcnt=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
+    [ "$newcnt" -gt 0 ] && tg "✅ $ver $issue: +$newcnt új event"
   done <<< "$order"
+
+  vnew=$(( $(($(wc -l < "$ecsv")-1)) - vbefore ))
+  [ "$ver" = "3.7.1" ] && G171=$vnew; [ "$ver" = "3.7.0" ] && G170=$vnew
+  [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vnew új event (összes: $(($(wc -l < "$ecsv")-1)))"
 done
 
-echo; echo "════════════════════════════════════════════════════════════"
-echo "DONE — window=$WINDOW.  events: 3.7.1=$(($(wc -l < data/events_3.7.1.csv)-1)) | 3.7.0=$(($(wc -l < data/events_3.7.0.csv)-1))"
-echo "════════════════════════════════════════════════════════════"
+# ── commit + push (autonomous) ───────────────────────────────────────────────
+if [ "$DRY" = "1" ]; then echo "dry done"; exit 0; fi
+if [ "$NO_PUSH" != "1" ]; then
+  git add data/events_3.7.1.csv data/issues_3.7.1.csv data/events_3.7.0.csv data/issues_3.7.0.csv data/logs/ 2>/dev/null
+  if git diff --cached --quiet; then
+    echo "no changes to commit"
+  else
+    git commit -q -m "data: incremental collect (window=$WINDOW) — 3.7.1 +$G171, 3.7.0 +$G170
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" && git push -q origin development && echo "pushed"
+  fi
+fi
+
+tg "🎉 Gyűjtés kész — window=$WINDOW · 3.7.1 +$G171 · 3.7.0 +$G170 · commit+push kész. A dashboard pár perc múlva frissül."
+echo "==== DONE window=$WINDOW  3.7.1 +$G171  3.7.0 +$G170 ===="
