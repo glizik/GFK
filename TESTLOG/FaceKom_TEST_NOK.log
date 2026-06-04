@@ -1,0 +1,46 @@
+[Firebase/Crashlytics] Version 11.8.1
+Timestamp: 2026-06-01 15:32:15.336878+02:00
+Application start to finish AppDelegate launching
+Timestamp: 2026-06-01 15:32:15.349791+02:00
+PASSWORD_HASHES table created.
+Timestamp: 2026-06-01 15:32:15.357074+02:00
+REQUESTS table created
+Timestamp: 2026-06-01 15:32:15.357149+02:00
+REQUEST_DN table created
+Timestamp: 2026-06-01 15:32:15.357159+02:00
+SETTINGS table created.
+Timestamp: 2026-06-01 15:32:15.357196+02:00
+IDENTITIES table created
+Timestamp: 2026-06-01 15:32:15.357461+02:00
+IDENTITIES table keytype index created
+Timestamp: 2026-06-01 15:32:15.357470+02:00
+Showing After Launch Screen
+Timestamp: 2026-06-01 15:32:15.383103+02:00
+Application start to finish SceneDelegate launching
+Timestamp: 2026-06-01 15:32:15.468404+02:00
+No pincode hash
+Timestamp: 2026-06-01 15:32:15.497742+02:00
+No pincode hash
+Timestamp: 2026-06-01 15:32:15.498018+02:00
+Showing Loading Window
+Timestamp: 2026-06-01 15:32:15.503090+02:00
+Hiding Loading Window
+Timestamp: 2026-06-01 15:32:15.562064+02:00
+No pincode hash
+Timestamp: 2026-06-01 15:32:24.152680+02:00
+Request started: https://videoid-mobile-test.e-szigno.hu/assistance on <_NSMainThread: 0x10294f140>{number = 1, name = main}
+Timestamp: 2026-06-01 15:32:27.563531+02:00
+Data: {
+    "result": "OK"
+}
+Timestamp: 2026-06-01 15:32:27.669802+02:00
+FaceKom started from: videoId
+Timestamp: 2026-06-01 15:32:27.677950+02:00
+Request started: https://videoid-mobile-test.e-szigno.hu/identification/5dce43f0-e951-4462-b59e-4c84eaec3ae4-1780320153 on <_NSMainThread: 0x10294f140>{number = 1, name = main}
+Timestamp: 2026-06-01 15:32:42.576387+02:00
+Data: {
+    "result": "NOK",
+    "error": "UNAVAILABLE_CUSTOMER"
+}
+Timestamp: 2026-06-01 15:32:42.670408+02:00
+Debug session ended with code 9: killed

@@ -1,0 +1,184 @@
+[Firebase/Crashlytics] Version 11.8.1
+Timestamp: 2026-06-01 15:24:33.651846+02:00
+Application start to finish AppDelegate launching
+Timestamp: 2026-06-01 15:24:33.667628+02:00
+PASSWORD_HASHES table created.
+Timestamp: 2026-06-01 15:24:33.677080+02:00
+REQUESTS table created
+Timestamp: 2026-06-01 15:24:33.677172+02:00
+REQUEST_DN table created
+Timestamp: 2026-06-01 15:24:33.677183+02:00
+SETTINGS table created.
+Timestamp: 2026-06-01 15:24:33.677222+02:00
+IDENTITIES table created
+Timestamp: 2026-06-01 15:24:33.677669+02:00
+IDENTITIES table keytype index created
+Timestamp: 2026-06-01 15:24:33.677678+02:00
+Showing After Launch Screen
+Timestamp: 2026-06-01 15:24:33.705622+02:00
+Application start to finish SceneDelegate launching
+Timestamp: 2026-06-01 15:24:34.098195+02:00
+No pincode hash
+Timestamp: 2026-06-01 15:24:34.159947+02:00
+No pincode hash
+Timestamp: 2026-06-01 15:24:34.160237+02:00
+Showing Loading Window
+Timestamp: 2026-06-01 15:24:34.166375+02:00
+Hiding Loading Window
+Timestamp: 2026-06-01 15:24:34.231837+02:00
+No pincode hash
+Timestamp: 2026-06-01 15:26:34.848165+02:00
+Request started: https://videoid-mobile-test.e-szigno.hu/assistance on <_NSMainThread: 0x1068b3140>{number = 1, name = main}
+Timestamp: 2026-06-01 15:26:39.386202+02:00
+Data: {
+    "result": "OK"
+}
+Timestamp: 2026-06-01 15:26:39.488769+02:00
+FaceKom started from: videoId
+Timestamp: 2026-06-01 15:26:39.497390+02:00
+Request started: https://videoid-mobile-test.e-szigno.hu/identification/5dce43f0-e951-4462-b59e-4c84eaec3ae4-1780320153 on <_NSMainThread: 0x1068b3140>{number = 1, name = main}
+Timestamp: 2026-06-01 15:26:53.730802+02:00
+Data: {
+    "result": "OK",
+    "config": {
+        "token": "5dce43f0-e951-4462-b59e-4c84eaec3ae4-1780320153",
+        "faceKomUrl": "https:\/\/facekom-client-test.e-szigno.hu",
+        "document": {
+            "type": "id-card",
+            "number": "393248IE"
+        },
+        "lightSensorThreshold": {
+            "android": 1,
+            "ios": 2
+        },
+        "bandwidthThreshold": {
+            "up": 3,
+            "down": 4
+        }
+    }
+}
+Timestamp: 2026-06-01 15:26:53.820613+02:00
+FaceKom ID Verified
+Timestamp: 2026-06-01 15:26:53.844438+02:00
+FaceKom SelfService started
+Timestamp: 2026-06-01 15:26:54.967526+02:00
+FaceKom main listener started
+Timestamp: 2026-06-01 15:26:54.968623+02:00
+Successfully loaded config: VideoConfiguration(token: "5dce43f0-e951-4462-b59e-4c84eaec3ae4-1780320153", faceKomUrl: "https://facekom-client-test.e-szigno.hu", product: nil, bandwidthThreshold: eSzigno.BandwidthThreshold(down: 4, up: 3), lightSensorThreshold: eSzigno.LightSensorThreshold(ios: 2, android: 1), document: eSzigno.DocumentType(type: eSzigno.CardType.idCard, number: "393248IE"))
+Timestamp: 2026-06-01 15:26:54.992648+02:00
+FaceKom getSettings success
+Timestamp: 2026-06-01 15:26:55.163448+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.connecting)
+Timestamp: 2026-06-01 15:26:55.186531+02:00
+FaceKom status changed: connecting
+Timestamp: 2026-06-01 15:26:55.186582+02:00
+FaceKom connectSocket success
+Timestamp: 2026-06-01 15:26:55.257911+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.connected)
+Timestamp: 2026-06-01 15:26:55.257968+02:00
+FaceKom status changed: connected
+Timestamp: 2026-06-01 15:26:55.257986+02:00
+Facekom flow successfully started, Listening...
+Timestamp: 2026-06-01 15:26:55.487703+02:00
+FaceKom auth success
+Timestamp: 2026-06-01 15:26:55.488714+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: "voice-liveness-check", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["startVideo": 1, "voiceLivenessCheckNumber": 2572]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:26:55.562271+02:00
+FaceKom WebRTC started
+Timestamp: 2026-06-01 15:26:56.949551+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "voice-liveness-check", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:voice", message: Optional("success"))))
+Timestamp: 2026-06-01 15:26:59.945756+02:00
+FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check
+Timestamp: 2026-06-01 15:26:59.945850+02:00
+FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: nil
+Timestamp: 2026-06-01 15:26:59.949166+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "voice-liveness-check", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:face", message: Optional("success"))))
+Timestamp: 2026-06-01 15:27:00.000706+02:00
+FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check
+Timestamp: 2026-06-01 15:27:00.000743+02:00
+FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)
+Timestamp: 2026-06-01 15:27:00.001393+02:00
+Facekom successfully requested next-step from selfie
+Timestamp: 2026-06-01 15:27:00.985440+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: "deepfake-detection", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:27:01.036999+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "deepfake-detection", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:face", message: Optional("success"))))
+Timestamp: 2026-06-01 15:27:01.811798+02:00
+FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection
+Timestamp: 2026-06-01 15:27:01.811853+02:00
+FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil
+Timestamp: 2026-06-01 15:27:01.812384+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "deepfake-detection", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:card", message: Optional("success"))))
+Timestamp: 2026-06-01 15:27:04.567745+02:00
+FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection
+Timestamp: 2026-06-01 15:27:04.567790+02:00
+FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)
+Timestamp: 2026-06-01 15:27:04.568359+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:27:04.691867+02:00
+FaceKom PhotoUploader finalizePhoto: success
+Timestamp: 2026-06-01 15:27:13.272253+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.idFront(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["stopVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:27:13.329837+02:00
+FaceKom stopStream
+Timestamp: 2026-06-01 15:27:13.492734+02:00
+FaceKom PhotoUploader finalizePhoto: success
+Timestamp: 2026-06-01 15:27:24.672085+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.idBack(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:27:24.737153+02:00
+FaceKom PhotoUploader finalizePhoto: success
+Timestamp: 2026-06-01 15:27:33.682655+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.hologram(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["startVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:27:33.718927+02:00
+FaceKom WebRTC started
+Timestamp: 2026-06-01 15:27:49.705448+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.2, message: nil))
+Timestamp: 2026-06-01 15:27:54.386219+02:00
+Hologram in progress: 20.000000 %...
+Timestamp: 2026-06-01 15:27:54.386264+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.4, message: nil))
+Timestamp: 2026-06-01 15:27:56.695309+02:00
+Hologram in progress: 40.000000 %...
+Timestamp: 2026-06-01 15:27:56.695358+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.62, message: nil))
+Timestamp: 2026-06-01 15:27:59.412725+02:00
+Hologram in progress: 62.000000 %...
+Timestamp: 2026-06-01 15:27:59.412770+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.8, message: nil))
+Timestamp: 2026-06-01 15:28:01.560047+02:00
+Hologram in progress: 80.000000 %...
+Timestamp: 2026-06-01 15:28:01.560108+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 1.0, message: nil))
+Timestamp: 2026-06-01 15:28:03.907160+02:00
+Hologram in progress: 100.000000 %...
+Timestamp: 2026-06-01 15:28:03.907206+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: "id-back-video", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:28:09.249074+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.twoFactor(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["stopVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-06-01 15:28:22.908370+02:00
+FaceKom successfully requested next-step in hologram
+Timestamp: 2026-06-01 15:28:23.037681+02:00
+FaceKom stopStream
+Timestamp: 2026-06-01 15:28:23.051400+02:00
+Facekom get SMS token completed successfully
+Timestamp: 2026-06-01 15:28:23.775124+02:00
+Facekom set input: 5tmtdh, completed successfully
+Timestamp: 2026-06-01 15:28:51.759239+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.end(status: "finished", additionalData: nil))
+Timestamp: 2026-06-01 15:28:51.866504+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.disconnected)
+Timestamp: 2026-06-01 15:28:51.876588+02:00
+FaceKom status changed: disconnected
+Timestamp: 2026-06-01 15:28:51.876631+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.disconnected)
+Timestamp: 2026-06-01 15:28:51.877244+02:00
+FaceKom status changed: disconnected
+Timestamp: 2026-06-01 15:28:51.877255+02:00
+Facekom finished with state: finished
+Timestamp: 2026-06-01 15:28:51.894090+02:00
+FaceKom finished with type: approve
+Timestamp: 2026-06-01 15:28:53.063416+02:00
+Facekom flow closed
+Timestamp: 2026-06-01 15:28:53.067856+02:00
+FaceKom user initiated closing from: end, isAlreadyClosed: true
+Timestamp: 2026-06-01 15:28:53.078300+02:00
