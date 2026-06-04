@@ -46,6 +46,13 @@ tg "▶️ Gyűjtés indul — window=$WINDOW (3.7.1 → 3.7.0, kicsitől nagyig
 
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
+# kill a pid and all its descendants (npm → npx → node → chromium); macOS has no setsid
+kill_tree () {
+  local p="$1" c
+  for c in $(pgrep -P "$p" 2>/dev/null); do kill_tree "$c"; done
+  kill -9 "$p" 2>/dev/null
+}
+
 AUTH_OK=0; G171=0; G170=0
 for ver in "${VERSIONS[@]}"; do
   build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
@@ -76,6 +83,16 @@ for ver in "${VERSIONS[@]}"; do
     cpid=$!
     secs=0
     while kill -0 "$cpid" 2>/dev/null; do
+      # Session can expire mid-collect → Firebase redirects to Google's login page
+      # (GlifWebSignIn) and the collector hangs forever on "Event #1 sek=?". Detect it
+      # LIVE (checked before sleeping, so within ~30s), kill the hung tree, and abort —
+      # never spin out +0 heartbeats on a dead session.
+      if grep -q "BLOCKER\|GlifWebSignIn" /tmp/_gfk_collect.out; then
+        kill_tree "$cpid"; wait "$cpid" 2>/dev/null
+        tg "🔑 Közben lejárt a session ($ver $issue) — leállítottam. Lépj be (npm run setup) és indítsd újra: collect."
+        echo "NOT LOGGED IN (mid-collect) — aborting."
+        exit 3
+      fi
       sleep 30; secs=$((secs+30))
       if [ $((secs % HEARTBEAT)) -eq 0 ]; then
         nownew=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
