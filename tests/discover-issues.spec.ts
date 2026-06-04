@@ -283,11 +283,25 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
     has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE }),
   });
 
-  // List virtualises — nudge to stabilise rendering before counting.
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(500);
-  await page.mouse.wheel(0, -600);
-  await page.waitForTimeout(500);
+  // The dashboard's data can lag well behind domcontentloaded (the
+  // crash-free/trends widgets keep spinning), so the issue list often
+  // renders empty for several seconds after navigation. Poll until at
+  // least one issue row appears before counting — otherwise a still-
+  // loading table is scraped as 0 FaceKom issues (a race that silently
+  // skips a whole version). List virtualises, so nudge while we wait.
+  let anyRows = 0;
+  for (let attempt = 0; attempt < 12; attempt++) {   // up to ~30s
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(500);
+    await page.mouse.wheel(0, -600);
+    await page.waitForTimeout(500);
+    anyRows = await page.locator('a.link-wrapper').count();
+    if (anyRows > 0) break;
+    await page.waitForTimeout(1500);
+  }
+  if (anyRows === 0) {
+    console.log('⚠️  Issue list still empty after waiting — page may not have loaded.');
+  }
 
   const found = await issueAnchors.count();
   console.log(`🔍 Issue rows containing "${ISSUE_BASE}": ${found}`);
