@@ -354,6 +354,7 @@
 
   /* Report view (aborts grouped by day) */
   .report-panel.collapsed { display: none; }
+  .rep-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
   .report-table .rep-day td { background: var(--surface2); font-weight: 700; color: var(--accent); border-top: 1px solid var(--border); }
   .report-table .rep-subtotal td { color: var(--muted); font-size: 11px; font-style: italic; border-bottom: 1px solid var(--border); }
   .report-table .rep-total td { border-top: 3px double var(--text); font-weight: 700; color: #fff; background: var(--surface2); }
@@ -403,9 +404,9 @@
       <div class="stat-sub">Firebase reported</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Raw Collected</div>
+      <div class="stat-label">Collected</div>
       <div class="stat-value" id="statCollected" style="color:var(--green)">—</div>
-      <div class="stat-sub">incl. cross-rank dupes</div>
+      <div class="stat-sub">events we hold</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Unique Sessions</div>
@@ -425,10 +426,10 @@
   <div class="section" id="reportSection">
     <div class="section-header" onclick="toggleReport()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="reportToggleIcon">▶</span>Report <span class="count" id="reportSubtitle"></span>
+        <span class="toggle-icon" id="reportToggleIcon">▶</span>Report <span class="count" id="reportSubtitle"></span>
       </div>
     </div>
-    <div class="report-panel" id="reportPanel">
+    <div class="report-panel collapsed" id="reportPanel">
       <div id="reportTable"></div>
     </div>
   </div>
@@ -436,10 +437,10 @@
   <div class="section" id="ganttSection">
     <div class="section-header" onclick="toggleGantt()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon open" id="ganttToggleIcon">▶</span>Day Timeline <span class="count" id="ganttSubtitle"></span>
+        <span class="toggle-icon" id="ganttToggleIcon">▶</span>Day Timeline <span class="count" id="ganttSubtitle"></span>
       </div>
     </div>
-    <div class="gantt-section-panel" id="ganttPanel">
+    <div class="gantt-section-panel collapsed" id="ganttPanel">
       <div class="gantt-toolbar">
         <div class="gantt-daynav">
           <button class="btn btn-ghost btn-sm" id="ganttPrev" onclick="ganttDay(-1)">← Prev</button>
@@ -572,15 +573,6 @@
   <div id="gCardBg" class="gantt-modal-bg" onclick="closeGanttCard()"></div>
   <div id="gCardModal" class="gantt-modal"></div>
 
-  <div id="discoverBg" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.72)" onclick="closeDiscoverModal()"></div>
-  <div id="discoverModal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:501;width:min(92vw,660px);max-height:80vh;background:var(--surface);border:1px solid var(--border);border-radius:12px;flex-direction:column">
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0">
-      <span id="discoverModalTitle" style="font-size:13px;font-weight:700;flex:1">⬇️ — discover + collect</span>
-      <button class="btn btn-ghost btn-sm" onclick="closeDiscoverModal()">✕</button>
-    </div>
-    <pre id="discoverOutput" style="flex:1;overflow-y:auto;padding:14px 18px;font-size:11px;font-family:monospace;color:var(--muted);background:var(--bg);white-space:pre-wrap;word-break:break-word;margin:0;border-radius:0 0 12px 12px"></pre>
-  </div>
-
 </div>
 
 <script>
@@ -656,6 +648,8 @@ function copyToClipboard(text, btn) {
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let issues = [], events = [], releases = [], currentEventsForDisplay = [];
+let issuesByVersion = {};            // version → parsed issue rows (for version-scoped coverage)
+let reportNPOnly = false;            // Report: show only users who never passed
 let activeIssueIds = new Set();
 let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all', analyticsVersionFilter = 'all';
 let eventsVersionFilter = 'all';
@@ -734,6 +728,7 @@ async function ensureVersionsLoaded() {
 }
 
 function renderAll() {
+  recomputeOutcomeScope();   // refresh the page-wide version+outcome scope first
   renderGlobalFilters();
   renderStats();
   renderIssueChips();
@@ -761,6 +756,7 @@ async function loadData() {
     releases = releasesCsv ? parseCsv(releasesCsv) : [];
     const issues370 = issuesCsv370 ? parseCsv(issuesCsv370).map(parseIssueRow) : [];
     const issues371 = issuesCsv371 ? parseCsv(issuesCsv371).map(parseIssueRow) : [];
+    issuesByVersion = { '3.7.0': issues370, '3.7.1': issues371 };
     issues = mergeIssuesByName(issues370, issues371);
 
     events = []; loadedVersions = new Set();
@@ -815,7 +811,7 @@ function arrMedian(arr) {
 }
 
 function buildStepFunnel() {
-  const allSessions = buildAllSessions();
+  const allSessions = buildAllSessions(gScopedEvents());
   const total = allSessions.length;
 
   const sessionStepData = allSessions.map(group => {
@@ -963,7 +959,7 @@ function buildUserOutcomes(groups) {
     const passed = idx >= 0;
     const prior = passed ? tries.slice(0, idx) : tries;   // tries before the first approve
     users.push({
-      key, passed,
+      key, passed, firstStart: tries[0]?.start || 0,
       attempts: passed ? idx + 1 : tries.length,
       hadAbort: prior.some(t => t.outcome === 'aborted'),
       hadFail:  prior.some(t => t.outcome === 'failed' || t.outcome === 'reject'),
@@ -1347,10 +1343,15 @@ function renderStepFunnel() {
 // ── Stats ─────────────────────────────────────────────────────────────────────
 function renderStats() {
   const activeIssues = issues.filter(i => activeIssueIds.has(String(i.rank)));
-  const totalEv    = activeIssues.reduce((s, i) => s + i.events_total, 0);
-  const collected  = activeIssues.reduce((s, i) => s + i.processed_events, 0);
-  const pct        = totalEv ? Math.round(collected / totalEv * 100) : 0;
-  const allSessions = buildAllSessions();
+  // Coverage = events we actually HAVE for the selected version(s) ÷ events Crashlytics
+  // reports for them. (processed_events is cumulative across collect re-runs, so it
+  // over-counts — using the count of events we hold gives the true ~100% coverage.)
+  const vers = gVersionFilter === 'all' ? Object.keys(issuesByVersion) : [gVersionFilter];
+  const totalEv   = vers.flatMap(v => issuesByVersion[v] || []).reduce((s, i) => s + (i.events_total || 0), 0);
+  const haveEv    = events.filter(evVersionMatch).length;   // version-scoped, outcome-independent
+  const pct       = totalEv ? Math.round(haveEv / totalEv * 100) : 0;
+  // Session stats follow the page-wide version+outcome filter.
+  const allSessions = buildAllSessions(gScopedEvents());
   const uniqueSess  = allSessions.length;
 
   // Per-session outcome: approve wins; also count sessions that recovered after a failure
@@ -1365,7 +1366,7 @@ function renderStats() {
 
   document.getElementById('statIssues').textContent    = activeIssues.length;
   document.getElementById('statEvents').textContent    = totalEv || '—';
-  document.getElementById('statCollected').textContent = collected;
+  document.getElementById('statCollected').textContent = haveEv;
   document.getElementById('statSessions').textContent  = uniqueSess || '—';
   document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
   document.getElementById('statInsight').textContent   = uniqueSess
@@ -1401,13 +1402,13 @@ function deduplicateGroupEvents(group) {
   return group.filter((_, idx) => !removed.has(idx));
 }
 
-function buildAllSessions() {
+function buildAllSessions(src = events) {
   const sessionMap = new Map();
-  for (const ev of events) {
+  for (const ev of src) {
     const key = ev.session_id_base || ev.session_event_key || ev.event_id;
     if (!sessionMap.has(key)) {
       const group = ev.session_id_base
-        ? events.filter(e => e.session_id_base === ev.session_id_base)
+        ? src.filter(e => e.session_id_base === ev.session_id_base)
         : [ev];
       group.sort((a, b) => {
         const ri = (+a.report_index || 0) - (+b.report_index || 0);
@@ -2212,15 +2213,6 @@ function parseEventDate(ev) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-const TL_EVENT_HEADERS = [
-  'event_url','issue_id','session_event_key','session_id_full','session_id_base','report_index','event_id',
-  'user_id_base','user_id_suffix','identification_link','app_version','os_version','os_major_version','model','date',
-  'crash_kind','nserror_code','nserror_domain','source','status','configuration',
-  'breadcrumbs_status','nslocalized_description','orientation_device','ram_free_mib','jailbroken','orientation_os',
-  'outcome','reason','last_step','steps_reached','screen_views','n_status_changes',
-  'first_breadcrumb_ts','last_breadcrumb_ts','session_elapsed_s',
-];
-
 // Hungarian public holidays 2025-2027 (Good Friday included since 2017)
 const HU_HOLIDAYS = new Set([
   '2025-01-01','2025-03-15','2025-04-18','2025-04-20','2025-04-21',
@@ -2253,45 +2245,51 @@ function renderTimeline() {
   const now = new Date();
   const winStart = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth(), tlPageDate.getDate());
   const winEnd   = new Date(winStart); winEnd.setDate(winEnd.getDate() + 13);
+  const dayKeyOf = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
-  const allDates    = events.map(ev => parseEventDate(ev)).filter(Boolean);
+  // Per-FaceKom-USER outcomes (passed vs not passed) — same model as the Step Funnel's
+  // "User outcomes". Each user is placed on the day of their first attempt.
+  const userOutcomes = buildUserOutcomes(buildAllSessions(gScopedEvents()));
+  const userDays = userOutcomes
+    .filter(u => u.firstStart)
+    .map(u => ({ date: new Date(u.firstStart), passed: u.passed }));
+
+  const allDates    = userDays.map(u => u.date);
   const hasPrevData = allDates.some(d => d < winStart);
   const hasNextData = allDates.some(d => d > winEnd);
   const nextStart   = new Date(winStart); nextStart.setDate(nextStart.getDate() + 14);
   const isCurrentPeriod = nextStart > now;
   const isNextDisabled  = isCurrentPeriod || !hasNextData;
 
-  // Auto-navigate to 2-week window containing most recent event
-  const windowHasData = events.some(ev => { const d = parseEventDate(ev); return d && d >= winStart && d <= winEnd; });
-  if (!windowHasData && events.length > 0) {
-    const latest = allDates.sort((a, b) => b - a)[0];
+  // Auto-navigate to the 2-week window containing the most recent user.
+  const windowHasData = allDates.some(d => d >= winStart && d <= winEnd);
+  if (!windowHasData && allDates.length > 0) {
+    const latest = allDates.slice().sort((a, b) => b - a)[0];
     if (latest) {
       tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate() - 13);
       renderTimeline(); return;
     }
   }
 
-  const dayMap = new Map();
-  for (const ev of events) {
-    const d = parseEventDate(ev);
-    if (!d) continue;
-    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (!dayMap.has(k)) dayMap.set(k, []); dayMap.get(k).push(ev);
+  const dayMap = new Map();   // dayKey → { passed, notpassed }
+  for (const u of userDays) {
+    const k = dayKeyOf(u.date);
+    if (!dayMap.has(k)) dayMap.set(k, { passed: 0, notpassed: 0 });
+    if (u.passed) dayMap.get(k).passed++; else dayMap.get(k).notpassed++;
   }
 
   // Always generate all 14 days (including empty ones)
   const days = [];
   for (let i = 0; i < 14; i++) {
     const d = new Date(winStart); d.setDate(d.getDate() + i);
-    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    days.push({ key: k, date: d, evs: dayMap.get(k) || [] });
+    days.push({ key: dayKeyOf(d), date: d, o: dayMap.get(dayKeyOf(d)) || { passed: 0, notpassed: 0 } });
   }
 
   const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const rangeLabel = `${fmtDate(winStart)} – ${fmtDate(winEnd)}, ${winEnd.getFullYear()}`;
 
   const subtitle = document.getElementById('timelineSubtitle');
-  if (subtitle) subtitle.textContent = `— ${rangeLabel}`;
+  if (subtitle) subtitle.textContent = `— ${rangeLabel} · users by first attempt`;
 
   const container = document.getElementById('tlChartContainer');
 
@@ -2302,49 +2300,39 @@ function renderTimeline() {
   </div>`;
 
   const legendHtml = `<div class="tl-legend">
-    ${[{color:'var(--green)',label:'Approved'},{color:'var(--yellow)',label:'Failed'},{color:'var(--red)',label:'Aborted'},{color:'var(--muted)',label:'Other'}]
+    ${[{color:'var(--green)',label:'Passed'},{color:'var(--red)',label:'Not passed'}]
       .map(l=>`<span class="tl-legend-item"><span class="tl-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')}
   </div>`;
 
   const CHART_H = 260, DATE_H = 42;
-  const maxCount = Math.max(1, ...days.map(d => d.evs.length));
+  const maxCount = Math.max(1, ...days.map(d => d.o.passed + d.o.notpassed));
   const SEGS = [
-    { key: 'other',   color: 'var(--muted)'  },
-    { key: 'aborted', color: 'var(--red)'    },
-    { key: 'failed',  color: 'var(--yellow)' },
-    { key: 'approve', color: 'var(--green)'  },
+    { key: 'notpassed', color: 'var(--red)'   },
+    { key: 'passed',    color: 'var(--green)' },
   ];
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const todayKey = dayKeyOf(now);
 
-  const colsHtml = days.map(({ key: dayKey, date: d, evs: dayEvents }) => {
+  const colsHtml = days.map(({ key: dayKey, date: d, o }) => {
     const redDay   = isHuRedDay(d);
     const isToday  = dayKey === todayKey;
     const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekday   = d.toLocaleDateString('en-US', { weekday: 'short' });
-    const total = dayEvents.length;
+    const total = o.passed + o.notpassed;
     const dateStyle = redDay ? ' style="color:var(--red);font-weight:700"' : '';
     if (total === 0) {
-      return `<div class="tl-col${isToday ? ' tl-col-today' : ''}" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — no events">
+      return `<div class="tl-col${isToday ? ' tl-col-today' : ''}" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — no users">
         <div class="tl-col-total" style="opacity:0.25">0</div>
         <div class="tl-col-bars" style="height:4px;background:var(--surface2);border-radius:3px;opacity:0.35"></div>
         <div class="tl-col-date"${dateStyle}>${esc(dateLabel)}<br>${esc(weekday)}</div>
       </div>`;
     }
-    const outcomes = { approve: 0, failed: 0, aborted: 0, other: 0 };
-    for (const ev of dayEvents) {
-      const o = normalizeOutcome(deriveOutcome(ev));
-      if (o === 'approve') outcomes.approve++;
-      else if (o === 'failed') outcomes.failed++;
-      else if (o === 'aborted') outcomes.aborted++;
-      else outcomes.other++;
-    }
     const barH = Math.round(total / maxCount * CHART_H);
     const pct  = n => total ? Math.round(n / total * 100) : 0;
-    const segsHtml = SEGS.filter(s => outcomes[s.key] > 0).map(s => {
-      const p = pct(outcomes[s.key]); const segH = Math.round(p / 100 * barH);
+    const segsHtml = SEGS.filter(s => o[s.key] > 0).map(s => {
+      const p = pct(o[s.key]); const segH = Math.round(p / 100 * barH);
       return `<div class="tl-col-seg" style="height:${segH}px;background:${s.color}">${segH >= 22 ? p + '%' : ''}</div>`;
     }).join('');
-    return `<div class="tl-col${isToday ? ' tl-col-today' : ''}" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — ${total} events">
+    return `<div class="tl-col${isToday ? ' tl-col-today' : ''}" onclick="filterToDay('${escAttr(dayKey)}')" title="${esc(dateLabel)} — ${total} users · ${o.passed} passed / ${o.notpassed} not passed">
       <div class="tl-col-total">${total}</div>
       <div class="tl-col-bars" style="height:${barH}px">${segsHtml}</div>
       <div class="tl-col-date"${dateStyle}>${esc(dateLabel)}<br>${esc(weekday)}</div>
@@ -2380,23 +2368,20 @@ function renderTimeline() {
     `</div>` +
     `<div class="tl-x-axis"></div>`;
 
-  const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
-  const dlEl = document.getElementById('tlDownloads');
-  if (isLocal) {
-    dlEl.innerHTML = `<div class="tl-download-row">
-      <span style="font-size:11px;color:var(--muted);align-self:center">Download:</span>
-      ${[
-        { label: 'Last 1h',  time: '1h'  },
-        { label: 'Last 12h', time: '12h' },
-        { label: 'Last 1d',  time: '1d'  },
-        { label: 'Last 3d',  time: '3d'  },
-        { label: 'Last 1w',  time: '7d'  },
-        { label: 'All',      time: '90d' },
-      ].map(w => `<button class="btn btn-ghost btn-sm" onclick="triggerPipeline('${w.time}','${w.label}')">⬇️ ${esc(w.label)}</button>`).join('')}
-    </div>`;
-  } else {
-    dlEl.innerHTML = '';
-  }
+  // Overall user-outcomes summary bar (same as the Step Funnel's "User outcomes").
+  const nUsers   = userOutcomes.length;
+  const passedN  = userOutcomes.filter(u => u.passed).length;
+  const npN      = nUsers - passedN;
+  const passedPct = nUsers ? Math.round(passedN / nUsers * 100) : 0;
+  const npPct     = Math.max(0, 100 - passedPct);
+  const sumEl = document.getElementById('tlDownloads');
+  sumEl.innerHTML = nUsers ? `<div class="flow-outcomes">
+    <div class="flow-outcomes-label">User outcomes — per FaceKom user / final verdict (${passedN} of ${nUsers} passed, ${passedPct}%)</div>
+    <div class="flow-outcomes-bar">
+      ${passedPct > 0 ? `<div class="flow-outcome-seg" style="width:${passedPct}%;background:var(--green)"><span class="flow-outcome-label">${passedN} passed · ${passedPct}%</span></div>` : ''}
+      ${npPct > 0 ? `<div class="flow-outcome-seg" style="width:${npPct}%;background:var(--red)"><span class="flow-outcome-label">${npN} not passed · ${npPct}%</span></div>` : ''}
+    </div>
+  </div>` : '';
 }
 
 function filterToDay(dayKey) {
@@ -2433,6 +2418,51 @@ function toggleGantt() {
 }
 function gFilterActive() { return gOutcomeFilter !== 'all' || gVersionFilter !== 'all' || !!gFkFilter; }
 
+// ── Global scope: version + outcome filter (applied page-wide) ──────────────────
+// approve/failed/aborted/other = per-Firebase-session outcome; passed/notpassed =
+// per-FaceKom-USER verdict (a user passes if ANY of their tries approved). Recomputed
+// each render into gAllowedBases (a Set of session_id_base, or null = no filtering).
+let gAllowedBases = null;
+function evVersionMatch(ev) { return gVersionFilter === 'all' || (ev.app_version || '').startsWith(gVersionFilter); }
+function recomputeOutcomeScope() {
+  gAllowedBases = null;
+  if (gOutcomeFilter === 'all') return;
+  const byBase = new Map();
+  for (const ev of events) {
+    if (!evVersionMatch(ev)) continue;
+    const k = ev.session_id_base || ev.event_id || '?';
+    if (!byBase.has(k)) byBase.set(k, []);
+    byBase.get(k).push(ev);
+  }
+  gAllowedBases = new Set();
+  const sessOutcome = evs => {
+    const group = deduplicateGroupEvents(evs.slice().sort((a, b) => (+a.report_index || 0) - (+b.report_index || 0)));
+    return normalizeOutcome(deriveSessionOutcome(group));
+  };
+  if (gOutcomeFilter === 'passed' || gOutcomeFilter === 'notpassed') {
+    // Group sessions into FaceKom users; a user passes if any session approved.
+    const userMap = new Map();   // userKey → { bases:[], passed:bool }
+    for (const [k, evs] of byBase) {
+      const fk = fkBase(evs.map(facekomSessionId).find(Boolean) || '');
+      const uk = fk ? 'fk:' + fk : 'fb:' + k;
+      if (!userMap.has(uk)) userMap.set(uk, { bases: [], passed: false });
+      const u = userMap.get(uk);
+      u.bases.push(k);
+      if (sessOutcome(evs) === 'approve') u.passed = true;
+    }
+    for (const u of userMap.values())
+      if (gOutcomeFilter === 'passed' ? u.passed : !u.passed) for (const b of u.bases) gAllowedBases.add(b);
+  } else {
+    for (const [k, evs] of byBase) if (sessOutcome(evs) === gOutcomeFilter) gAllowedBases.add(k);
+  }
+}
+function evOutcomeMatch(ev) {
+  if (!gAllowedBases) return true;
+  return gAllowedBases.has(ev.session_id_base || ev.event_id || '?');
+}
+// Events passing BOTH the version and outcome filter — the page-wide data source.
+function gScopedEvents() { return events.filter(ev => evVersionMatch(ev) && evOutcomeMatch(ev)); }
+
 // Server-side start of a session report = "FaceKom SelfService started" crumb (falls back to event date).
 function gStartTs(ev) {
   const s = serverStartLog(ev.logs || []);
@@ -2465,8 +2495,8 @@ function gOutcomeColor(outcome) {
 function fkBase(fk) { return fk || ''; }
 
 function buildGanttModel() {
-  // Version scope first, so day-nav only offers days that have the selected version.
-  const scoped = gVersionFilter === 'all' ? events : events.filter(e => (e.app_version||'').startsWith(gVersionFilter));
+  // Version + outcome scope first, so day-nav only offers matching days.
+  const scoped = gScopedEvents();
   const dayKeysSet = new Set();
   for (const ev of scoped) { const k = gDayKeyOf(gStartTs(ev)); if (k) dayKeysSet.add(k); }
   const dayKeys = [...dayKeysSet].sort();
@@ -2516,12 +2546,8 @@ function buildGanttModel() {
     });
   }
 
-  // filters (version already applied at event scope): fk keeps whole users; outcome narrows tries
+  // version + outcome already applied at event scope (gScopedEvents); fk keeps whole users
   if (gFkFilter) users = users.filter(u => (u.fk||'').toLowerCase().includes(gFkFilter.toLowerCase()) || u.tries.some(t => (t.sessId||'').includes(gFkFilter)));
-  if (gOutcomeFilter !== 'all') {
-    users = users.map(u => ({ ...u, tries: u.tries.filter(t => normalizeOutcome(t.outcome) === gOutcomeFilter) })).filter(u => u.tries.length);
-    users.forEach(u => { u.uStart = Math.min(...u.tries.map(t=>t.start)); u.uEnd = Math.max(...u.tries.map(t=>t.end)); });
-  }
 
   // Greedy interval packing by user span → minimal number of lines (= peak parallel users that day).
   // Each user keeps all its tries together on its assigned line; non-overlapping users share a line.
@@ -2728,7 +2754,7 @@ function toggleReport() {
 // Group ALL version-scoped events into FaceKom-session lanes (same grouping as buildGanttModel,
 // but across every day instead of the selected one). Each lane = one FaceKom session.
 function buildReportSessions() {
-  const scoped = gVersionFilter === 'all' ? events : events.filter(e => (e.app_version||'').startsWith(gVersionFilter));
+  const scoped = gScopedEvents();
   const fbMap = new Map();
   for (const ev of scoped) {
     const tk = ev.session_id_base || ev.event_id || '?';
@@ -2774,11 +2800,14 @@ function renderReport() {
   const laneAbortExits = u => u.tries.reduce((s, t) => s + deriveAbortExits(t.group).aborts.length, 0);
   const allLanes = buildReportSessions();
   // User-level "never passed" (no try ever approved) — same unit as the Step-funnel's "not passed".
-  const neverPassed = allLanes.filter(u => !u.tries.some(t => normalizeOutcome(t.outcome) === 'approve')).length;
-  const aborts = allLanes.filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0);
+  const neverPassedFn = u => !u.tries.some(t => normalizeOutcome(t.outcome) === 'approve');
+  const neverPassed = allLanes.filter(neverPassedFn).length;
+  let aborts = allLanes.filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0);
+  if (reportNPOnly) aborts = aborts.filter(neverPassedFn);   // item 6: only users who never passed
+  const npToggle = `<div class="rep-toolbar"><button class="filter-btn${reportNPOnly?' active':''}" onclick="toggleReportNP()" title="csak azok a userek, akik egyszer sem jutottak át">⛔ Only never-passed (${neverPassed})</button></div>`;
   if (!aborts.length) {
-    if (sub) sub.textContent = '0 aborts';
-    host.innerHTML = `<div class="empty">No aborted sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
+    if (sub) sub.textContent = reportNPOnly ? '0 never-passed' : '0 aborts';
+    host.innerHTML = npToggle + `<div class="empty">No ${reportNPOnly?'never-passed':'aborted'} sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
     return;
   }
   const byDay = new Map();
@@ -2838,12 +2867,14 @@ function renderReport() {
   const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td><span style="color:var(--red)">⛔ ${neverPassed} never passed</span></td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
   if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ⛔ ${neverPassed} user${neverPassed!==1?'s':''} never passed · ${days.length} day${days.length!==1?'s':''}`;
-  host.innerHTML = `<div class="table-wrap"><table class="gantt-list-table report-table">
+  host.innerHTML = npToggle + `<div class="table-wrap"><table class="gantt-list-table report-table">
     <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Last step - wait</th><th>Duration</th><th>Outcome</th><th>Dev task</th></tr></thead>
     <tbody>${bodyRows}</tbody>
     <tfoot>${totalRow}</tfoot>
   </table></div>`;
 }
+
+function toggleReportNP() { reportNPOnly = !reportNPOnly; renderReport(); }
 
 // Click a FaceKom id in the Report → jump the Day timeline to that session's day and filter to it.
 function reportFilterFk(fk, dayKey) {
@@ -2861,7 +2892,7 @@ function renderGlobalFilters() {
   const el = document.getElementById('globalFilters');
   if (!el) return;
   const vOpts = [['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All']];
-  const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', '']];
+  const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', ''], ['passed', 'Passed (user)', 'btn-green'], ['notpassed', 'Not passed (user)', 'btn-red']];
   const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
@@ -2933,100 +2964,6 @@ function closeGanttCard() {
   const modal = document.getElementById('gCardModal');
   modal.style.display = 'none'; modal.innerHTML = '';
   renderGantt();
-}
-
-// ── Last-1h discover + download ───────────────────────────────────────────────
-let _discoverES = null;
-
-function _pipelineAppend(txt) {
-  const el = document.getElementById('discoverOutput');
-  if (!el) return;
-  el.textContent += txt;
-  el.scrollTop = el.scrollHeight;
-}
-
-function triggerPipeline(timeParam, label) {
-  const output = document.getElementById('discoverOutput');
-  const title  = document.getElementById('discoverModalTitle');
-  if (output) output.textContent = '';
-  if (title)  title.textContent = `⬇️ ${label} — discover + collect`;
-  document.getElementById('discoverBg').style.display = 'block';
-  document.getElementById('discoverModal').style.display = 'flex';
-
-  if (_discoverES) { _discoverES.close(); _discoverES = null; }
-
-  const q = timeParam ? `?time=${encodeURIComponent(timeParam)}` : '';
-
-  // ── Phase 1: Discover ──────────────────────────────────────────────────────
-  _pipelineAppend(`══ Phase 1 / Discover  (time=${timeParam || 'default'}) ══\n\n`);
-  _discoverES = new EventSource(`/api/discover${q}`);
-
-  _discoverES.addEventListener('output', e => {
-    try { _pipelineAppend(JSON.parse(e.data).text || ''); } catch {}
-  });
-
-  _discoverES.addEventListener('done', e => {
-    _discoverES.close(); _discoverES = null;
-    let code = 1; try { code = JSON.parse(e.data).code; } catch {}
-    if (code !== 0) { _pipelineAppend(`\n⚠️ Discover exited with code ${code}. Stopping.\n`); return; }
-
-    // ── Phase 2: Collect ─────────────────────────────────────────────────────
-    _pipelineAppend(`\n\n══ Phase 2 / Collect  (time=${timeParam || 'default'}) ══\n\n`);
-    _discoverES = new EventSource(`/api/collect${q}`);
-
-    _discoverES.addEventListener('output', e2 => {
-      try { _pipelineAppend(JSON.parse(e2.data).text || ''); } catch {}
-    });
-
-    _discoverES.addEventListener('done', async e2 => {
-      _discoverES.close(); _discoverES = null;
-      let code2 = 1; try { code2 = JSON.parse(e2.data).code; } catch {}
-      _pipelineAppend(`\n\n══ Phase 3 / Download ══\n`);
-      if (code2 !== 0) _pipelineAppend(`⚠️ Collect exited with code ${code2}.\n`);
-
-      _pipelineAppend('Refreshing dashboard…\n');
-      await loadData();
-      _pipelineAppend('✅ Done.\n');
-    });
-
-    _discoverES.onerror = () => {
-      if (_discoverES) { _discoverES.close(); _discoverES = null; }
-      _pipelineAppend('\n⚠️ Collect connection lost.\n');
-    };
-  });
-
-  _discoverES.onerror = () => {
-    if (_discoverES) { _discoverES.close(); _discoverES = null; }
-    _pipelineAppend('\n⚠️ Cannot reach server. Is it running?\n  npm run serve\n');
-  };
-}
-
-function closeDiscoverModal() {
-  if (_discoverES) { _discoverES.close(); _discoverES = null; }
-  document.getElementById('discoverBg').style.display = 'none';
-  document.getElementById('discoverModal').style.display = 'none';
-}
-
-function downloadEvents(windowMs) {
-  const now = Date.now();
-  const filtered = windowMs === 0 ? events : events.filter(ev => {
-    const d = parseEventDate(ev);
-    if (!d) return false;
-    return now - d.getTime() <= windowMs;
-  });
-  const rows = [
-    TL_EVENT_HEADERS.join(','),
-    ...filtered.map(ev => TL_EVENT_HEADERS.map(h => {
-      const v = String(ev[h] ?? '');
-      return (v.includes(',') || v.includes('"') || v.includes('\n')) ? `"${v.replace(/"/g, '""')}"` : v;
-    }).join(',')),
-  ];
-  const a = document.createElement('a');
-  const label = windowMs === 0 ? 'all' : `${windowMs / 3_600_000}h`;
-  a.download = `events_${label}_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
 
 // ── Developer section ─────────────────────────────────────────────────────────
