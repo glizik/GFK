@@ -53,6 +53,20 @@ kill_tree () {
   kill -9 "$p" 2>/dev/null
 }
 
+# Pull the underlying failure reason out of a Playwright log when a run died on a
+# NETWORK / navigation / timeout error — as opposed to a login expiry, which is
+# handled separately (BLOCKER/GlifWebSignIn). Reads the log on stdin; echoes ONE
+# descriptive line (empty if nothing matched). The "page.goto:" line is matched
+# first because it carries both the net::ERR_* code AND the failing URL; bare
+# net:: codes, Playwright timeouts, HTTP status lines and raw socket errors are
+# caught as fallbacks. Used so a flaky network aborts loudly with the real cause
+# instead of silently reporting "+0 / no changes".
+net_err () {
+  grep -hoE \
+    'page\.goto: .*|net::ERR_[A-Z_]+|[Tt]imeout of [0-9]+ms exceeded|(received |status code )?[0-9]{3} (Forbidden|Unauthorized|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Timeout)|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|getaddrinfo ENOTFOUND[^ ]*' \
+    | head -1
+}
+
 AUTH_OK=0; G171=0; G170=0
 for ver in "${VERSIONS[@]}"; do
   build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
@@ -62,6 +76,17 @@ for ver in "${VERSIONS[@]}"; do
   echo "## $ver ($build) discovery (90d)"
   out="$(ISSUE_VERSIONS="$ver ($build)" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" ISSUE_TIME_DEFAULT=90d npm run discover 2>&1)"
   echo "$out" | grep -E "Issue rows containing|Σ events_total" || true
+
+  # Network / navigation failure in discovery (NOT a login expiry) — bail loudly
+  # with the real underlying error instead of falling through to a misleading +0.
+  reason="$(printf '%s\n' "$out" | net_err)"
+  if [ -n "$reason" ]; then
+    echo "NETWORK ERROR (discovery $ver) — aborting: $reason"
+    tg "⚠️ Hálózati hiba a felderítésnél ($ver) — NEM login. A headless böngésző nem érte el a Firebase-t:
+$reason
+Most nem gyűjtöttem tovább. Ha újra van net, indítsd újra: collect."
+    exit 4
+  fi
 
   if [ "$AUTH_OK" -eq 0 ]; then
     if echo "$out" | grep -q 'GlifWebSignIn\|Issue rows containing "FaceKom": 0'; then
@@ -93,6 +118,15 @@ for ver in "${VERSIONS[@]}"; do
         echo "NOT LOGGED IN (mid-collect) — aborting."
         exit 3
       fi
+      reason="$(net_err < /tmp/_gfk_collect.out)"
+      if [ -n "$reason" ]; then
+        kill_tree "$cpid"; wait "$cpid" 2>/dev/null
+        tg "⚠️ Hálózati hiba gyűjtés közben ($ver $issue) — NEM login:
+$reason
+Leállítottam (nem őröltem tovább a többi issue-t). Ha újra van net, indítsd újra: collect."
+        echo "NETWORK ERROR (mid-collect $ver $issue) — aborting: $reason"
+        exit 4
+      fi
       sleep 30; secs=$((secs+30))
       if [ $((secs % HEARTBEAT)) -eq 0 ]; then
         nownew=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
@@ -103,6 +137,14 @@ for ver in "${VERSIONS[@]}"; do
     if grep -q "BLOCKER\|GlifWebSignIn" /tmp/_gfk_collect.out; then
       tg "🔑 Közben lejárt a session ($ver $issue). Lépj be (npm run setup) és indítsd újra: collect."
       exit 3
+    fi
+    reason="$(net_err < /tmp/_gfk_collect.out)"
+    if [ -n "$reason" ]; then
+      tg "⚠️ Hálózati hiba gyűjtés közben ($ver $issue) — NEM login:
+$reason
+Leállítottam. Ha újra van net, indítsd újra: collect."
+      echo "NETWORK ERROR (collect $ver $issue) — aborting: $reason"
+      exit 4
     fi
     newcnt=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
     [ "$newcnt" -gt 0 ] && tg "✅ $ver $issue: +$newcnt új event"
