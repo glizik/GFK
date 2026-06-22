@@ -9,7 +9,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: [['list']],
-  outputDir: '/tmp/gfk-test-results',
+  outputDir: './playwright/test-results',
   use: {
     headless: process.env.HEADLESS === 'true',
     storageState: fs.existsSync('auth/session.json') ? 'auth/session.json' : undefined,
