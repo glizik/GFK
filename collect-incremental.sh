@@ -42,7 +42,7 @@ tg () {
 }
 
 echo "==== incremental collection  window=$WINDOW dry=$DRY ===="
-tg "▶️ Gyűjtés indul — window=$WINDOW (3.7.1 → 3.7.0, kicsitől nagyig). Self-reporting fut."
+tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}, kicsitől nagyig). Self-reporting fut."
 
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
