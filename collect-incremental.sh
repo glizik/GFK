@@ -17,7 +17,7 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-VERSIONS=(${COLLECT_VERSIONS:-3.7.1 3.7.0})   # newest first; override e.g. COLLECT_VERSIONS="3.7.0"
+VERSIONS=(${COLLECT_VERSIONS:-3.8.0 3.7.1 3.7.0})   # newest first; override e.g. COLLECT_VERSIONS="3.8.0"
 HEARTBEAT=600                        # seconds between progress pings during a long issue
 
 # ── window arg ──────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ net_err () {
     | head -1
 }
 
-AUTH_OK=0; G171=0; G170=0
+AUTH_OK=0; SUMMARY=""   # SUMMARY accumulates "<ver> +<n>" per collected version (version-agnostic)
 for ver in "${VERSIONS[@]}"; do
   build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
   icsv="./data/issues_${ver}.csv"; ecsv="./data/events_${ver}.csv"
@@ -151,26 +151,29 @@ Leállítottam. Ha újra van net, indítsd újra: collect."
   done <<< "$order"
 
   vnew=$(( $(($(wc -l < "$ecsv")-1)) - vbefore ))
-  [ "$ver" = "3.7.1" ] && G171=$vnew; [ "$ver" = "3.7.0" ] && G170=$vnew
+  SUMMARY="${SUMMARY:+$SUMMARY · }$ver +$vnew"
   [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vnew új event (összes: $(($(wc -l < "$ecsv")-1)))"
 done
 
 # ── pre-process JSON for the dashboard (one fetch instead of per-event logs) ──
 echo "## build dashboard JSON"
-node build-data.js || echo "⚠️  build-data.js failed (dashboard falls back to CSV+logs)"
+node build-data.js "${VERSIONS[@]}" || echo "⚠️  build-data.js failed (dashboard falls back to CSV+logs)"
 
 # ── commit + push (autonomous) ───────────────────────────────────────────────
 if [ "$DRY" = "1" ]; then echo "dry done"; exit 0; fi
 if [ "$NO_PUSH" != "1" ]; then
-  git add data/events_3.7.1.csv data/issues_3.7.1.csv data/events_3.7.0.csv data/issues_3.7.0.csv data/events_3.7.1.json data/events_3.7.0.json data/logs/ 2>/dev/null
+  for v in "${VERSIONS[@]}"; do
+    git add "data/events_${v}.csv" "data/issues_${v}.csv" "data/events_${v}.json" 2>/dev/null
+  done
+  git add data/logs/ 2>/dev/null
   if git diff --cached --quiet; then
     echo "no changes to commit"
   else
-    git commit -q -m "data: incremental collect (window=$WINDOW) — 3.7.1 +$G171, 3.7.0 +$G170
+    git commit -q -m "data: incremental collect (window=$WINDOW) — $SUMMARY
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" && git push -q origin development && echo "pushed"
   fi
 fi
 
-tg "🎉 Gyűjtés kész — window=$WINDOW · 3.7.1 +$G171 · 3.7.0 +$G170 · commit+push kész. A dashboard pár perc múlva frissül."
-echo "==== DONE window=$WINDOW  3.7.1 +$G171  3.7.0 +$G170 ===="
+tg "🎉 Gyűjtés kész — window=$WINDOW · $SUMMARY · commit+push kész. A dashboard pár perc múlva frissül."
+echo "==== DONE window=$WINDOW  $SUMMARY ===="
