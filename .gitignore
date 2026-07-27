@@ -6,3 +6,6 @@ test-results
 .DS_Store
 venv
 .claude
+
+# local nohup server log
+data/logs/server.out
