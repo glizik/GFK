@@ -693,7 +693,7 @@ function mergeIssuesByName(primary, secondary) {
 }
 
 let loadedVersions = new Set();
-function neededVersions() { return gVersionFilter === 'all' ? ['3.7.1', '3.7.0'] : [gVersionFilter]; }
+function neededVersions() { return gVersionFilter === 'all' ? ['3.8.0', '3.7.1', '3.7.0'] : [gVersionFilter]; }
 
 // One event's log (breadcrumbs), concurrency-limited by the caller.
 async function fetchEventLog(ev) {
@@ -746,9 +746,10 @@ function renderAll() {
 async function loadData() {
   try {
     const ts = Date.now();
-    const [issuesCsv370, issuesCsv371, releasesCsv, reviewedRaw, invRaw] = await Promise.all([
+    const [issuesCsv370, issuesCsv371, issuesCsv380, releasesCsv, reviewedRaw, invRaw] = await Promise.all([
       fetch(`data/issues_3.7.0.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/issues_3.7.1.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
+      fetch(`data/issues_3.8.0.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/reviewed_sessions.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/investigations.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
@@ -757,8 +758,9 @@ async function loadData() {
     releases = releasesCsv ? parseCsv(releasesCsv) : [];
     const issues370 = issuesCsv370 ? parseCsv(issuesCsv370).map(parseIssueRow) : [];
     const issues371 = issuesCsv371 ? parseCsv(issuesCsv371).map(parseIssueRow) : [];
-    issuesByVersion = { '3.7.0': issues370, '3.7.1': issues371 };
-    issues = mergeIssuesByName(issues370, issues371);
+    const issues380 = issuesCsv380 ? parseCsv(issuesCsv380).map(parseIssueRow) : [];
+    issuesByVersion = { '3.7.0': issues370, '3.7.1': issues371, '3.8.0': issues380 };
+    issues = mergeIssuesByName(mergeIssuesByName(issues370, issues371), issues380);
     // Attach per-version counts so the Issue Types table can follow the Version filter
     // (the merged events_total/processed_events sum BOTH versions → bogus >100% otherwise).
     for (const iss of issues) {
@@ -2934,7 +2936,7 @@ function reportFilterFk(fk, dayKey) {
 function renderGlobalFilters() {
   const el = document.getElementById('globalFilters');
   if (!el) return;
-  const vOpts = [['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All']];
+  const vOpts = [['3.8.0', '3.8.0'], ['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All']];
   const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', ''], ['passed', 'Passed (user)', 'btn-green'], ['notpassed', 'Not passed (user)', 'btn-red']];
   const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
   el.innerHTML =
