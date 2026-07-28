@@ -1,0 +1,650 @@
+{
+  "title": "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform": "apple",
+  "display_version": "3.8.0",
+  "build_version": "2811",
+  "issue_id": "1782c2128a0148281dace39bf8664159",
+  "session_id": "b60ed0a6690148b3b2b1d16a68420584_DNE_0_v2",
+  "event_timestamp": "Mon Jul 27 2026 13:57:49 GMT+0200 (Central European Summer Time)",
+  "logs_and_breadcrumbs": [
+    {
+      "timestamp": "Mon Jul 27 2026 13:27:52 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "EULAScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:27:53 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:28:11 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginSelectorScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:28:18 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "LoginStartScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:28:24 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "RegistrationSelectorScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:28:26 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "RegistrationUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:28:27 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "UserRegistrationScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:19 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PincodeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:27 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "EnableBiometryScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:28 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:34 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "AddDossierScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:49 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "UIDocumentPickerViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:53 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "AddDossierScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:55 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:29:56 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierDetailsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:30:11 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:30:24 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:20 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:24 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:28 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PackageUpgradeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:34 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:36 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:39 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "InnerQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:44 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:53 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PackageUpgradeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:31:56 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:32:32 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:32:37 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "AccountsViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:36:46 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:36:55 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "ImageChooserViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:36:58 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "UIAlertController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:37:00 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "ImageChooserViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:37:01 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:37:22 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PackageUpgradeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:39:32 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:16 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "ImageChooserViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:18 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:25 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:27 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "InnerQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:29 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:30 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PackageUpgradeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:40:37 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:41:28 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PackageUpgradeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:41:30 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:41:31 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SettingsScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:43:15 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:53:51 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PincodeScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:53:55 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoAssistanceScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:53:58 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom started from: Logged in videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:53:58 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom started with assistance: false",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:53:58 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:17 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom ID Verified",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:18 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdVerificationScreen"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:20 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom SelfService started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom getSettings success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: connecting",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom connectSocket success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: connected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "Facekom flow successfully started, Listening...",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom auth success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"startVideo\": 1, \"voiceLivenessCheckNumber\": 4622]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:29 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfieViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:29 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom WebRTC started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:31 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:31 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:31 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:voice\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:31 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:31 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:31 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:36 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: custom(type: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:37 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:37 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:37 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:46 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:46 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:46 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:card\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:54:46 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:55:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: idFront(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"stopVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:55:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom stopStream",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:55:22 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdCardViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:56:10 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: idBack(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:56:41 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: hologram(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:56:41 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "InfoViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:56:57 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdCardViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:56:57 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "HologramViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:56:57 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom WebRTC started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:25 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: custom(type: \"id-back-video\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:39 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: twoFactor(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"stopVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:39 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom stopStream",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:39 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "TwoFactorViewController"
+      }
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:49 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: end(status: \"finished\", additionalData: nil)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:49 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:49 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Mon Jul 27 2026 13:57:49 GMT+0200 (Central European Summer Time)",
+      "message": "Facekom finished with state: finished",
+      "source": "crashlytics"
+    }
+  ]
+}
