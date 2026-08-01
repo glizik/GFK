@@ -729,6 +729,7 @@ async function ensureVersionsLoaded() {
 
 function renderAll() {
   recomputeOutcomeScope();   // refresh the page-wide version+outcome scope first
+  recomputeDocScope();       // …then the document-type scope (both feed gScopedEvents)
   computeIssueHeld();        // per-issue held counts for the Issue Types coverage
   renderGlobalFilters();
   renderStats();
@@ -1058,19 +1059,40 @@ function getAbortCause(group) {
   return null;
 }
 
-function detectDocType(group) {
+// Document type. Two sources, in priority order:
+//  1. 3.8.1+ logs it explicitly at ID-verification time — the FIRST step, so it is
+//     known even for sessions that abort long before idFront:
+//       "FaceKom ID Verified, document type: id-card|passport|driving-licence"
+//  2. Older builds (≤3.8.0) only reveal it later, via the idFront/idBack step:
+//       "nextStep: idFront(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, …)"
+// Canonical keys are the SDK's CardType raw values; DOC_LABELS is the display text.
+const DOC_LABELS = { 'id-card': 'identity card', 'passport': 'passport', 'driving-licence': 'driving licence' };
+function normDocType(raw) {
+  const t = String(raw || '').toLowerCase();
+  if (!t) return null;
+  if (t.includes('passport')) return 'passport';
+  if (t.includes('driving') || t.includes('licence') || t.includes('license')) return 'driving-licence';
+  if (t.includes('identity') || t.includes('id-card') || t.includes('idcard') || t.includes('card')) return 'id-card';
+  return null;
+}
+function docTypeKey(group) {
+  let fallback = null;
   for (const ev of group) {
-    for (const log of ev.logs) {
-      const m = log.msg.match(/IDCardType\.(\w+)/);
-      if (!m) continue;
-      const t = m[1].toLowerCase();
-      if (t.includes('passport')) return 'passport';
-      if (t.includes('driving') || t.includes('licence') || t.includes('license')) return 'driving licence';
-      if (t.includes('identity') || t.includes('card')) return 'identity card';
-      return m[1];
+    for (const log of ev.logs || []) {
+      const msg = log.msg || '';
+      if (msg.includes('document type:')) {
+        const k = normDocType((msg.match(/document type:\s*([A-Za-z-]+)/) || [])[1]);
+        if (k) return k;                       // explicit wins, even if seen late
+      }
+      if (!fallback && msg.includes('IDCardType.'))
+        fallback = normDocType((msg.match(/IDCardType\.(\w+)/) || [])[1]);
     }
   }
-  return null;
+  return fallback;
+}
+function detectDocType(group) {
+  const k = docTypeKey(group);
+  return k ? (DOC_LABELS[k] || k) : null;
 }
 
 function renderSessionListItems(groups, labelFn) {
@@ -2188,6 +2210,7 @@ function renderSessionCard(group, idx) {
   const effOutcome = (inv && inv.outcome) ? inv.outcome : outcome;
   // Next to the outcome: the cause (reject reason / "user closed" / …) + last step — same as the Report.
   const notApprove = normalizeOutcome(effOutcome) !== 'approve';
+  const cardDocType = detectDocType(group);
   const cardCause = notApprove ? getAbortCause(group) : null;
   const cardLastStep = notApprove ? deriveLastStepSmart(primary) : null;
   const outcomeExtra = (cardCause || (cardLastStep && cardLastStep !== '—'))
@@ -2208,7 +2231,7 @@ function renderSessionCard(group, idx) {
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
         <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}</div>
+        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>
@@ -2445,6 +2468,7 @@ function filterToDay(dayKey) {
 // ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
 let gDayKey = null;
 let gOutcomeFilter = 'all', gVersionFilter = '3.7.1', gFkFilter = '';   // global filters (version is a key: 3.7.1 / 3.7.0 / all)
+let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
 const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
@@ -2461,7 +2485,7 @@ function toggleGantt() {
   panel.classList.toggle('collapsed', open);
   icon.classList.toggle('open', !open);
 }
-function gFilterActive() { return gOutcomeFilter !== 'all' || gVersionFilter !== 'all' || !!gFkFilter; }
+function gFilterActive() { return gOutcomeFilter !== 'all' || gVersionFilter !== 'all' || gDocFilter !== 'all' || !!gFkFilter; }
 
 // ── Global scope: version + outcome filter (applied page-wide) ──────────────────
 // approve/failed/aborted/other = per-Firebase-session outcome; passed/notpassed =
@@ -2505,8 +2529,37 @@ function evOutcomeMatch(ev) {
   if (!gAllowedBases) return true;
   return gAllowedBases.has(ev.session_id_base || ev.event_id || '?');
 }
-// Events passing BOTH the version and outcome filter — the page-wide data source.
-function gScopedEvents() { return events.filter(ev => evVersionMatch(ev) && evOutcomeMatch(ev)); }
+
+// ── Global scope: document type ────────────────────────────────────────────────
+// Same shape as the outcome scope: the type is a property of the whole Firebase
+// session (any one of its reports may carry the crumb), so it resolves to a Set of
+// session_id_base. 'unknown' = no doc-type crumb at all (pre-3.8.1 sessions that
+// aborted before idFront).
+let gDocBases = null;    // null = not filtering
+let gDocCounts = {};     // doc key → Firebase sessions in the current version scope
+function recomputeDocScope() {
+  const byBase = new Map();
+  for (const ev of events) {
+    if (!evVersionMatch(ev)) continue;
+    const k = ev.session_id_base || ev.event_id || '?';
+    if (!byBase.has(k)) byBase.set(k, []);
+    byBase.get(k).push(ev);
+  }
+  gDocCounts = {};
+  gDocBases = gDocFilter === 'all' ? null : new Set();
+  for (const [k, evs] of byBase) {
+    const doc = docTypeKey(evs) || 'unknown';
+    gDocCounts[doc] = (gDocCounts[doc] || 0) + 1;
+    if (gDocBases && doc === gDocFilter) gDocBases.add(k);
+  }
+}
+function evDocMatch(ev) {
+  if (!gDocBases) return true;
+  return gDocBases.has(ev.session_id_base || ev.event_id || '?');
+}
+
+// Events passing the version + outcome + document filter — the page-wide data source.
+function gScopedEvents() { return events.filter(ev => evVersionMatch(ev) && evOutcomeMatch(ev) && evDocMatch(ev)); }
 
 // Server-side start of a session report = "FaceKom SelfService started" crumb (falls back to event date).
 function gStartTs(ev) {
@@ -2938,12 +2991,21 @@ function renderGlobalFilters() {
   if (!el) return;
   const vOpts = [['3.8.0', '3.8.0'], ['3.7.1', '3.7.1'], ['3.7.0', '3.7.0'], ['all', 'All']];
   const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', ''], ['passed', 'Passed (user)', 'btn-green'], ['notpassed', 'Not passed (user)', 'btn-red']];
+  // Document type: explicit from 3.8.1 ("ID Verified, document type: …"), inferred
+  // from the idFront step on older builds. Counts are over the current version scope.
+  const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
+  const dCounts = gDocCounts;
   const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
     vOpts.map(([v, l]) => `<button class="filter-btn${gVersionFilter === v ? ' active' : ''}" onclick="setGlobalVersion('${v}')">${l}</button>`).join('') +
     `<span class="filter-label" style="margin-left:14px">Outcome</span>` +
     oOpts.map(([k, l, c]) => `<button class="filter-btn${c ? ' ' + c : ''}${gOutcomeFilter === k ? ' active' : ''}" onclick="setGlobalOutcome('${k}')">${l}</button>`).join('') +
+    `<span class="filter-label" style="margin-left:14px">Document</span>` +
+    dOpts.map(([k, l]) => {
+      const n = k === 'all' ? null : (dCounts[k] || 0);
+      return `<button class="filter-btn${gDocFilter === k ? ' active' : ''}" onclick="setGlobalDoc('${k}')">${l}${n !== null ? ` <span style="opacity:.6">${n}</span>` : ''}</button>`;
+    }).join('') +
     loadHint;
 }
 async function setGlobalVersion(v) {
@@ -2955,6 +3017,7 @@ async function setGlobalVersion(v) {
   renderAll();
 }
 function setGlobalOutcome(o) { gOutcomeFilter = o; renderAll(); }
+function setGlobalDoc(d) { gDocFilter = d; renderAll(); }
 
 function setGanttView(v) { gView = v; renderGantt(); }
 function setGanttFk(fk) { gFkFilter = fk; renderGantt(); }
