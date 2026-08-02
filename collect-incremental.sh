@@ -9,8 +9,9 @@
 #
 # It reports to Telegram itself, so a cron job (or one manual run) does the whole
 # daily flow — discovery + collect + commit/push — with NO model tokens (no agent
-# in the loop). Order: discovery (90d refresh + login gate) → 3.7.1 (newest)
-# small→large → 3.7.0 small→large; only COLLECT uses the narrow window. Sends a
+# in the loop). Order: for each version in VERSIONS (newest first) discovery (90d
+# refresh + login gate) → collect its issues small→large; only COLLECT uses the
+# narrow window. Sends a
 # 10-min heartbeat while a long issue is collecting. Aborts cleanly (and pings
 # Telegram) if not logged in — never spins.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +47,11 @@ tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}, kicsitől nagyig)
 
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
+# Data rows in a CSV (header excluded). A version collected for the FIRST time has no
+# events CSV yet: without this guard `wc -l` errored and the count became -1, so the
+# run reported one more new event than it actually collected.
+rows_of () { [ -f "$1" ] || { echo 0; return; }; echo $(( $(wc -l < "$1") - 1 )); }
+
 # kill a pid and all its descendants (npm → npx → node → chromium); macOS has no setsid
 kill_tree () {
   local p="$1" c
@@ -71,7 +77,7 @@ AUTH_OK=0; SUMMARY=""   # SUMMARY accumulates "<ver> +<n>" per collected version
 for ver in "${VERSIONS[@]}"; do
   build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
   icsv="./data/issues_${ver}.csv"; ecsv="./data/events_${ver}.csv"
-  vbefore=$(($(wc -l < "$ecsv")-1))
+  vbefore=$(rows_of "$ecsv")
 
   echo "## $ver ($build) discovery (90d)"
   out="$(ISSUE_VERSIONS="$ver ($build)" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" ISSUE_TIME_DEFAULT=90d npm run discover 2>&1)"
@@ -101,7 +107,7 @@ Most nem gyűjtöttem tovább. Ha újra van net, indítsd újra: collect."
   while IFS= read -r issue; do
     [ -z "$issue" ] && continue
     if [ "$DRY" = "1" ]; then echo "   dry: would collect $ver :: $issue"; continue; fi
-    local_before=$(($(wc -l < "$ecsv")-1))
+    local_before=$(rows_of "$ecsv")
     echo "## collect $ver :: $issue"
     ISSUE_VERSIONS="$ver ($build)" ISSUE_TYPES_LIST="$issue" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" \
       ISSUE_TIME_DEFAULT="$WINDOW" npm run collect > /tmp/_gfk_collect.out 2>&1 &
@@ -129,7 +135,7 @@ Leállítottam (nem őröltem tovább a többi issue-t). Ha újra van net, indí
       fi
       sleep 30; secs=$((secs+30))
       if [ $((secs % HEARTBEAT)) -eq 0 ]; then
-        nownew=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
+        nownew=$(( $(rows_of "$ecsv") - local_before ))
         tg "⏳ $ver $issue: +$nownew új eddig (window=$WINDOW)…"
       fi
     done
@@ -146,13 +152,13 @@ Leállítottam. Ha újra van net, indítsd újra: collect."
       echo "NETWORK ERROR (collect $ver $issue) — aborting: $reason"
       exit 4
     fi
-    newcnt=$(( $(($(wc -l < "$ecsv")-1)) - local_before ))
+    newcnt=$(( $(rows_of "$ecsv") - local_before ))
     [ "$newcnt" -gt 0 ] && tg "✅ $ver $issue: +$newcnt új event"
   done <<< "$order"
 
-  vnew=$(( $(($(wc -l < "$ecsv")-1)) - vbefore ))
+  vnew=$(( $(rows_of "$ecsv") - vbefore ))
   SUMMARY="${SUMMARY:+$SUMMARY · }$ver +$vnew"
-  [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vnew új event (összes: $(($(wc -l < "$ecsv")-1)))"
+  [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vnew új event (összes: $(rows_of "$ecsv"))"
 done
 
 # ── pre-process JSON for the dashboard (one fetch instead of per-event logs) ──
