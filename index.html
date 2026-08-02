@@ -2309,10 +2309,18 @@ function nextTimelinePage() {
   renderTimeline();
 }
 
-function renderTimeline() {
+// _retry guards the auto-navigation below: it re-enters renderTimeline once to jump to
+// the window holding the newest user. Anything beyond one hop means the window still
+// reads as empty, so we render it as-is instead of recursing until the stack blows —
+// renderTimeline runs BEFORE renderReport/renderGantt in renderAll, so a throw here
+// used to leave every section under it showing the previously selected version.
+function renderTimeline(_retry = 0) {
   const now = new Date();
   const winStart = new Date(tlPageDate.getFullYear(), tlPageDate.getMonth(), tlPageDate.getDate());
-  const winEnd   = new Date(winStart); winEnd.setDate(winEnd.getDate() + 13);
+  // End of the 14th day, not its midnight: user dates carry a time-of-day, so a
+  // midnight winEnd excluded the newest user from its own window and the auto-nav
+  // below kept re-centring on a window it judged empty.
+  const winEnd   = new Date(winStart); winEnd.setDate(winEnd.getDate() + 13); winEnd.setHours(23, 59, 59, 999);
   const dayKeyOf = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
   // Per-FaceKom-USER outcomes (passed vs not passed) — same model as the Step Funnel's
@@ -2331,11 +2339,11 @@ function renderTimeline() {
 
   // Auto-navigate to the 2-week window containing the most recent user.
   const windowHasData = allDates.some(d => d >= winStart && d <= winEnd);
-  if (!windowHasData && allDates.length > 0) {
+  if (!windowHasData && allDates.length > 0 && _retry === 0) {
     const latest = allDates.slice().sort((a, b) => b - a)[0];
     if (latest) {
       tlPageDate = new Date(latest.getFullYear(), latest.getMonth(), latest.getDate() - 13);
-      renderTimeline(); return;
+      renderTimeline(_retry + 1); return;
     }
   }
 
