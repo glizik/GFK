@@ -23,7 +23,7 @@ const path = require('path');
 const ROOT = __dirname;
 const DATA = path.join(ROOT, 'data');
 const LOGS = path.join(DATA, 'logs');
-const VERSIONS = process.argv.slice(2).length ? process.argv.slice(2) : ['3.8.0', '3.7.1', '3.7.0'];
+const VERSIONS = process.argv.slice(2).length ? process.argv.slice(2) : ['3.8.1', '3.8.0', '3.7.1', '3.7.0'];
 
 // ── CSV parsing (mirror of index.html parseCsv/splitLine) ────────────────────
 function splitLine(line) {

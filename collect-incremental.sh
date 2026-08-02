@@ -17,7 +17,7 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-VERSIONS=(${COLLECT_VERSIONS:-3.8.0 3.7.1 3.7.0})   # newest first; override e.g. COLLECT_VERSIONS="3.8.0"
+VERSIONS=(${COLLECT_VERSIONS:-3.8.1 3.8.0 3.7.1 3.7.0})   # newest first; override e.g. COLLECT_VERSIONS="3.8.0"
 HEARTBEAT=600                        # seconds between progress pings during a long issue
 
 # ── window arg ──────────────────────────────────────────────────────────────
