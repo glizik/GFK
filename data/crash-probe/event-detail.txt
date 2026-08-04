@@ -1,0 +1,218 @@
+Skip to main content
+search
+gmp_nav20_overview
+Project Overview
+settings
+Settings
+chevron_right
+Project shortcuts
+gmp_nav20_crashlytics
+Crashlytics
+keep
+gmp_nav20_app_distro
+App Distribution
+keep
+gmp_nav20_ga_latest_release
+Latest Release
+keep
+gmp_nav20_release_monitoring
+Release Monitoring
+keep
+gmp_nav20_performance
+Performance
+expand_more
+Show all
+Product categories
+Databases & Storage
+chevron_right
+Security
+chevron_right
+AI services
+chevron_right
+Hosting & Serverless
+chevron_right
+DevOps & Engagement
+chevron_right
+Analytics
+chevron_right
+Billing plan:
+Spark
+No-cost ($0/month)
+Upgrade
+NEW
+chevron_left
+Webszigno-dev
+arrow_drop_down
+plat_ios
+e-Szignó
+Crashlytics dashboard
+$s10FaceKomSDK13FKSelfServiceC21uploadLivenessV2Photo5imageySo7UIImageC_tYaKFyScCyyts5Error_pGXEfU_yycfU_TA
+EXC_BREAKPOINT
+content_copy
+ID: 738711...
+developer_guide
+FaceKomSDK
+Close
+keyboard_arrow_down
+0 notes
+filter_list
+Filter
+Event type = "Crashes"
+Versions = "3.8.0 (2811)"
+close
+date_range
+Selected date range:
+Last 90 days
+May 7 – Aug 4
+arrow_drop_down
+This issue has 7 crash events affecting 3 users
+keyboard_arrow_up
+spark
+AI insights
+lightbulb
+Data insights (3)
+help
+Level up your app development with Gemini in Firebase
+info
+tip:
+Good news! Gemini in Firebase now has a no-cost option. Learn more 
+Disclaimers:
+Gemini in Firebase is still under development and may give inaccurate information.
+Test any code it generates before using it in your apps.
+Use of Gemini in Firebase (no-cost) is governed by the Google Terms of Service  and the Generative AI prohibited use policy, so Gemini in Firebase may use your prompts and its responses to train its model.
+Get started
+Total events by version
+3.8.0 (2811)
+7
+
+Total events by version
+
+This chart is described by one or more grids. A grid row represents a time series. A grid column corresponds to a timestamp. By default, charts hide most columns. To display the hidden columns next to the activated column, use the Read previous item (up arrow) key until you access the column header, and then use the Activate button (enter) key.
+
+Data in this chart spans a time range from Thursday, May 7, 2026 at 12:00:00 AM Coordinated Universal Time to Tuesday, August 4, 2026 at 12:00:00 AM Coordinated Universal Time.
+
+Unpinning the X axis cursor allows the cursor to follow the mouse while hovering over the chart. The X axis cursor will always be pinned while using keyboard navigation to indicate that the values reflected in the tooltip or the legend are associated with the position of the X axis cursor.
+
+Data values on this chart range from a minimum of 0 to a maximum of 5.25.
+
+Populate data for table, "Line", on chart, "Total events by version"
+Grid for data, "Line", on chart, "Total events by version". Navigate this grid using arrow keys. Page Up and Page Down moves focus up and down by 10 rows. Home and End moves focus to the first and last cell in the current row. Ctrl+Home and Ctrl+End moves focus to the first and last cell of the grid.
+Audio
+
+To save memory, this table is inactive by default. To populate this table, click the "Populate data for table, "Line", on chart, "Total events by version"" button just prior to this table.
+
+If subsequent columns are omitted, activating a column header will reveal all subsequent columns up to the next revealed column.
+
+If subsequent rows are omitted, activating a row header will reveal all subsequent rows up to the next revealed row.
+
+Activating a grid cell will open the tooltip at this data point.
+
+Devices
+100%
+iPhone
+Operating systems
+100%
+iOS 26
+Device states
+0%
+background
+100%
+iPhone
+arrow_forward
+Events
+Event summary
+label
+App version:
+3.8.0 (2811)
+plat_ios
+OS version: ios
+iOS 26.5.2
+devices_other
+Model:
+iPhone 15 Pro
+access_time
+Date:
+Jul 31, 2026, 9:09:44 AM
+Loaded event received at Jul 31, 2026, 9:09:44 AM
+keyboard_arrow_left
+keyboard_arrow_right
+Stack trace
+Keys
+communities_filled
+Logs & Breadcrumbs
+Data
+Rollouts
+format_list_bulleted
+download
+content_copy
+Crashed: com.apple.main-thread
+EXC_BREAKPOINT 0x0000000184c6b800
+keyboard_arrow_up
+0
+libswiftCore.dylib
+_assertionFailure(_:_:file:line:flags:) + 168
+1
+arrow_drop_down
+libswift_Concurrency.dylib
+CheckedContinuation.resume(returning:) + 428
+arrow_right
+2
+FaceKomSDK
+$s10FaceKomSDK13FKSelfServiceC21uploadLivenessV2Photo5imageySo7UIImageC_tYaKFyScCyyts5Error_pGXEfU_yycfU_TA + 60
+3
+FaceKomSDK
+$s10FaceKomSDK15SocketIOManagerC07connectD07baseUrl14socketSettings11onCompleted0K5ErrorySS_AA18FKSocketIOSettingsCyyt_tcSgyAA0abM0OcSgtFyycfU0_ + 172
+4
+FaceKomSDK
+$s10FaceKomSDK15SocketIOManagerC21subscribeCommonEventsyyyycSgFySayypG_0D2IO0D10AckEmitterCtcfU_ + 504
+5
+SocketIO
+$s8SocketIO0A8IOClientC11handleEvent_4data17isInternalMessage7withAckySS_SayypGSbSitF + 736
+6
+SocketIO
+$s8SocketIO0A8IOClientC17handleClientEvent_4datayAA0aeF0O_SayypGtF + 344
+7
+SocketIO
+$s8SocketIO0A8IOClientC10didConnect11toNamespace7payloadySS_SDySSypGSgtF + 344
+8
+SocketIO
+$s8SocketIO0A8IOClientC12handlePacketyyAA0aE0VF + 644
+9
+SocketIO
+$s8SocketIO0A7ManagerC19_parseEngineMessage33_FEE990CFC310EDF111B3A4D77C509822LLyySSF + 356
+10
+SocketIO
+$s8SocketIO0A7ManagerC18parseEngineMessageyySSFyyYbcfU_TA + 28
+11
+SocketIO
+$sIegh_IeyBh_TR + 28
+12
+libdispatch.dylib
+_dispatch_call_block_and_release + 32
+22
+arrow_drop_down
+UIKitCore
+UIApplicationMain + 332
+23
+eSzigno
+main.swift:9
+main + 9
+24
+(Missing)
+Show all 13 threads
+notifications
+spark
+contact_support
+school
+light_mode
+Supercharge your development! Try Cloud Shell to access the built-in Firebase CLI and run Firebase emulators directly in a virtual machine.
+Click upgrade to learn how to claim a $300 free credit!
+PROD Release
+100% (7 events)
+This key's value is the same on all filtered events that have this key set.
+_Concurrency/CheckedContinuation.swift:172: Fatal error: SWIFT TASK CONTINUATION MISUSE: connectSocket(baseUrl:socketSettings:) tried to resume its continuation more than once returning ()!
+100% (7 events)
+This key's value is the same on all filtered events that have this key set.
+videoId
+100% (7 events)
+This key's value is the same on all filtered events that have this key set.

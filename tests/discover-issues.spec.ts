@@ -279,9 +279,13 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
   // Per discover.txt §3a: issue titles live inside a.fire-router-link-host,
   // and the actual text node is span.copy-target. We use the same outer
   // selector as collect.spec.ts (a.link-wrapper) so both stages agree.
-  const issueAnchors = page.locator('a.link-wrapper', {
-    has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE }),
-  });
+  // `mark.fire-highlight` is the SEARCH highlight, so this match only works while issuesQuery is
+  // set. With ISSUE_BASE="" (no text filter) take every row instead — that is the only way to see
+  // crash issues, whose titles are the crashing frame (e.g. "…uploadLivenessV2Photo… EXC_BREAKPOINT")
+  // and never contain the word "FaceKom".
+  const issueAnchors = ISSUE_BASE
+    ? page.locator('a.link-wrapper', { has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE }) })
+    : page.locator('a.link-wrapper');
 
   // The dashboard's data can lag well behind domcontentloaded (the
   // crash-free/trends widgets keep spinning), so the issue list often
