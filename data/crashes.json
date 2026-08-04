@@ -1,6 +1,6 @@
 {
   "generated": "2026-08-04T15:37:07.735Z",
-  "note": "Crash-type (fatal) Crashlytics issues. The normal collector only walks types=error (non-fatals), so these are scraped separately — see tests/crash-probe.spec.ts and crash_facekom_socket.md.",
+  "note": "FaceKom-related FATAL Crashlytics issues (types=crash). The normal collector only walks types=error (non-fatals), so these are scraped separately — see tests/crash-probe.spec.ts and crash_facekom_socket.md. Crashes in our own app code (not the SDK) are deliberately out of scope and not collected.",
   "issues": [
     {
       "issue_id": "738711ca2cdf94375b7a5cc6aeff47b2",
@@ -230,21 +230,6 @@
           ]
         }
       ]
-    },
-    {
-      "issue_id": "",
-      "title": "UITableView dataSource returned a nil cell — NSInternalInconsistencyException",
-      "symbol": "_userInfoForFileAndLine",
-      "blame": "eSzigno (saját kód)",
-      "exception": "NSInternalInconsistencyException",
-      "fatal_message": "UITableView dataSource returned a nil cell for row at index path: <NSIndexPath: 0 - 1>. Table view frame = (0 0; 393 783)",
-      "diagnosis": "cellForRowAt returned nil in our own code. Fresh issue, 3.8.0 only. Not collected yet.",
-      "events_total": 1,
-      "users_total": 1,
-      "version_range": "3.8.0",
-      "app_version": "3.8.0 (2811)",
-      "console_url": "https://console.firebase.google.com/u/0/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/?time=90d&versions=3.8.0%20(2811)&types=crash",
-      "events": []
     }
   ]
 }

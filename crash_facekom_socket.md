@@ -78,9 +78,8 @@ HEADLESS=true ISSUE_BASE="" ISSUE_QUERY="" ISSUE_QUERY_TYPES=crash \
   ISSUE_VERSIONS="3.8.0 (2811)" ISSUES_CSV=./data/issues_crash_3.8.0.csv npm run discover
 ```
 
-## A másik crash 3.8.0-ban
+## Hatókör
 
-`_userInfoForFileAndLine` — `NSInternalInconsistencyException: UITableView dataSource returned a
-nil cell for row at index path <0-1>` (Foundation, 1 esemény / 1 user, friss issue, csak 3.8.0).
-Ez **a mi kódunkban** van, nem az SDK-ban: egy `UITableView` `cellForRowAt` `nil`-t adott vissza.
-Külön kivizsgálandó.
+A crash-lista a saját appunk hibáit is visszaadja (3.8.0-ban pl. egy `UITableView`-s
+`NSInternalInconsistencyException`). Ezek **nem tartoznak ide**: se a `data/crashes.json`-be,
+se a begyűjtésbe nem kerülnek — csak a FaceKom SDK-hoz köthető crashek.
