@@ -303,6 +303,8 @@
   .crash-bc .bc-err { color: #fca5a5; }
   .crash-note { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 6px; }
   .crash-empty { font-size: 12px; color: var(--muted); padding: 2px 0 0 2px; }
+  @keyframes crashFlash { 0%,100% { background: transparent } 25%,75% { background: rgba(239,68,68,0.18) } }
+  .crash-ev.crash-flash { animation: crashFlash 1.6s ease; border-radius: 8px; }
 
   /* ── Day Timeline (Gantt swimlanes) ──────────────────────────────────── */
   .gantt-section-panel.collapsed { display: none; }
@@ -2214,6 +2216,11 @@ function renderSessionCard(group, idx) {
   const fkSess   = facekomSessionId(primary);
   const title = fkSess || fbSess || `Event ${idx + 1}`;   // just the id (no "FaceKom:" label)
 
+  const crashHit = crashForSession(fbSess);
+  const crashBadge = crashHit
+    ? ` <span class="badge badge-red" style="cursor:pointer" onclick="event.stopPropagation();jumpToCrash('${escAttr(fbSess)}')" title="${escAttr('Crash ugyanebben a Firebase sessionben: ' + (crashHit.issue.exception || 'crash'))}">💥 crash</span>`
+    : '';
+
   const attachedTasks = getTasksForSession(primary.session_id_base);
   const taskBadgesHtml = attachedTasks.map(t =>
     `<span class="task-badge" onclick="scrollToTask('${escAttr(t.id)}')" title="${escAttr(t.title)}">${esc(t.title.length > 16 ? t.title.slice(0, 16) + '…' : t.title)}</span>`
@@ -2276,7 +2283,7 @@ function renderSessionCard(group, idx) {
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
-        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
+        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
         <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
@@ -2911,6 +2918,40 @@ function toggleCrashes() {
   icon.classList.toggle('open', !open);
 }
 
+// A crash and the non-fatal report of the SAME Firebase session are two views of one moment
+// (the crash event and its sibling report end in the same second), so the two are cross-linked:
+// the session card gets a 💥 badge, and the crash card opens the session.
+function crashForSession(sessId) {
+  if (!sessId) return null;
+  for (const iss of (crashes.issues || []))
+    for (const ev of (iss.events || []))
+      if (ev.session_id_base === sessId) return { issue: iss, event: ev };
+  return null;
+}
+
+/** Crash card → the session card (loading that version first; crashes ignore the version filter). */
+async function openCrashSession(sessId, appVersion) {
+  const v = (appVersion || '').match(/^[\d.]+/)?.[0] || '';
+  if (v && APP_VERSIONS.includes(v) && gVersionFilter !== v) await setGlobalVersion(v);
+  else await ensureVersionsLoaded();
+  if (!events.some(e => e.session_id_base === sessId)) {
+    alert('Ehhez a sessionhöz nincs betöltött esemény — a crash event maga még nincs begyűjtve.');
+    return;
+  }
+  openGanttCard(sessId);
+}
+
+/** Session card → the crash entry it belongs to. */
+function jumpToCrash(sessId) {
+  const modal = document.getElementById('gCardModal');
+  if (modal && modal.style.display === 'block') closeGanttCard();
+  const panel = document.getElementById('crashPanel');
+  if (panel && panel.classList.contains('collapsed')) toggleCrashes();
+  const el = document.querySelector(`.crash-ev[data-sess="${sessId}"]`);
+  (el || document.getElementById('crashSection'))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (el) { el.classList.add('crash-flash'); setTimeout(() => el.classList.remove('crash-flash'), 1700); }
+}
+
 // Copy an id without swapping its text out (copyToClipboard's ✓ would make the row jump).
 function copyId(el, text) {
   copyToClipboard(text, null);
@@ -2970,6 +3011,7 @@ function renderCrashEvent(ev) {
     ev.app_version ? `<span>${esc(ev.app_version)}</span>` : '',
     ev.crashed_step ? `<span>lépés: <b>${esc(ev.crashed_step)}</b></span>` : '',
     ev.console_url ? `<a href="${escAttr(ev.console_url)}" target="_blank" rel="noopener">esemény ↗</a>` : '',
+    ev.session_id_base ? `<a href="#" onclick="event.preventDefault();openCrashSession('${escAttr(ev.session_id_base)}','${escAttr(ev.app_version || '')}')">session megnyitása ↓</a>` : '',
   ].filter(Boolean).join('');
 
   const stack = (ev.stack_trace || []).map(f =>
@@ -2978,7 +3020,7 @@ function renderCrashEvent(ev) {
   const bc = (ev.breadcrumbs || []).map(l =>
     `<div class="bc-ts">${esc(l.ts || '')}</div><div class="${l.type === 'error' ? 'bc-err' : 'bc-ts'}">${esc(l.type || '')}</div><div>${esc(l.msg || '')}</div>`).join('');
 
-  return `<div class="crash-ev">
+  return `<div class="crash-ev" data-sess="${escAttr(ev.session_id_base || '')}">
     <div class="crash-ev-row">${row}</div>
     ${stack ? `<details class="crash-sub"><summary>Stack trace (${(ev.stack_trace || []).length} frame)</summary>
       <div class="crash-pre">${stack}</div></details>` : ''}
