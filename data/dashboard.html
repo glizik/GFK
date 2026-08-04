@@ -279,6 +279,31 @@
   .attach-menu-item:hover { background: var(--border); }
   .attach-menu-item.attached { color: var(--accent2); }
 
+  /* ── Crashes (fatal issues, scraped separately from the non-fatals) ──── */
+  .crash-panel.collapsed { display: none; }
+  .crash-issue { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid #ef4444; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .crash-issue-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .crash-issue-title { font-size: 14px; font-weight: 700; color: #fff; }
+  .crash-issue-meta { font-size: 11px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .crash-fatal { font-family: monospace; font-size: 11px; color: #fca5a5; background: rgba(127,29,29,0.22); border-radius: 6px; padding: 7px 9px; margin-top: 9px; white-space: pre-wrap; word-break: break-word; }
+  .crash-diag { font-size: 12px; color: var(--text); margin-top: 8px; line-height: 1.5; }
+  .crash-ev { border-top: 1px solid var(--border); margin-top: 11px; padding-top: 10px; }
+  .crash-ev-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .crash-ev-row b { color: var(--text); font-weight: 600; }
+  .crash-id { font-family: monospace; font-size: 11px; color: var(--accent); cursor: pointer; }
+  .crash-id:hover { text-decoration: underline; }
+  .crash-sub { margin-top: 9px; }
+  .crash-sub summary { cursor: pointer; font-size: 11px; color: var(--muted); user-select: none; }
+  .crash-sub summary:hover { color: var(--text); }
+  .crash-pre { font-family: monospace; font-size: 11px; line-height: 1.55; margin-top: 7px; max-height: 320px; overflow: auto; background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+  .crash-pre .cf-mod { color: var(--accent2); }
+  .crash-pre .cf-n { color: var(--muted); display: inline-block; width: 22px; }
+  .crash-bc { display: grid; grid-template-columns: auto auto 1fr; gap: 2px 10px; align-items: baseline; }
+  .crash-bc .bc-ts { color: var(--muted); }
+  .crash-bc .bc-err { color: #fca5a5; }
+  .crash-note { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 6px; }
+  .crash-empty { font-size: 12px; color: var(--muted); padding: 2px 0 0 2px; }
+
   /* ── Day Timeline (Gantt swimlanes) ──────────────────────────────────── */
   .gantt-section-panel.collapsed { display: none; }
   .gantt-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -422,6 +447,17 @@
   <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
   <div class="global-filters" id="globalFilters"></div>
+
+  <div class="section" id="crashSection">
+    <div class="section-header" onclick="toggleCrashes()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon" id="crashToggleIcon">▶</span>Crashes <span class="count" id="crashSubtitle"></span>
+      </div>
+    </div>
+    <div class="crash-panel collapsed" id="crashPanel">
+      <div id="crashList"></div>
+    </div>
+  </div>
 
   <div class="section" id="reportSection">
     <div class="section-header" onclick="toggleReport()">
@@ -657,6 +693,7 @@ const sessionGroups = new Map(); // cardId → group array
 let devTasks = [];
 let reviewedSessions = new Set();
 let investigations = {};   // FaceKom UUID → { outcome, note, ts } — investigated + outcome override
+let crashes = { issues: [] };  // data/crashes.json — FATAL issues, collected outside the normal pipeline
 let attachMenuSessId = '';
 let tlPageDate = new Date();
 let csvFileHandle = null;
@@ -744,6 +781,7 @@ function renderAll() {
   renderStepFunnel();
   renderEventsFromActiveIssues();
   renderTimeline();
+  renderCrashes();
   renderReport();
   renderGantt();
   renderDevTasks();
@@ -752,14 +790,16 @@ function renderAll() {
 async function loadData() {
   try {
     const ts = Date.now();
-    const [issueCsvs, releasesCsv, reviewedRaw, invRaw] = await Promise.all([
+    const [issueCsvs, releasesCsv, reviewedRaw, invRaw, crashRaw] = await Promise.all([
       Promise.all(APP_VERSIONS.map(v =>
         fetch(`data/issues_${v}.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''))),
       fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/reviewed_sessions.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/investigations.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`data/crashes.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (invRaw && typeof invRaw === 'object') investigations = invRaw;
+    if (crashRaw && Array.isArray(crashRaw.issues)) crashes = crashRaw;
     releases = releasesCsv ? parseCsv(releasesCsv) : [];
     // Per-version issue lists (a version with no CSV yet — e.g. one just released —
     // simply yields an empty list, so it stays selectable without breaking anything).
@@ -2861,6 +2901,91 @@ function toggleReport() {
   const open  = !panel.classList.contains('collapsed');
   panel.classList.toggle('collapsed', open);
   icon.classList.toggle('open', !open);
+}
+
+function toggleCrashes() {
+  const panel = document.getElementById('crashPanel');
+  const icon  = document.getElementById('crashToggleIcon');
+  const open  = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', open);
+  icon.classList.toggle('open', !open);
+}
+
+// Copy an id without swapping its text out (copyToClipboard's ✓ would make the row jump).
+function copyId(el, text) {
+  copyToClipboard(text, null);
+  if (!el) return;
+  el.style.color = 'var(--green)';
+  setTimeout(() => { el.style.color = ''; }, 900);
+}
+
+// ── Crashes ───────────────────────────────────────────────────────────────────
+// FATAL issues (types=crash), which the normal collector never walks — it only iterates the
+// non-fatals (types=error). They come from data/crashes.json (see tests/crash-probe.spec.ts),
+// so this section is NOT affected by the version/outcome filters: it always shows everything
+// we have scraped, with per-event detail where we already pulled it.
+function renderCrashes() {
+  const host = document.getElementById('crashList');
+  const sub  = document.getElementById('crashSubtitle');
+  if (!host) return;
+  const list = crashes.issues || [];
+  const evTotal = list.reduce((a, i) => a + (+i.events_total || 0), 0);
+  const usTotal = list.reduce((a, i) => a + (+i.users_total || 0), 0);
+  const detailed = list.reduce((a, i) => a + (i.events || []).length, 0);
+  if (sub) sub.textContent = list.length
+    ? `${evTotal} crash · ${usTotal} user · ${list.length} issue · ${detailed} részletezve`
+    : '';
+  if (!list.length) { host.innerHTML = '<div class="crash-empty">Nincs begyűjtött crash.</div>'; return; }
+
+  host.innerHTML = list.map(iss => {
+    const meta = [
+      `<span><b>${iss.events_total || 0}</b> esemény · <b>${iss.users_total || 0}</b> user</span>`,
+      iss.version_range ? `<span>verziók: ${esc(iss.version_range)}</span>` : '',
+      iss.blame ? `<span>hol: ${esc(iss.blame)}</span>` : '',
+      iss.exception ? `<span>${esc(iss.exception)}</span>` : '',
+      iss.console_url ? `<a href="${escAttr(iss.console_url)}" target="_blank" rel="noopener">Crashlytics ↗</a>` : '',
+    ].filter(Boolean).join('');
+
+    const events = (iss.events || []).map(ev => renderCrashEvent(ev)).join('')
+      || '<div class="crash-note">Ehhez az issue-hoz még nem gyűjtöttünk be eseményt.</div>';
+
+    return `<div class="crash-issue">
+      <div class="crash-issue-head"><span class="crash-issue-title">${esc(iss.title || iss.symbol || 'crash')}</span></div>
+      <div class="crash-issue-meta">${meta}</div>
+      ${iss.fatal_message ? `<div class="crash-fatal">${esc(iss.fatal_message)}</div>` : ''}
+      ${iss.diagnosis ? `<div class="crash-diag">${esc(iss.diagnosis)}</div>` : ''}
+      ${events}
+    </div>`;
+  }).join('');
+}
+
+function renderCrashEvent(ev) {
+  const fk = ev.facekom_session || '';
+  const row = [
+    `<span>event id <b class="crash-id" onclick="copyId(this,'${escAttr(ev.event_id)}')" title="Másolás">${esc(ev.event_id)}</b></span>`,
+    fk ? `<span>FaceKom <b class="crash-id" onclick="copyId(this,'${escAttr(fk)}')" title="Másolás">${esc(fk)}</b></span>` : '',
+    ev.session_id_base ? `<span>Firebase <b class="crash-id" onclick="copyId(this,'${escAttr(ev.session_id_base)}')" title="Másolás">${esc(ev.session_id_base.slice(0, 12))}…</b></span>` : '',
+    ev.date ? `<span>${esc(ev.date)}</span>` : '',
+    ev.model ? `<span>${esc(ev.model)} · ${esc(ev.os_version || '')}</span>` : '',
+    ev.app_version ? `<span>${esc(ev.app_version)}</span>` : '',
+    ev.crashed_step ? `<span>lépés: <b>${esc(ev.crashed_step)}</b></span>` : '',
+    ev.console_url ? `<a href="${escAttr(ev.console_url)}" target="_blank" rel="noopener">esemény ↗</a>` : '',
+  ].filter(Boolean).join('');
+
+  const stack = (ev.stack_trace || []).map(f =>
+    `<div><span class="cf-n">${f.i}</span><span class="cf-mod">${esc(f.module)}</span>  ${esc(f.symbol)}</div>`).join('');
+
+  const bc = (ev.breadcrumbs || []).map(l =>
+    `<div class="bc-ts">${esc(l.ts || '')}</div><div class="${l.type === 'error' ? 'bc-err' : 'bc-ts'}">${esc(l.type || '')}</div><div>${esc(l.msg || '')}</div>`).join('');
+
+  return `<div class="crash-ev">
+    <div class="crash-ev-row">${row}</div>
+    ${stack ? `<details class="crash-sub"><summary>Stack trace (${(ev.stack_trace || []).length} frame)</summary>
+      <div class="crash-pre">${stack}</div></details>` : ''}
+    ${bc ? `<details class="crash-sub"><summary>Logs &amp; breadcrumbs (${(ev.breadcrumbs || []).length})</summary>
+      <div class="crash-pre"><div class="crash-bc">${bc}</div></div>
+      ${ev.breadcrumbs_note ? `<div class="crash-note">${esc(ev.breadcrumbs_note)}</div>` : ''}</details>` : ''}
+  </div>`;
 }
 
 // Group ALL version-scoped events into FaceKom-session lanes (same grouping as buildGanttModel,

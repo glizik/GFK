@@ -1,0 +1,250 @@
+{
+  "generated": "2026-08-04T15:37:07.735Z",
+  "note": "Crash-type (fatal) Crashlytics issues. The normal collector only walks types=error (non-fatals), so these are scraped separately — see tests/crash-probe.spec.ts and crash_facekom_socket.md.",
+  "issues": [
+    {
+      "issue_id": "738711ca2cdf94375b7a5cc6aeff47b2",
+      "title": "FKSelfService.uploadLivenessV2Photo(image:) — EXC_BREAKPOINT",
+      "symbol": "$s10FaceKomSDK13FKSelfServiceC21uploadLivenessV2Photo5imageySo7UIImageC_tYaKFyScCyyts5Error_pGXEfU_yycfU_TA",
+      "blame": "FaceKomSDK",
+      "exception": "EXC_BREAKPOINT",
+      "fatal_message": "_Concurrency/CheckedContinuation.swift:172: Fatal error: SWIFT TASK CONTINUATION MISUSE: connectSocket(baseUrl:socketSettings:) tried to resume its continuation more than once returning ()!",
+      "diagnosis": "connectSocket() wraps the socket connect in a withCheckedContinuation and resumes it twice: the connect times out (continuation resumed with the error), then the late didConnect event resumes the same continuation again → Swift runtime trap, the whole app dies.",
+      "events_total": 7,
+      "users_total": 3,
+      "version_range": "3.5.2 – 3.8.0",
+      "app_version": "3.8.0 (2811)",
+      "console_url": "https://console.firebase.google.com/u/0/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/738711ca2cdf94375b7a5cc6aeff47b2?time=90d&versions=3.8.0%20(2811)&types=crash",
+      "events": [
+        {
+          "event_id": "2247031476168889379",
+          "session_id_base": "487e265556314210b5b275c3ef6ec97c",
+          "facekom_session": "47bb5003-bfb4-47b1-bc78-10e305982f25",
+          "app_version": "3.8.0 (2811)",
+          "os_version": "iOS 26.5.2",
+          "model": "iPhone 15 Pro",
+          "date": "Jul 31, 2026, 9:09:44 AM",
+          "crashed_step": "voiceLivenessCheck",
+          "console_url": "https://console.firebase.google.com/u/0/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/738711ca2cdf94375b7a5cc6aeff47b2?time=90d&versions=3.8.0%20(2811)&types=crash&sessionEventKey=487e265556314210b5b275c3ef6ec97c_2247031476168889379",
+          "stack_trace": [
+            {
+              "i": 0,
+              "module": "libswiftCore.dylib",
+              "symbol": "_assertionFailure(_:_:file:line:flags:) + 168"
+            },
+            {
+              "i": 1,
+              "module": "libswift_Concurrency.dylib",
+              "symbol": "CheckedContinuation.resume(returning:) + 428"
+            },
+            {
+              "i": 2,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK13FKSelfServiceC21uploadLivenessV2Photo5imageySo7UIImageC_tYaKFyScCyyts5Error_pGXEfU_yycfU_TA + 60"
+            },
+            {
+              "i": 3,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerC07connectD07baseUrl14socketSettings11onCompleted0K5ErrorySS_AA18FKSocketIOSettingsCyyt_tcSgyAA0abM0OcSgtFyycfU0_ + 172"
+            },
+            {
+              "i": 4,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerC21subscribeCommonEventsyyyycSgFySayypG_0D2IO0D10AckEmitterCtcfU_ + 504"
+            },
+            {
+              "i": 5,
+              "module": "SocketIO",
+              "symbol": "SocketIOClient.handleEvent(_:data:isInternalMessage:withAck:) + 736"
+            },
+            {
+              "i": 6,
+              "module": "SocketIO",
+              "symbol": "SocketIOClient.handleClientEvent(_:data:) + 344"
+            },
+            {
+              "i": 7,
+              "module": "SocketIO",
+              "symbol": "SocketIOClient.didConnect(toNamespace:payload:) + 344"
+            },
+            {
+              "i": 8,
+              "module": "SocketIO",
+              "symbol": "SocketIOClient.handlePacket(_:) + 644"
+            },
+            {
+              "i": 9,
+              "module": "SocketIO",
+              "symbol": "Manager._parseEngineMessage(_:) + 356"
+            },
+            {
+              "i": 10,
+              "module": "SocketIO",
+              "symbol": "Manager.parseEngineMessage(_:) closure + 28"
+            },
+            {
+              "i": 11,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_call_block_and_release + 32"
+            },
+            {
+              "i": 12,
+              "module": "UIKitCore",
+              "symbol": "UIApplicationMain + 332"
+            },
+            {
+              "i": 13,
+              "module": "eSzigno",
+              "symbol": "main.swift:9  main + 9"
+            }
+          ],
+          "breadcrumbs_source_event": "2247031476168889378",
+          "breadcrumbs_note": "The crash event itself was not collected; these breadcrumbs come from the non-fatal report of the SAME Firebase session, ending in the same second as the crash.",
+          "breadcrumbs": [
+            {
+              "ts": "09:08:19",
+              "rawTs": 1785481699000,
+              "type": "screen",
+              "msg": "EULAScreen"
+            },
+            {
+              "ts": "09:08:23",
+              "rawTs": 1785481703000,
+              "type": "screen",
+              "msg": "LoginStartScreen"
+            },
+            {
+              "ts": "09:08:29",
+              "rawTs": 1785481709000,
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "09:08:32",
+              "rawTs": 1785481712000,
+              "type": "screen",
+              "msg": "VideoUserAgreementsScreen"
+            },
+            {
+              "ts": "09:08:36",
+              "rawTs": 1785481716000,
+              "type": "screen",
+              "msg": "VideoAssistanceScreen"
+            },
+            {
+              "ts": "09:08:48",
+              "rawTs": 1785481728000,
+              "type": "log",
+              "msg": "FaceKom started from: videoId"
+            },
+            {
+              "ts": "09:08:48",
+              "rawTs": 1785481728000,
+              "type": "log",
+              "msg": "FaceKom started with assistance: false"
+            },
+            {
+              "ts": "09:08:49",
+              "rawTs": 1785481729000,
+              "type": "screen",
+              "msg": "VideoIntroScreen"
+            },
+            {
+              "ts": "09:09:15",
+              "rawTs": 1785481755000,
+              "type": "log-ok",
+              "msg": "FaceKom ID Verified"
+            },
+            {
+              "ts": "09:09:16",
+              "rawTs": 1785481756000,
+              "type": "screen",
+              "msg": "IdVerificationScreen"
+            },
+            {
+              "ts": "09:09:17",
+              "rawTs": 1785481757000,
+              "type": "log",
+              "msg": "FaceKom SelfService started"
+            },
+            {
+              "ts": "09:09:17",
+              "rawTs": 1785481757000,
+              "type": "screen",
+              "msg": "SelfServiceViewController"
+            },
+            {
+              "ts": "09:09:27",
+              "rawTs": 1785481767000,
+              "type": "log-ok",
+              "msg": "FaceKom getSettings success"
+            },
+            {
+              "ts": "09:09:27",
+              "rawTs": 1785481767000,
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "09:09:30",
+              "rawTs": 1785481770000,
+              "type": "log-ok",
+              "msg": "FaceKom status changed: disconnected"
+            },
+            {
+              "ts": "09:09:30",
+              "rawTs": 1785481770000,
+              "type": "error",
+              "msg": "FaceKom connect socket error: timeOut"
+            },
+            {
+              "ts": "09:09:31",
+              "rawTs": 1785481771000,
+              "type": "screen",
+              "msg": "UIAlertController"
+            },
+            {
+              "ts": "09:09:44",
+              "rawTs": 1785481784000,
+              "type": "error",
+              "msg": "FaceKom error: timeOut happened, stop and show abort"
+            },
+            {
+              "ts": "09:09:44",
+              "rawTs": 1785481784000,
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "09:09:44",
+              "rawTs": 1785481784000,
+              "type": "error",
+              "msg": "FaceKom failed to stop with error: networkError from SelfService error, currentStep: voiceLivenessCheck. Aborted."
+            },
+            {
+              "ts": "09:09:44",
+              "rawTs": 1785481784000,
+              "type": "error",
+              "msg": "Facekom finished with state: aborted(message: nil)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "issue_id": "",
+      "title": "UITableView dataSource returned a nil cell — NSInternalInconsistencyException",
+      "symbol": "_userInfoForFileAndLine",
+      "blame": "eSzigno (saját kód)",
+      "exception": "NSInternalInconsistencyException",
+      "fatal_message": "UITableView dataSource returned a nil cell for row at index path: <NSIndexPath: 0 - 1>. Table view frame = (0 0; 393 783)",
+      "diagnosis": "cellForRowAt returned nil in our own code. Fresh issue, 3.8.0 only. Not collected yet.",
+      "events_total": 1,
+      "users_total": 1,
+      "version_range": "3.8.0",
+      "app_version": "3.8.0 (2811)",
+      "console_url": "https://console.firebase.google.com/u/0/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/?time=90d&versions=3.8.0%20(2811)&types=crash",
+      "events": []
+    }
+  ]
+}
