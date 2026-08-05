@@ -750,7 +750,7 @@ async function fetchEventLog(ev) {
 }
 
 // Load each needed version's events+logs once (cached). 3.7.0 is large, so it's only
-// loaded when the global Version filter asks for it — keeps the default (3.7.1) load fast.
+// loaded when the global Version filter asks for it — keeps the default (3.8.1) load fast.
 // Logs fetched at concurrency 20 (a single ~1900-wide Promise.all starves the local server).
 async function ensureVersionsLoaded() {
   for (const v of neededVersions()) {
@@ -821,7 +821,7 @@ async function loadData() {
     }
 
     events = []; loadedVersions = new Set();
-    await ensureVersionsLoaded();   // default loads only 3.7.1; 3.7.0 on demand
+    await ensureVersionsLoaded();   // default loads only 3.8.1; other versions on demand
 
     if (reviewedRaw && Array.isArray(reviewedRaw) && reviewedRaw.length > 0) {
       reviewedSessions = new Set(reviewedRaw);
@@ -2528,7 +2528,7 @@ function filterToDay(dayKey) {
 
 // ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
 let gDayKey = null;
-let gOutcomeFilter = 'all', gVersionFilter = '3.7.1', gFkFilter = '';   // global filters (version is a key: 3.7.1 / 3.7.0 / all)
+let gOutcomeFilter = 'all', gVersionFilter = '3.8.1', gFkFilter = '';   // global filters (version is a key: 3.8.1 / 3.8.0 / 3.7.1 / 3.7.0 / all)
 let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
