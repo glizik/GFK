@@ -387,6 +387,10 @@
   .report-table .rep-total td { border-top: 3px double var(--text); font-weight: 700; color: #fff; background: var(--surface2); }
   .report-table tr.rep-recovered-row td:first-child { box-shadow: inset 3px 0 0 var(--green); }
   .rep-recovered { font-size: 10px; color: var(--green); border: 1px solid rgba(34,197,94,0.4); border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  /* "possibly approve" = inferred, not reported by the SDK — dashed border so it never reads as a
+     confirmed approve at a glance. */
+  .tag-possibly { font-size: 10px; color: var(--yellow); border: 1px dashed rgba(234,179,8,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 600; }
+  .report-table tr.rep-possibly-row td:first-child { box-shadow: inset 3px 0 0 var(--yellow); }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
   .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
@@ -700,6 +704,11 @@ let attachMenuSessId = '';
 let tlPageDate = new Date();
 let csvFileHandle = null;
 
+// Canonical FaceKom verification step order. `twoFactor` is terminal for every observed flow
+// (which steps appear in between varies by document type). Used by the step-funnel ordering and
+// by isPossiblyApprove().
+const STEP_ORDER = ['voice-liveness-check', 'deepfake-detection', 'customerPortrait', 'idFront', 'idBack', 'hologram', 'id-back-video', 'twoFactor'];
+
 // ── Load ──────────────────────────────────────────────────────────────────────
 function parseIssueRow(i) {
   return {
@@ -894,8 +903,7 @@ function buildStepFunnel() {
     }
   }
 
-  // Known step order per FaceKom flow — unknown steps go after, sorted by count
-  const STEP_ORDER = ['voice-liveness-check', 'deepfake-detection', 'customerPortrait', 'idFront', 'idBack', 'hologram', 'id-back-video', 'twoFactor'];
+  // Known step order per FaceKom flow (module-level STEP_ORDER) — unknown steps go after, by count
   const stepRows = [...stepMap.entries()]
     .sort((a, b) => {
       const ia = STEP_ORDER.indexOf(a[0]), ib = STEP_ORDER.indexOf(b[0]);
@@ -974,6 +982,9 @@ function buildStepFunnel() {
         if (o === 'approve') { isApprove = true; break; }
         if (o === 'failed') bucket = 'failed';
       }
+      // Same inference as deriveSessionOutcome — without it the funnel would call these aborted
+      // while every other view calls them approved.
+      if (!isApprove && isPossiblyApproveSession(group, groupFk(group))) isApprove = true;
     }
     if (isApprove) {
       // If the session also logged a failure/abort event → retry/recovered
@@ -1065,13 +1076,62 @@ function outcomeLabel(norm) {
   return norm || '—';
 }
 
+// "Possibly approve": the session reached twoFactor (the terminal step) and then our telemetry
+// simply ends — no `end(...)` of any status, and no explicit user close. Nothing is left that can
+// fail at that point, so the missing terminal report is an instrumentation gap, not a user drop-off.
+//
+// The `no explicit close` condition is what makes this safe: sessions that DID quit at 2-factor
+// (e.g. the SMS never arrived) log `user initiated closing … isAlreadyClosed: false`, and they stay
+// aborted. They have no `end(aborted)` either — the SDK only fires that when leaving a VIDEO step —
+// so the close breadcrumb is the only thing separating a real 2FA drop-off from a telemetry gap.
+function isPossiblyApprove(group) {
+  const logs = mergeGroupLogs(group);
+  let furthest = -1;
+  for (const l of logs) {
+    const m = l.msg || '';
+    if (m.includes('nextStep:') && m.includes('end(')) return false;      // any terminal end → observed
+    if (/user initiated closing/.test(m) && /isAlreadyClosed:\s*false/.test(m)) return false;
+    const i = STEP_ORDER.indexOf(stepFromMsg(m));
+    if (i > furthest) furthest = i;
+  }
+  return furthest === STEP_ORDER.length - 1;                              // reached twoFactor
+}
+
+// True only when a session's `approve` verdict comes from the inference above rather than from
+// something the SDK actually reported. Mirrors deriveSessionOutcome's guard: a session that DID
+// report a status (in any language, via nslocalized_description) is a confirmed verdict and must
+// never be tagged "possibly". This is what every render site gates the ≈ chip on.
+function isInferredApprove(group) {
+  const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
+  if (outcomes.some(o => o !== 'other')) return false;
+  return isPossiblyApprove(group);
+}
+
+const POSSIBLY_TITLE = 'elérte a 2FA-t, nem lépett ki, és nem érkezett záró report — a jóváhagyás következtetés, nem az SDK jelentette. Prodban ellenőrizendő.';
+// The single predicate every chip and every counter goes through. A hand-set outcome override
+// (the owner checked prod) is a confirmed verdict, so it retires the "possibly" marker.
+function isPossiblyApproveSession(group, fk) {
+  const inv = fk ? getInvestigation(fk) : null;
+  if (inv && inv.outcome) return false;
+  return isInferredApprove(group);
+}
+function possiblyTag(group, fk) {
+  return isPossiblyApproveSession(group, fk)
+    ? ` <span class="tag-possibly" title="${escAttr(POSSIBLY_TITLE)}">≈ possibly</span>` : '';
+}
+// FaceKom id for a group, for the lookups above.
+function groupFk(group) { return fkBase((group || []).map(facekomSessionId).find(Boolean) || ''); }
+
 function deriveSessionOutcome(group) {
   // Session-level: approve wins over everything, then failed, then aborted
   const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
   if (outcomes.includes('approve')) return 'approve';
   if (outcomes.includes('failed'))  return 'failed';
   if (outcomes.includes('aborted')) return 'aborted';
-  return outcomes.find(o => o !== 'other') || 'other';
+  const observed = outcomes.find(o => o !== 'other');
+  if (observed) return observed;
+  // Nothing observable was reported — only now may we infer. Cannot override a real signal.
+  return isPossiblyApprove(group) ? 'approve' : 'other';
 }
 
 function getEndReason(group) {
@@ -1551,10 +1611,11 @@ function renderAnalytics() {
   }));
 
   const typeCounts = { unique: 0, continuous: 0, 'multi-try': 0, mixed: 0 };
-  const outcomeCounts = { approve: 0, reject: 0, aborted: 0, failed: 0, other: 0 };
+  const outcomeCounts = { approve: 0, reject: 0, aborted: 0, failed: 0, other: 0, possibly: 0 };
   for (const s of categorized) {
     typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
     outcomeCounts[s.outcome] = (outcomeCounts[s.outcome] || 0) + 1;
+    if (isPossiblyApproveSession(s.group, groupFk(s.group))) outcomeCounts.possibly++;   // subset of .approve, not a bucket
   }
 
   // Version counts
@@ -1566,7 +1627,9 @@ function renderAnalytics() {
 
   let filtered = categorized;
   if (analyticsTypeFilter !== 'all')    filtered = filtered.filter(s => s.type === analyticsTypeFilter);
-  if (analyticsOutcomeFilter !== 'all') filtered = filtered.filter(s => s.outcome === analyticsOutcomeFilter);
+  // 'possibly' is a view over the approve bucket, not a bucket of its own — hence the special case.
+  if (analyticsOutcomeFilter === 'possibly')  filtered = filtered.filter(s => isPossiblyApproveSession(s.group, groupFk(s.group)));
+  else if (analyticsOutcomeFilter !== 'all')  filtered = filtered.filter(s => s.outcome === analyticsOutcomeFilter);
   if (analyticsVersionFilter !== 'all') filtered = filtered.filter(s => (s.group[0]?.app_version || 'unknown') === analyticsVersionFilter);
 
   // Stats row
@@ -1594,6 +1657,7 @@ function renderAnalytics() {
   const outcomeOpts = [
     { key: 'all',     label: 'All',                                cls: '' },
     { key: 'approve', label: `Approved (${outcomeCounts.approve})`, cls: 'btn-green' },
+    { key: 'possibly', label: `≈ Possibly (${outcomeCounts.possibly})`, cls: 'btn-yellow' },
     { key: 'reject',  label: `Rejected (${outcomeCounts.reject})`,  cls: 'btn-red' },
     { key: 'aborted', label: `Aborted (${outcomeCounts.aborted})`,  cls: 'btn-red' },
     { key: 'failed',  label: `Failed (${outcomeCounts.failed})`,    cls: 'btn-yellow' },
@@ -2283,7 +2347,7 @@ function renderSessionCard(group, idx) {
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
-        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
+        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
         <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
@@ -2582,6 +2646,12 @@ function recomputeOutcomeScope() {
     }
     for (const u of userMap.values())
       if (gOutcomeFilter === 'passed' ? u.passed : !u.passed) for (const b of u.bases) gAllowedBases.add(b);
+  } else if (gOutcomeFilter === 'possibly') {
+    // Not an outcome bucket — a view over the approve bucket (see isInferredApprove).
+    for (const [k, evs] of byBase) {
+      const group = deduplicateGroupEvents(evs.slice().sort((a, b) => (+a.report_index || 0) - (+b.report_index || 0)));
+      if (isPossiblyApproveSession(group, groupFk(group))) gAllowedBases.add(k);
+    }
   } else {
     for (const [k, evs] of byBase) if (sessOutcome(evs) === gOutcomeFilter) gAllowedBases.add(k);
   }
@@ -2725,12 +2795,14 @@ function buildGanttModel() {
   if (!isFinite(allStart)) allStart = dayBase;
   if (!isFinite(allEnd) || allEnd <= allStart) allEnd = allStart + 60000;
 
-  const summary = { users: users.length, tries: 0, approve:0, failed:0, aborted:0, other:0, approved:0, peak: tracks.length };
+  const summary = { users: users.length, tries: 0, approve:0, failed:0, aborted:0, other:0, approved:0, possibly:0, peak: tracks.length };
   for (const u of users) for (const t of u.tries) {
     summary.tries++;
     const o = normalizeOutcome(t.outcome);
     if (o==='approve') summary.approve++; else if (o==='failed') summary.failed++; else if (o==='aborted') summary.aborted++; else summary.other++;
     if (t.reviewed) summary.approved++;
+    // Counted inside .approve, reported alongside it — so the approve figure stays decomposable.
+    if (isPossiblyApproveSession(t.group, t.fk)) summary.possibly++;
   }
   return { tracks, users, dayKeys, summary };
 }
@@ -2786,7 +2858,9 @@ function renderGantt() {
     summ.innerHTML =
       `<span><b>${m.summary.peak}</b> line${m.summary.peak!==1?'s':''} = max parallel</span>` +
       `<span><b>${m.summary.users}</b> users · <b>${m.summary.tries}</b> tries</span>` +
-      chip('var(--green)', m.summary.approve, 'appr/fin') + chip('var(--yellow)', m.summary.failed, 'failed') +
+      chip('var(--green)', m.summary.approve, 'appr/fin') +
+      (m.summary.possibly ? `<span class="g-chip" title="${escAttr(POSSIBLY_TITLE)}">≈ <b>${m.summary.possibly}</b> possibly</span>` : '') +
+      chip('var(--yellow)', m.summary.failed, 'failed') +
       chip('var(--red)', m.summary.aborted, 'aborted') + chip('#475569', m.summary.other, 'other') +
       (gFkFilter ? `<button class="filter-btn active" style="margin-left:auto" onclick="clearGanttFk()">session: ${esc(gFkFilter.slice(0,12))}… ✕</button>` : '');
   } else summ.innerHTML = '';
@@ -2867,7 +2941,7 @@ function renderGanttList(m) {
     const eids = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
     const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
     const durs = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
-    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</div>`; }).join('');
+    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}${possiblyTag(t.group, t.fk)}</div>`; }).join('');
     const revs = u.tries.map(t => `<div class="gl-line"><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>`).join('');
     const tasks = u.tries.map(t => {
       const ts = getTasksForSession(t.sessId);
@@ -3076,12 +3150,15 @@ function renderReport() {
   if (!host) return;
   // Include non-approved sessions AND sessions that aborted a video step but later got approved
   // ("recovered after abort") — same user/lane, the abort + the eventual approve shown together.
+  // ALSO include "≈ possibly approve" lanes: their approve is inferred, so this list stays the
+  // owner's to-verify queue for them (they'd silently vanish otherwise).
   const laneAbortExits = u => u.tries.reduce((s, t) => s + deriveAbortExits(t.group).aborts.length, 0);
+  const lanePossibly = u => u.tries.some(t => isPossiblyApproveSession(t.group, t.fk));
   const allLanes = buildReportSessions();
   // User-level "never passed" (no try ever approved) — same unit as the Step-funnel's "not passed".
   const neverPassedFn = u => !u.tries.some(t => normalizeOutcome(t.outcome) === 'approve');
   const neverPassed = allLanes.filter(neverPassedFn).length;
-  let aborts = allLanes.filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0);
+  let aborts = allLanes.filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0 || lanePossibly(u));
   if (reportNPOnly) aborts = aborts.filter(neverPassedFn);   // item 6: only users who never passed
   const npToggle = `<div class="rep-toolbar"><button class="filter-btn${reportNPOnly?' active':''}" onclick="toggleReportNP()" title="csak azok a userek, akik egyszer sem jutottak át">⛔ Only never-passed (${neverPassed})</button></div>`;
   if (!aborts.length) {
@@ -3097,7 +3174,7 @@ function renderReport() {
   const outColor = o => o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)';
   const mute = s => `<span style="color:var(--muted)">${s}</span>`;
 
-  let gSess = 0, gTries = 0, gAbortExits = 0, gRecovered = 0, bodyRows = '';
+  let gSess = 0, gTries = 0, gAbortExits = 0, gRecovered = 0, gPossibly = 0, bodyRows = '';
   for (const dk of days) {
     const list = byDay.get(dk).sort((a,b)=>a.start-b.start);
     const dLabel = dk==='?' ? 'Unknown date' : new Date(dk+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
@@ -3105,9 +3182,13 @@ function renderReport() {
     bodyRows += `<tr class="rep-day"><td colspan="7">${esc(dLabel)} — ${list.length} session${list.length!==1?'s':''}</td></tr>`;
     for (const u of list) {
       const fkVal  = u.fbOnly ? u.tries[0].sessId : (u.fk || '');
-      // In this list, finalOutcome 'approve' can only mean the lane aborted a video step then recovered.
-      const recovered = u.finalOutcome === 'approve';
+      // finalOutcome 'approve' lands in this list two ways, and a lane can be BOTH: one try aborted
+      // a video step and a later try approved (♻️ recovered), while another try's approve is only
+      // inferred (≈ possibly). Independent flags — the row highlight just prefers recovered.
+      const possibly  = lanePossibly(u);
+      const recovered = u.finalOutcome === 'approve' && laneAbortExits(u) > 0;
       if (recovered) gRecovered++;
+      if (possibly)  gPossibly++;
       // Never passed = no try ever approved (same unit as the Step-funnel's "not passed").
       const laneNeverPassed = !u.tries.some(t => normalizeOutcome(t.outcome) === 'approve');
       // Per-event blocks: each abort gets its own line; the event's value columns show on the block's
@@ -3128,14 +3209,14 @@ function renderReport() {
         const eidHtml=`<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id||t.sessId)}</span>`;
         const startHtml=`${datePrefix}${fmtTs(t.start)}`;
         const recoverBadge = (recovered && o==='approve') ? ` <span class="rep-recovered" title="ezt a munkamenetet egy video-lépés megszakítása (abort) után később jóváhagyták — jóváhagyva: ${escAttr(fmtTs(t.start))}">♻️ recovered after abort</span>` : '';
-        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>${recoverBadge}`;
+        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>${possiblyTag(t.group, t.fk)}${recoverBadge}`;
         const taskHtml=ts.length?ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' '):mute('—');
         const block = (first) => { let h=`<div class="gl-line">${first}</div>`; for (let i=1;i<n;i++) h+=`<div class="gl-line">&nbsp;</div>`; return h; };
         cEid.push(block(eidHtml)); cStart.push(block(startHtml)); cDur.push(block(`${t.dur}s`)); cOut.push(block(outHtml)); cTask.push(block(taskHtml));
         for (const l of lsw) cLsw.push(`<div class="gl-line">${l}</div>`);
       }
       dTries += u.tries.length;
-      bodyRows += `<tr${recovered?' class="rep-recovered-row"':''}>
+      bodyRows += `<tr${recovered?' class="rep-recovered-row"':possibly?' class="rep-possibly-row"':''}>
         <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${laneNeverPassed?'<span title="ez a user sosem jutott át" style="color:var(--red)">⛔</span> ':''}${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
         <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
@@ -3145,7 +3226,7 @@ function renderReport() {
   }
   const totalRow = `<tr class="rep-total"><td>TOTAL</td><td>${gSess} sessions</td><td>${gTries} tries</td><td>${gAbortExits} abort exits</td><td><span style="color:var(--red)">⛔ ${neverPassed} never passed</span></td><td colspan="2">${days.length} day${days.length!==1?'s':''}${gVersionFilter!=='all'?' · '+esc(gVersionFilter):''}</td></tr>`;
 
-  if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''} · ⛔ ${neverPassed} user${neverPassed!==1?'s':''} never passed · ${days.length} day${days.length!==1?'s':''}`;
+  if (sub) sub.textContent = `${gSess} session${gSess!==1?'s':''} · ${gAbortExits} abort exit${gAbortExits!==1?'s':''}${gRecovered?` · ♻️ ${gRecovered} recovered`:''}${gPossibly?` · ≈ ${gPossibly} possibly approve`:''} · ⛔ ${neverPassed} user${neverPassed!==1?'s':''} never passed · ${days.length} day${days.length!==1?'s':''}`;
   host.innerHTML = npToggle + `<div class="table-wrap"><table class="gantt-list-table report-table">
     <thead><tr><th>FaceKom session</th><th>Event IDs</th><th>Start</th><th>Last step - wait</th><th>Duration</th><th>Outcome</th><th>Dev task</th></tr></thead>
     <tbody>${bodyRows}</tbody>
@@ -3171,7 +3252,7 @@ function renderGlobalFilters() {
   const el = document.getElementById('globalFilters');
   if (!el) return;
   const vOpts = [...APP_VERSIONS.map(v => [v, v]), ['all', 'All']];
-  const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', ''], ['passed', 'Passed (user)', 'btn-green'], ['notpassed', 'Not passed (user)', 'btn-red']];
+  const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['possibly', '≈ Possibly', 'btn-yellow'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', ''], ['passed', 'Passed (user)', 'btn-green'], ['notpassed', 'Not passed (user)', 'btn-red']];
   // Document type: explicit from 3.8.1 ("ID Verified, document type: …"), inferred
   // from the idFront step on older builds. Counts are over the current version scope.
   const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
