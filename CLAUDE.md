@@ -59,6 +59,14 @@ Analytics/Step-funnel → Events grid → Dev tasks.
 - **Dev tasks:** `loadDevTasksFromCSV()`, `renderDevTasks()`, `getTasksForSession(sessId)`.
 - **Util:** `esc`/`escAttr`, `fmtTs`, `parseTs`, `gStartTs`/`gEndTs`, `gDayKeyOf`, `normalizeOutcome`,
   `facekomSessionId(ev)`, `fkBase(fk)` (= identity).
+- **SDK message localization:** the SDK's status/error strings come out in the DEVICE language —
+  en, de (3.7.1+) and hu (3.8.1+) all appear in the same data — and the placeholders move with the
+  grammar (hu drops the colon: `Facekom végzett finished státusszal.`). `canonSdkMsg` folds every
+  known variant back to the canonical **English** form and `canonEventLang` applies it to
+  `nslocalized_description` + every breadcrumb **at load** (both `ensureVersionsLoaded` paths), so
+  the data files stay verbatim and every parser downstream matches English only. The original is
+  kept on `log.msgRaw` (timeline hover). **New language / new SDK string ⇒ add a row to
+  `SDK_MSG_L10N` (+ its token to `SDK_MSG_L10N_HINT`), never a second pattern in a parser.**
 
 ## Domain glossary
 - **Firebase session** = `session_id_base` (32-char hex). **FaceKom session** = the videoID token

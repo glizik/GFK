@@ -649,17 +649,87 @@ function fmtTs(ts) {
   const d = new Date(ts);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+function logType(msg) {
+  if (/error|failed|abort/i.test(msg) && !/success/i.test(msg)) return 'error';
+  if (/success|verified|connected/i.test(msg)) return 'log-ok';
+  return 'log';
+}
 function processLogs(items) {
   return (items || []).map(item => {
     const rawTs = parseTs(item.timestamp);
     if (item.name === 'screen_view')
       return { ts: fmtTs(item.timestamp), rawTs, type: 'screen', msg: item.params?.firebase_screen_class || '?' };
     const msg = item.message || '';
-    let type = 'log';
-    if (/error|failed|abort/i.test(msg) && !/success/i.test(msg)) type = 'error';
-    else if (/success|verified|connected/i.test(msg)) type = 'log-ok';
-    return { ts: fmtTs(item.timestamp), rawTs, type, msg };
+    return { ts: fmtTs(item.timestamp), rawTs, type: logType(msg), msg };
   });
+}
+
+// ── FaceKom SDK message localization ──────────────────────────────────────────
+// The SDK's status/error strings are LOCALIZED to the device language — the same data set holds
+// English, German (since 3.7.1) and Hungarian (since 3.8.1) — and the interpolation points move
+// with the grammar. Hungarian drops the colon entirely and puts the status mid-sentence
+// ("Facekom végzett finished státusszal."), so every English-shaped pattern downstream missed it
+// and the session silently fell through to `other`.
+//
+// Rather than teach each parser three languages, every known localized variant is folded back to
+// its canonical ENGLISH form ONCE, at load. Everything downstream (deriveOutcome, getAbortCause,
+// deriveAbortExits, isPossiblyApprove, the funnel) keeps matching English only.
+// Source of truth: the app's Localizable.strings, keys selfServiceInternalError.* /
+// selfServiceRuntimeError.*. Adding a language = add its rows here, nothing else changes.
+const SDK_MSG_L10N = [
+  // selfServiceRuntimeError.sessionFinished — "Facekom finished with state: %@"
+  [/Facekom végzett (.+) státusszal\.?/i,                                    'Facekom finished with state: $1'],
+  [/Facekom endete mit dem Status:\s*/i,                                     'Facekom finished with state: '],
+  // selfServiceRuntimeError.sessionBackgrounded — "…did enter background at step: %@, isVideoStep: %@…"
+  // ("lépet" is a typo in the Hungarian strings file — accept both spellings so a fix upstream
+  //  doesn't quietly break the parsing again.)
+  [/FaceKom session háttérbe lépett? a:\s*(.+?) lépésnél,\s*(isVideoStep:)/i,
+   'FaceKom session did enter background at step: $1, $2'],
+  [/Die FaceKom-Sitzung wurde im Schritt (.+?) in den Hintergrund versetzt;\s*(isVideoStep:)/i,
+   'FaceKom session did enter background at step: $1, $2'],
+  // selfServiceRuntimeError.sessionDisconnected — "FaceKom session disconnected: %@"
+  [/FaceKom session megszakadt:\s*/i,                                        'FaceKom session disconnected: '],
+  [/FaceKom-Sitzung getrennt:\s*/i,                                          'FaceKom session disconnected: '],
+  // selfServiceRuntimeError.failedIntegrityCheck — "FaceKom failed integrity check at step: %@, aborted."
+  [/FaceKom az integritás sérült a (.+?) lépésnél, aborted\.?/i,             'FaceKom failed integrity check at step: $1, aborted.'],
+  [/FaceKom hat die Integritätsprüfung im Schritt (.+?) nicht bestanden und wurde abgebrochen\.?/i,
+   'FaceKom failed integrity check at step: $1, aborted.'],
+  // selfServiceInternalError.failedToConvertStep — "FaceKom unknown event, failed to convert step: %@, aborted."
+  [/FaceKom ismeretlen esemény, nem sikerült lépéssé alakítani:\s*(.+?), megszakítva\.?/i,
+   'FaceKom unknown event, failed to convert step: $1, aborted.'],
+  [/FaceKom Unbekanntes Ereignis, Konvertierung des Schritts (.+?) fehlgeschlagen, abgebrochen\.?/i,
+   'FaceKom unknown event, failed to convert step: $1, aborted.'],
+  // selfServiceInternalError.invalidSocketSettings
+  [/FaceKom érvénytelen socket beállítás érkezett a szerverről\.?/i,         'FaceKom received invalid socket settings from server.'],
+  [/FaceKom hat ungültige Socket-Einstellungen vom Server erhalten\.?/i,     'FaceKom received invalid socket settings from server.'],
+  // selfServiceInternalError.noStep
+  [/FaceKom a videóazonosítás nem kezdődhet lépés nélkül, érvénytelen állapot\.?/i,
+   'FaceKom could not start video without a step, invalid state.'],
+  [/FaceKom konnte das Video nicht starten, da ein Schritt fehlte, ungültiger Status\.?/i,
+   'FaceKom could not start video without a step, invalid state.'],
+];
+// Cheap gate: one pass over the string instead of 14. ~99% of breadcrumbs are English SDK/screen
+// noise, and a quarter-million of them get folded on a full load — without this the table costs
+// ~230ms on the biggest version alone. Every pattern above owns at least one token listed here.
+const SDK_MSG_L10N_HINT = /végzett|háttérbe|megszakadt|integritás|ismeretlen esemény|érvénytelen|videóazonosítás|endete mit|Hintergrund|Sitzung getrennt|Integritätsprüfung|Unbekanntes|ungültige|konnte das Video/i;
+function canonSdkMsg(msg) {
+  const s = msg || '';
+  if (!SDK_MSG_L10N_HINT.test(s)) return s;
+  for (const [re, to] of SDK_MSG_L10N) {
+    const out = s.replace(re, to);
+    if (out !== s) return out;                 // one message = one SDK string; first hit wins
+  }
+  return s;
+}
+// Fold one event's localized strings (the crash's nslocalized_description + every breadcrumb) to
+// canonical English. The original stays on `msgRaw` so the timeline can still show, on hover, what
+// the device actually logged — the data files themselves stay verbatim.
+function canonEventLang(ev) {
+  const logs = (ev.logs || []).map(l => {
+    const msg = canonSdkMsg(l.msg || '');
+    return msg === (l.msg || '') ? l : { ...l, msg, msgRaw: l.msg, type: logType(msg) };
+  });
+  return { ...ev, nslocalized_description: canonSdkMsg(ev.nslocalized_description || ''), logs };
 }
 
 function fmtFullDateFromRaw(rawTs) {
@@ -768,14 +838,17 @@ async function ensureVersionsLoaded() {
     // contains each event's processed logs — one fetch instead of one log
     // request per event. Falls back to CSV + per-event log fetch if absent.
     const json = await fetch(`data/events_${v}.json?_=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    // Both paths go through canonEventLang: the language fold is a LOAD-time concern, so the data
+    // files stay exactly as Crashlytics delivered them and no re-collect is needed for it to apply.
     if (Array.isArray(json)) {
-      events.push(...json);
+      events.push(...json.map(canonEventLang));
       loadedVersions.add(v);
       continue;
     }
     const csv = await fetch(`data/events_${v}.csv?_=${Date.now()}`).then(r => r.ok ? r.text() : '').catch(() => '');
     const raw = csv ? parseCsv(csv) : [];
-    for (let i = 0; i < raw.length; i += 20) events.push(...await Promise.all(raw.slice(i, i + 20).map(fetchEventLog)));
+    for (let i = 0; i < raw.length; i += 20)
+      events.push(...(await Promise.all(raw.slice(i, i + 20).map(fetchEventLog))).map(canonEventLang));
     loadedVersions.add(v);
   }
 }
@@ -1150,7 +1223,9 @@ function getAbortCause(group) {
   let bg = null, closed = false, consent = false, reason = null, unexpected = false;
   for (const ev of group) {
     const desc = ev.nslocalized_description || '';
-    if (/Unexpected error|Ismeretlen hiba/i.test(desc)) unexpected = true;
+    // The status message the SDK interpolates is localized too (en/hu/de) — and unlike the
+    // sentence around it, it isn't one of the Localizable.strings keys we can fold, so match all three.
+    if (/Unexpected error|Ismeretlen hiba|unbekannter Fehler/i.test(desc)) unexpected = true;
     for (const log of ev.logs || []) {
       const m = log.msg || '';
       if (m.includes('consent timer expired')) consent = true;
@@ -2262,7 +2337,7 @@ function renderTimelineContent(logs) {
     return `<div class="tl-item">
       <div class="tl-dot ${dotClass}"></div>
       <div class="tl-time">${esc(l.ts)}</div>
-      <div class="tl-msg ${msgClass}">${annotateFaceKomMsg(l.msg)}</div>
+      <div class="tl-msg ${msgClass}"${l.msgRaw ? ` title="${escAttr(l.msgRaw)}"` : ''}>${annotateFaceKomMsg(l.msg)}</div>
     </div>`;
   }).join('')}</div>`;
 }
