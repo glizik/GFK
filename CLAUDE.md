@@ -19,6 +19,16 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
   branch" mode published all 6094 tracked files / 188 MB and blew the 10-minute deploy timeout.
   A local push hook sends a Telegram with the Pages link ~2 min later.
   New file the page needs at runtime ⇒ **add it to the workflow's copy list**, or it won't be live.
+- **Pages deploy gotchas** (all three cost us an afternoon on 2026-08-06):
+  - Concurrency groups are per-REPOSITORY. GitHub's built-in `pages-build-deployment` owns the
+    group literally named `pages`, so ours must not be called that (it's `pages-dashboard`) —
+    otherwise the two flows queue behind and cancel each other, and the build shows up as
+    "cancelled after 15m" having never actually run.
+  - Both flows run as long as Source is "deploy from a branch"; switching Source to GitHub
+    Actions is what retires the legacy one.
+  - **No "Run workflow" button**: `workflow_dispatch` is only offered for workflow files that
+    exist on the DEFAULT branch (`main`), and ours lives on `development`. Trigger a deploy with
+    a push, or with "Re-run all jobs" on an existing run.
 - **`cp index.html data/dashboard.html` before every `index.html` commit, and commit BOTH files** —
   the server/Pages serve `data/dashboard.html`, so an un-synced edit won't show up.
 - **Collect data:**
