@@ -391,6 +391,7 @@
      confirmed approve at a glance. */
   .tag-possibly { font-size: 10px; color: var(--yellow); border: 1px dashed rgba(234,179,8,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 600; }
   .tag-test { font-size: 10px; color: var(--orange); border: 1px solid rgba(249,115,22,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 700; letter-spacing: .04em; }
+  .tag-env-dev { color: var(--purple); border-color: rgba(167,139,250,0.55); }
   .report-table tr.rep-possibly-row td:first-child { box-shadow: inset 3px 0 0 var(--yellow); }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
@@ -1281,43 +1282,60 @@ function detectDocType(group) {
 }
 
 // ── Environment: which FaceKom backend the session actually ran against ───────
-// Two independent signals, and they do NOT always agree:
-//   1. the `identification_link` host — the server the identification REALLY ran on
-//      (`videoid-mobile.e-szigno.hu` = prod, `videoid-mobile-test.e-szigno.hu` = test);
+// Three environments — PROD, TEST and DEV:
+//     prod  https://videoid-mobile.e-szigno.hu
+//     test  https://videoid-mobile-test.e-szigno.hu
+//     dev   https://videoid-mobile-dev.graphi.intra.microsec.hu   (internal network)
+// Two independent signals decide, and they do NOT always agree:
+//   1. the `identification_link` host — the server the identification REALLY ran on;
 //   2. `configuration` (Crashlytics CONFIGURATION key) — the APP BUILD the tester installed
 //      ("PROD Release" / "INT Release"), which says nothing about the backend.
 // A PROD build scanning a test QR lands on the test backend (seen: 494e7f0f-…), so where we have
 // a link the host wins; the build config is only the fallback for reports without one. Anything we
 // can't place stays null and counts as prod — never hide real data on a guess.
-const TEST_HOST_RE = /(^|[-.])(test|int|dev|uat|stage|staging)([-.]|$)/i;
+const DEV_HOST_RE  = /(^|[-.])(dev|debug|local|localhost)([-.]|$)/i;
+const TEST_HOST_RE = /(^|[-.])(test|int|uat|sit|stage|staging)([-.]|$)/i;
+// A `*.intra.*` host is on Microsec's internal network — never customer traffic, so an internal
+// host we can't otherwise place is DEV rather than prod. ("intra" as a label, not the "int" of
+// videoid-int…, which TEST_HOST_RE catches on its own boundary.)
+const INTERNAL_HOST_RE = /(^|\.)intra(\.|$)/i;
 function envHostOf(ev) {
   return (String(ev.identification_link || '').match(/^https?:\/\/([^/]+)/) || [])[1] || '';
 }
 function envOfEvent(ev) {
   const host = envHostOf(ev);
-  if (host) return TEST_HOST_RE.test(host) ? 'test' : 'prod';
+  if (host) {
+    if (DEV_HOST_RE.test(host))  return 'dev';
+    if (TEST_HOST_RE.test(host)) return 'test';
+    return INTERNAL_HOST_RE.test(host) ? 'dev' : 'prod';
+  }
   const cfg = (ev.configuration || '').trim();
-  if (/\b(int|test|dev|debug|stag\w*)\b/i.test(cfg)) return 'test';
-  if (/prod/i.test(cfg)) return 'prod';
+  if (/\b(dev|debug)\b/i.test(cfg))               return 'dev';
+  if (/\b(int|test|uat|sit|stag\w*)\b/i.test(cfg)) return 'test';
+  if (/prod/i.test(cfg))                           return 'prod';
   return null;
 }
-// One test report is enough to make the whole session a test session.
+// One non-prod report is enough to make the whole session non-prod; the most internal wins.
 function envOfGroup(group) {
   const es = (group || []).map(envOfEvent);
-  return es.includes('test') ? 'test' : es.includes('prod') ? 'prod' : null;
+  return es.includes('dev') ? 'dev' : es.includes('test') ? 'test' : es.includes('prod') ? 'prod' : null;
 }
 // The event card shows the verdict AND the host it came from, so the source of the call is auditable.
 function envCellHtml(ev) {
   const host = envHostOf(ev);
   const env  = envOfEvent(ev);
-  return `<span class="kv-val${env === 'test' ? ' highlight' : ''}">${esc((env || 'unknown').toUpperCase())}` +
+  return `<span class="kv-val${env && env !== 'prod' ? ' highlight' : ''}">${esc((env || 'unknown').toUpperCase())}` +
          `${host ? ` <span style="color:var(--muted);font-size:10px">${esc(host)}</span>` : ''}</span>`;
 }
-const TEST_ENV_TITLE = 'ez a munkamenet a TESZT backendre futott (videoid-mobile-test…) — nem valós ügyfélazonosítás';
-const ENV_FILTER_TITLE = 'melyik FaceKom szerveren futott a munkamenet: az azonosítási link hostja dönt (videoid-mobile… = PROD, videoid-mobile-test… = TEST), link híján a build konfiguráció (PROD/INT Release). Alapértelmezés: PROD — a belső teszt-futások nem valós ügyfélforgalom.';
+const ENV_TAG_TITLE = {
+  test: 'ez a munkamenet a TESZT backendre futott (videoid-mobile-test…) — nem valós ügyfélazonosítás',
+  dev:  'ez a munkamenet a DEV backendre futott (videoid-mobile-dev…intra… , belső hálózat) — nem valós ügyfélazonosítás',
+};
+const ENV_FILTER_TITLE = 'melyik FaceKom szerveren futott a munkamenet: az azonosítási link hostja dönt (videoid-mobile… = PROD, videoid-mobile-test… = TEST, videoid-mobile-dev….intra… = DEV), link híján a build konfiguráció (PROD/INT Release). Alapértelmezés: PROD — a belső teszt- és fejlesztői futások nem valós ügyfélforgalom.';
 function envTag(group) {
-  return envOfGroup(group) === 'test'
-    ? ` <span class="tag-test" title="${escAttr(TEST_ENV_TITLE)}">TEST</span>` : '';
+  const env = envOfGroup(group);
+  return (env === 'test' || env === 'dev')
+    ? ` <span class="tag-test tag-env-${env}" title="${escAttr(ENV_TAG_TITLE[env])}">${env.toUpperCase()}</span>` : '';
 }
 
 function renderSessionListItems(groups, labelFn) {
@@ -2712,7 +2730,7 @@ function filterToDay(dayKey) {
 let gDayKey = null;
 let gOutcomeFilter = 'all', gVersionFilter = '3.8.1', gFkFilter = '';   // global filters (version is a key: 3.8.1 / 3.8.0 / 3.7.1 / 3.7.0 / all)
 let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
-let gEnvFilter = 'prod';                // 'prod' | 'test' | 'all' — defaults to PROD (see envOfEvent)
+let gEnvFilter = 'prod';                // 'prod' | 'test' | 'dev' | 'all' — defaults to PROD (see envOfEvent)
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
 const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
@@ -2822,12 +2840,14 @@ function recomputeEnvScope() {
     if (!byBase.has(k)) byBase.set(k, []);
     byBase.get(k).push(ev);
   }
-  gEnvCounts = { prod: 0, test: 0 };
+  gEnvCounts = { prod: 0, test: 0, dev: 0 };
   gEnvBases = gEnvFilter === 'all' ? null : new Set();
   for (const [k, evs] of byBase) {
-    const isTest = envOfGroup(evs) === 'test';
-    gEnvCounts[isTest ? 'test' : 'prod']++;
-    if (gEnvBases && isTest === (gEnvFilter === 'test')) gEnvBases.add(k);
+    const env = envOfGroup(evs);
+    // 'prod' is the catch-all: only a POSITIVE test/dev verdict moves a session out of it.
+    const bucket = (env === 'test' || env === 'dev') ? env : 'prod';
+    gEnvCounts[bucket]++;
+    if (gEnvBases && bucket === gEnvFilter) gEnvBases.add(k);
   }
 }
 function evEnvMatch(ev) {
@@ -3403,7 +3423,7 @@ function renderGlobalFilters() {
   // from the idFront step on older builds. Counts are over the current version scope.
   const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
   const dCounts = gDocCounts;
-  const eOpts = [['prod', 'PROD'], ['test', 'TEST'], ['all', 'All']];
+  const eOpts = [['prod', 'PROD'], ['test', 'TEST'], ['dev', 'DEV'], ['all', 'All']];
   const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
