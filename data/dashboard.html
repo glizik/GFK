@@ -142,6 +142,7 @@
   .filter-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; transition: border-color 0.15s, color 0.15s, background 0.15s; }
   .filter-btn:hover { border-color: var(--accent); color: var(--text); }
   .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .filter-btn.btn-archived { border-style: dashed; opacity: .75; }
   .filter-btn.btn-green { border-color: rgba(34,197,94,0.35); color: var(--green); }
   .filter-btn.btn-green:hover { border-color: var(--green); }
   .filter-btn.btn-green.active { background: var(--green); border-color: var(--green); color: #fff; }
@@ -812,13 +813,32 @@ function mergeIssuesByName(primary, secondary) {
   return merged.filter(i => i.rank > 0).sort((a, b) => a.rank - b.rank);
 }
 
-// Every app version the dashboard knows about, newest first. Adding a version = add it
-// here (plus data/issues_<v>.csv + events_<v>.csv/json from a collect run); the version
-// chips, the lazy per-version loader and the issue tables all read this list.
-const APP_VERSIONS = ['3.8.1', '3.8.0', '3.7.1', '3.7.0'];
+// ── Which app versions are in play ────────────────────────────────────────────
+// `data/version_releases.csv` is the SINGLE source of truth: its `active` column (1/0) decides
+// what the dashboard offers, what `collect-incremental.sh` collects, and what the Pages workflow
+// publishes. Old versions nobody looks at any more are switched off there — their data files stay
+// in the repo, they're just not shipped to the site and not re-collected.
+// Archived versions can still be opened LOCALLY (node server.js serves every file); on Pages their
+// JSON isn't published, so the loader reports it instead of silently showing an empty dashboard.
+// APP_VERSIONS is filled in by loadData(); the literal is only the fallback for a missing CSV.
+let APP_VERSIONS      = ['3.8.1', '3.8.0'];
+let ARCHIVED_VERSIONS = [];
+let gShowArchived     = false;          // "archív" toggle in the filter bar
+let unavailableVersions = new Set();    // asked for, but no data file on this host (Pages)
+function selectableVersions() { return gShowArchived ? APP_VERSIONS.concat(ARCHIVED_VERSIONS) : APP_VERSIONS.slice(); }
+function applyVersionConfig(rows) {
+  const on  = rows.filter(r => String(r.active).trim() === '1');
+  const off = rows.filter(r => String(r.active).trim() === '0');
+  const byVersionDesc = (a, b) => String(b.version).localeCompare(String(a.version), undefined, { numeric: true });
+  // No `active` column at all (older CSV) → every listed version stays active, as before.
+  if (!on.length && !off.length) { APP_VERSIONS = rows.slice().sort(byVersionDesc).map(r => r.version).filter(Boolean); ARCHIVED_VERSIONS = []; }
+  else { APP_VERSIONS = on.sort(byVersionDesc).map(r => r.version); ARCHIVED_VERSIONS = off.sort(byVersionDesc).map(r => r.version); }
+  if (!APP_VERSIONS.length) APP_VERSIONS = ['3.8.1'];        // never leave the page with no version
+  if (!APP_VERSIONS.includes(gVersionFilter) && gVersionFilter !== 'all') gVersionFilter = APP_VERSIONS[0];
+}
 
 let loadedVersions = new Set();
-function neededVersions() { return gVersionFilter === 'all' ? APP_VERSIONS.slice() : [gVersionFilter]; }
+function neededVersions() { return gVersionFilter === 'all' ? selectableVersions() : [gVersionFilter]; }
 
 // One event's log (breadcrumbs), concurrency-limited by the caller.
 async function fetchEventLog(ev) {
@@ -834,8 +854,16 @@ async function fetchEventLog(ev) {
 // loaded when the global Version filter asks for it — keeps the default (3.8.1) load fast.
 // Logs fetched at concurrency 20 (a single ~1900-wide Promise.all starves the local server).
 async function ensureVersionsLoaded() {
+  let newIssues = false;
   for (const v of neededVersions()) {
     if (loadedVersions.has(v)) continue;
+    // An ARCHIVED version opened by hand has no issue list yet (loadData only fetches the active
+    // ones) — pull it in too, or its Issue Types table would come up empty.
+    if (!issuesByVersion[v]) {
+      const ic = await fetch(`data/issues_${v}.csv?_=${Date.now()}`).then(r => r.ok ? r.text() : '').catch(() => '');
+      issuesByVersion[v] = ic ? parseCsv(ic).map(parseIssueRow) : [];
+      newIssues = true;
+    }
     // Fast path: a single pre-processed JSON (built by build-data.js) already
     // contains each event's processed logs — one fetch instead of one log
     // request per event. Falls back to CSV + per-event log fetch if absent.
@@ -849,10 +877,15 @@ async function ensureVersionsLoaded() {
     }
     const csv = await fetch(`data/events_${v}.csv?_=${Date.now()}`).then(r => r.ok ? r.text() : '').catch(() => '');
     const raw = csv ? parseCsv(csv) : [];
+    // Neither file is here: an ARCHIVED version on Pages (its data isn't published). Remember it so
+    // the filter bar can say so — an empty dashboard with no explanation looks like a bug.
+    if (!raw.length) unavailableVersions.add(v);
     for (let i = 0; i < raw.length; i += 20)
       events.push(...(await Promise.all(raw.slice(i, i + 20).map(fetchEventLog))).map(canonEventLang));
     loadedVersions.add(v);
   }
+  // A late issue list re-ranks the merged table, so re-select everything — same as on first load.
+  if (newIssues) { rebuildIssueIndex(); activeIssueIds = new Set(issues.map(i => String(i.rank))); }
 }
 
 function renderAll() {
@@ -874,36 +907,48 @@ function renderAll() {
   renderDevTasks();
 }
 
+// Rebuild `issues` (the merged Issue Types list) from issuesByVersion. Called on load and again
+// whenever a version's issue list arrives late — an archived version opened by hand, say.
+function rebuildIssueIndex() {
+  const vers = Object.keys(issuesByVersion);
+  if (!vers.length) { issues = []; return; }
+  // Merge oldest→newest: mergeIssuesByName ranks the primary list first, and the
+  // Issue Types table has always been ordered by the oldest version's ranking.
+  const ordered = vers.slice().sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  issues = ordered.map(v => issuesByVersion[v]).reduce((a, b) => mergeIssuesByName(a, b));
+  // Attach per-version counts so the Issue Types table can follow the Version filter
+  // (the merged events_total/processed_events sum BOTH versions → bogus >100% otherwise).
+  for (const iss of issues) {
+    iss.versions = {};
+    for (const v of vers) {
+      const row = issuesByVersion[v].find(r => r.issue_name === iss.issue_name);
+      if (row) iss.versions[v] = { events_total: row.events_total, processed_events: row.processed_events, users_total: row.users_total };
+    }
+  }
+}
+
 async function loadData() {
   try {
     const ts = Date.now();
-    const [issueCsvs, releasesCsv, reviewedRaw, invRaw, crashRaw] = await Promise.all([
+    // The release list comes FIRST: its `active` column defines APP_VERSIONS, and everything
+    // below (which issue CSVs to fetch, which version is selected) is derived from it.
+    const releasesCsv = await fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => '');
+    releases = releasesCsv ? parseCsv(releasesCsv) : [];
+    if (releases.length) applyVersionConfig(releases);
+    const [issueCsvs, reviewedRaw, invRaw, crashRaw] = await Promise.all([
       Promise.all(APP_VERSIONS.map(v =>
         fetch(`data/issues_${v}.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''))),
-      fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
       fetch(`data/reviewed_sessions.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/investigations.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/crashes.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (invRaw && typeof invRaw === 'object') investigations = invRaw;
     if (crashRaw && Array.isArray(crashRaw.issues)) crashes = crashRaw;
-    releases = releasesCsv ? parseCsv(releasesCsv) : [];
     // Per-version issue lists (a version with no CSV yet — e.g. one just released —
     // simply yields an empty list, so it stays selectable without breaking anything).
     issuesByVersion = {};
     APP_VERSIONS.forEach((v, i) => { issuesByVersion[v] = issueCsvs[i] ? parseCsv(issueCsvs[i]).map(parseIssueRow) : []; });
-    // Merge oldest→newest: mergeIssuesByName ranks the primary list first, and the
-    // Issue Types table has always been ordered by the oldest version's ranking.
-    issues = APP_VERSIONS.slice().reverse().map(v => issuesByVersion[v]).reduce((a, b) => mergeIssuesByName(a, b));
-    // Attach per-version counts so the Issue Types table can follow the Version filter
-    // (the merged events_total/processed_events sum BOTH versions → bogus >100% otherwise).
-    for (const iss of issues) {
-      iss.versions = {};
-      for (const v of Object.keys(issuesByVersion)) {
-        const row = issuesByVersion[v].find(r => r.issue_name === iss.issue_name);
-        if (row) iss.versions[v] = { events_total: row.events_total, processed_events: row.processed_events, users_total: row.users_total };
-      }
-    }
+    rebuildIssueIndex();
 
     events = []; loadedVersions = new Set();
     await ensureVersionsLoaded();   // default loads only 3.8.1; other versions on demand
@@ -2728,7 +2773,9 @@ function filterToDay(dayKey) {
 
 // ── Day Timeline (Gantt swimlanes) ──────────────────────────────────────────────
 let gDayKey = null;
-let gOutcomeFilter = 'all', gVersionFilter = '3.8.1', gFkFilter = '';   // global filters (version is a key: 3.8.1 / 3.8.0 / 3.7.1 / 3.7.0 / all)
+// Global filters. The version is a key from version_releases.csv (or 'all'); loadData()
+// re-points it at the newest ACTIVE version, so this literal only matters until then.
+let gOutcomeFilter = 'all', gVersionFilter = '3.8.1', gFkFilter = '';
 let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
 let gEnvFilter = 'prod';                // 'prod' | 'test' | 'dev' | 'all' — defaults to PROD (see envOfEvent)
 let gView = 'timeline';                 // 'timeline' | 'list'
@@ -3417,17 +3464,27 @@ function reportFilterFk(fk, dayKey) {
 function renderGlobalFilters() {
   const el = document.getElementById('globalFilters');
   if (!el) return;
-  const vOpts = [...APP_VERSIONS.map(v => [v, v]), ['all', 'All']];
+  const vOpts = [...selectableVersions().map(v => [v, v]), ['all', 'All']];
   const oOpts = [['all', 'All', ''], ['approve', 'Approved', 'btn-green'], ['possibly', '≈ Possibly', 'btn-yellow'], ['failed', 'Failed', 'btn-yellow'], ['aborted', 'Aborted', 'btn-red'], ['other', 'Other', ''], ['passed', 'Passed (user)', 'btn-green'], ['notpassed', 'Not passed (user)', 'btn-red']];
   // Document type: explicit from 3.8.1 ("ID Verified, document type: …"), inferred
   // from the idFront step on older builds. Counts are over the current version scope.
   const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
   const dCounts = gDocCounts;
   const eOpts = [['prod', 'PROD'], ['test', 'TEST'], ['dev', 'DEV'], ['all', 'All']];
-  const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
+  // Archived versions (active=0 in version_releases.csv) aren't published to Pages, so the button
+  // that reveals them says what to expect, and a version whose data really is missing is labelled
+  // rather than shown as an empty dashboard.
+  const archBtn = ARCHIVED_VERSIONS.length
+    ? `<button class="filter-btn${gShowArchived ? ' active' : ''}" onclick="toggleArchivedVersions()" title="${escAttr(
+        'archivált verziók (' + ARCHIVED_VERSIONS.join(', ') + '): nincsenek publikálva a Pages-re és nem is gyűjtjük őket. ' +
+        'Helyben (node server.js) betölthetők; az élő oldalon "nincs publikálva" lesz. Kapcsolás: data/version_releases.csv → active oszlop.')}">🗄 archív</button>`
+    : '';
+  const loadHint = gVersionFilter !== 'all' && unavailableVersions.has(gVersionFilter)
+    ? ` <span class="gf-note">· ${esc(gVersionFilter)} archiválva — nincs publikálva ezen a hoston</span>` : '';
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
-    vOpts.map(([v, l]) => `<button class="filter-btn${gVersionFilter === v ? ' active' : ''}" onclick="setGlobalVersion('${v}')">${l}</button>`).join('') +
+    vOpts.map(([v, l]) => `<button class="filter-btn${gVersionFilter === v ? ' active' : ''}${ARCHIVED_VERSIONS.includes(v) ? ' btn-archived' : ''}" onclick="setGlobalVersion('${v}')">${l}${unavailableVersions.has(v) ? ' ⃠' : ''}</button>`).join('') +
+    archBtn +
     `<span class="filter-label" style="margin-left:14px">Outcome</span>` +
     oOpts.map(([k, l, c]) => `<button class="filter-btn${c ? ' ' + c : ''}${gOutcomeFilter === k ? ' active' : ''}" onclick="setGlobalOutcome('${k}')">${l}</button>`).join('') +
     `<span class="filter-label" style="margin-left:14px">Document</span>` +
@@ -3451,6 +3508,13 @@ async function setGlobalVersion(v) {
   if (el && !neededVersions().every(x => loadedVersions.has(x))) el.insertAdjacentHTML('beforeend', '<span class="gf-note" id="gfLoading">· loading…</span>');
   await ensureVersionsLoaded();
   renderAll();
+}
+// Reveal/hide the archived versions in the Version row. Turning it off never leaves the page
+// stranded on a version that just disappeared from the list.
+function toggleArchivedVersions() {
+  gShowArchived = !gShowArchived;
+  if (!gShowArchived && ARCHIVED_VERSIONS.includes(gVersionFilter)) { setGlobalVersion(APP_VERSIONS[0]); return; }
+  renderGlobalFilters();
 }
 function setGlobalOutcome(o) { gOutcomeFilter = o; renderAll(); }
 function setGlobalDoc(d) { gDocFilter = d; renderAll(); }

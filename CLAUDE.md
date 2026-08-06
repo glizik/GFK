@@ -13,8 +13,12 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
 - **Local server:** `node server.js` → http://localhost:3737 (serves `data/dashboard.html` at `/`,
   static `data/`, plus `/api/save-note|discover|collect|save-investigations|save-reviewed`).
   `LOGS_DIR = data/logs`. If `:3737` is stuck: `lsof -ti tcp:3737 | xargs kill -9`.
-- **Deploy:** GitHub **Pages serves from the `development` branch**. Commit **and push** to
-  `development` to publish. A local push hook sends a Telegram with the Pages link ~2 min later.
+- **Deploy:** push to `development` → **`.github/workflows/pages.yml`** builds a CURATED artifact
+  (`index.html` + only the files the page fetches, and only for **active** versions ⇒ ~20 files /
+  8 MB) and deploys it. Pages **Source must stay "GitHub Actions"** — the old "deploy from a
+  branch" mode published all 6094 tracked files / 188 MB and blew the 10-minute deploy timeout.
+  A local push hook sends a Telegram with the Pages link ~2 min later.
+  New file the page needs at runtime ⇒ **add it to the workflow's copy list**, or it won't be live.
 - **`cp index.html data/dashboard.html` before every `index.html` commit, and commit BOTH files** —
   the server/Pages serve `data/dashboard.html`, so an un-synced edit won't show up.
 - **Collect data:**
@@ -37,16 +41,27 @@ Page sections (top→bottom): global filter bar → **Report** → Day Timeline 
 Analytics/Step-funnel → Events grid → Dev tasks.
 
 ### Key data files
-- `data/issues_3.7.x.csv`, `data/events_3.7.x.csv` — Crashlytics issues + per-event rows.
+- **`data/version_releases.csv` — `version,build,date,active`: the single source of truth for
+  which versions are in play.** `active=1` ⇒ the dashboard offers it, `collect-incremental.sh`
+  collects it, the Pages workflow publishes it; `active=0` ⇒ archived (data stays in the repo,
+  hidden behind the 🗄 archív toggle, loadable locally, NOT published). Switching a version on/off
+  = one character here. `build` feeds `ISSUE_VERSIONS="<v> (<build>)"`.
+- `data/issues_<v>.csv`, `data/events_<v>.csv` — Crashlytics issues + per-event rows.
+- `data/events_<v>.json` — what the dashboard actually loads (built by `build-data.js`, embeds
+  every breadcrumb). Committed.
 - `data/logs/<event_id>.log` — JSON `{ …, logs_and_breadcrumbs: [...] }` per crash report.
+  **LOCAL ONLY — gitignored** (6k+ files / 121 MB). Only `build-data.js` reads them; it refuses to
+  rewrite a JSON from fewer logs than it already contains, so a fresh clone can't blank the data.
 - `data/developer_tasks.csv` — `id,title,priority,resolution,category,noteFile,attachedSessions`
   (attachedSessions = `|`-joined Firebase session ids).
 - `data/investigations.json` — per-FaceKom-id outcome overrides `{ outcome, note, ts }`.
 - `data/reviewed_sessions.json`, `data/version_releases.csv`.
 
 ### Code map (functions in index.html)
-- **Load/render:** `loadData()` + `ensureVersionsLoaded()` (lazy per-version; default 3.7.1) →
-  `renderAll()` (calls every render fn). Globals: `events`, `gVersionFilter` (`'3.7.1'|'3.7.0'|'all'`),
+- **Load/render:** `loadData()` (reads `version_releases.csv` FIRST → `applyVersionConfig` fills
+  `APP_VERSIONS`/`ARCHIVED_VERSIONS`) + `ensureVersionsLoaded()` (lazy per-version, also pulls that
+  version's issue CSV) → `renderAll()`. `rebuildIssueIndex()` re-merges the Issue Types table when a
+  version arrives late. Globals: `events`, `gVersionFilter` (a version key or `'all'`),
   `gOutcomeFilter`, `gFkFilter`, `investigations`, `devTasks`, `reviewedSessions`.
 - **Report view:** `buildReportSessions()` (group all version-scoped events into FaceKom-session
   lanes, across all days) → `renderReport()`. Abort engine: **`deriveAbortExits(group)`** +

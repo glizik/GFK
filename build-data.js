@@ -88,6 +88,19 @@ function buildVersion(v) {
     return { ...ev, logs, startTs: logs[0]?.rawTs || null };
   });
   const jsonPath = path.join(DATA, `events_${v}.json`);
+  // data/logs/ is local-only (gitignored), so on a fresh clone it can be empty or partial while
+  // the COMMITTED json still holds every breadcrumb. Rebuilding from a thinner set of logs would
+  // silently overwrite good data with empty `logs: []` arrays, so refuse and keep what we have.
+  if (fs.existsSync(jsonPath)) {
+    let prevWithLogs = 0;
+    try { prevWithLogs = JSON.parse(fs.readFileSync(jsonPath, 'utf8')).filter(e => (e.logs || []).length).length; }
+    catch { prevWithLogs = 0; }
+    if (withLogs < prevWithLogs) {
+      console.log(`REFUSING to rewrite ${v}: only ${withLogs} events have a local log file, the existing ` +
+                  `JSON has ${prevWithLogs}. Is data/logs/ complete on this machine? (nothing written)`);
+      return;
+    }
+  }
   fs.writeFileSync(jsonPath, JSON.stringify(out));
   const mb = (fs.statSync(jsonPath).size / 1048576).toFixed(2);
   console.log(`built ${v}: ${out.length} events (${withLogs} with logs, ${missing} no log) → ${jsonPath} (${mb} MB)`);

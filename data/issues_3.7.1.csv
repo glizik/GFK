@@ -1,8 +1,8 @@
 rank,issue_name,nserror_domain,nserror_code,issue_id,variants_total,events_total,users_total,processed_events,analysed_events,last_scraped
-1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,0,3500,1300,852,0,2026-08-05T13:08:27.361Z
-2,FaceKom handleFlow (0),FaceKom handleFlow,0,,3,1600,1200,957,0,2026-08-05T13:08:27.361Z
-3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,2,409,298,333,0,2026-08-05T13:08:27.361Z
-4,FaceKomSDK.FaceKomError (46),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,46,,3,92,63,150,0,2026-08-05T13:08:27.361Z
-5,FaceKomSDK.FaceKomError (43),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,43,,2,56,15,90,0,2026-08-05T13:08:27.361Z
-6,FaceKomSDK.FaceKomError (3),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,3,,0,4,,637,0,2026-08-05T13:08:27.361Z
-7,FaceKomSDK.FaceKomError (36),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,36,,0,4,3,854,0,2026-08-05T13:08:27.361Z
+1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,0,3500,1300,852,0,2026-08-05T15:15:08.287Z
+2,FaceKom handleFlow (0),FaceKom handleFlow,0,,3,1600,1200,957,0,2026-08-05T15:15:08.287Z
+3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,2,409,298,333,0,2026-08-05T15:15:08.287Z
+4,FaceKomSDK.FaceKomError (46),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,46,,3,92,63,150,0,2026-08-05T15:15:08.287Z
+5,FaceKomSDK.FaceKomError (43),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,43,,2,56,15,90,0,2026-08-05T15:15:08.287Z
+6,FaceKomSDK.FaceKomError (3),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,3,,0,4,,637,0,2026-08-05T15:15:08.287Z
+7,FaceKomSDK.FaceKomError (36),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,36,,0,4,3,854,0,2026-08-05T15:15:08.287Z

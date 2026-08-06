@@ -18,7 +18,14 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
-VERSIONS=(${COLLECT_VERSIONS:-3.8.1 3.8.0 3.7.1 3.7.0})   # newest first; override e.g. COLLECT_VERSIONS="3.8.0"
+# Versions to work on, newest first. Single source of truth: the `active` column of
+# data/version_releases.csv (1 = in play, 0 = archived → not collected, not published, hidden in
+# the dashboard). Override for a one-off run with COLLECT_VERSIONS="3.8.0".
+active_versions () {
+  awk -F, 'NR>1 && $1 != "" { if (NF < 4 || $4+0 == 1) print $1 }' data/version_releases.csv \
+    | sort -Vr | tr '\n' ' '
+}
+VERSIONS=(${COLLECT_VERSIONS:-$(active_versions)})
 HEARTBEAT=600                        # seconds between progress pings during a long issue
 
 # ── window arg ──────────────────────────────────────────────────────────────
@@ -171,7 +178,10 @@ if [ "$NO_PUSH" != "1" ]; then
   for v in "${VERSIONS[@]}"; do
     git add "data/events_${v}.csv" "data/issues_${v}.csv" "data/events_${v}.json" 2>/dev/null
   done
-  git add data/logs/ 2>/dev/null
+  # data/logs/ is deliberately NOT committed any more (it is in .gitignore): 6k+ raw log files /
+  # 121 MB that only build-data.js reads, locally. Everything the dashboard needs is already baked
+  # into events_<v>.json — publishing the raw logs was what pushed the Pages deploy over its
+  # 10-minute timeout.
   if git diff --cached --quiet; then
     echo "no changes to commit"
   else

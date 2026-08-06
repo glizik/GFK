@@ -1,0 +1,83 @@
+# Publish the dashboard to GitHub Pages — from a CURATED artifact, not the whole branch.
+#
+# Why this exists: with the classic "deploy from a branch" mode Pages publishes every tracked
+# file, which meant ~188 MB / 6094 files (6007 of them raw breadcrumb logs the deployed page
+# never fetches). The deployment step stopped finishing inside the 10-minute poll of
+# actions/deploy-pages and every push failed with "Timeout reached, aborting!".
+#
+# What ships now: index.html plus the handful of files the page actually fetches, and only for
+# the versions marked active=1 in data/version_releases.csv. Archived versions and data/logs/
+# stay in the repo, they are simply not published.
+#
+# Requires: Settings → Pages → Source = "GitHub Actions".
+name: Deploy dashboard to Pages
+
+on:
+  push:
+    branches: [development]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Every change lands as two pushes (the commit + the automatic "chore: bump vNNN"), so an
+# in-flight deploy of the older commit is always superseded — cancel it instead of queueing
+# behind it, which is what used to eat the deploy timeout.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble the site
+        run: |
+          set -euo pipefail
+          # Active versions = `active` column of version_releases.csv (missing column ⇒ all active).
+          versions=$(awk -F, 'NR>1 && $1 != "" { if (NF < 4 || $4+0 == 1) print $1 }' \
+                      data/version_releases.csv | sort -Vr)
+          echo "active versions: $(echo $versions)"
+
+          mkdir -p site/data/notes
+          cp index.html site/
+          cp data/dashboard.html site/data/ 2>/dev/null || true
+          # `if` rather than `[ -f x ] && cp`: under `set -e` a missing optional file would abort
+          # the whole step instead of being skipped.
+          for f in version_releases.csv developer_tasks.csv \
+                   crashes.json investigations.json reviewed_sessions.json; do
+            if [ -f "data/$f" ]; then cp "data/$f" site/data/; fi
+          done
+          cp data/notes/*.md site/data/notes/ 2>/dev/null || true
+          # Per-version data. events_<v>.json is the fast path the page really uses; the CSV is
+          # kept as its fallback. The raw data/logs/<id>.log files are NOT published — they are
+          # only the fallback's fallback, and the JSON already embeds every breadcrumb.
+          for v in $versions; do
+            for f in "events_$v.json" "events_$v.csv" "issues_$v.csv"; do
+              if [ -f "data/$f" ]; then cp "data/$f" site/data/; fi
+            done
+          done
+
+          echo "--- published files ---"
+          find site -type f | sort
+          echo "--- total ---"
+          find site -type f | wc -l
+          du -sh site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

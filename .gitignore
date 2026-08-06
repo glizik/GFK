@@ -9,3 +9,9 @@ venv
 
 # local nohup server log
 data/logs/server.out
+
+# Raw Crashlytics breadcrumb dumps — LOCAL ONLY (6k+ files, ~121 MB).
+# Only build-data.js reads them, and everything the dashboard needs is already baked into
+# data/events_<v>.json, which IS committed. They used to be published to GitHub Pages on every
+# deploy, which is what pushed the deployment past its 10-minute timeout.
+data/logs/
