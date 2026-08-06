@@ -390,6 +390,7 @@
   /* "possibly approve" = inferred, not reported by the SDK — dashed border so it never reads as a
      confirmed approve at a glance. */
   .tag-possibly { font-size: 10px; color: var(--yellow); border: 1px dashed rgba(234,179,8,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 600; }
+  .tag-test { font-size: 10px; color: var(--orange); border: 1px solid rgba(249,115,22,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 700; letter-spacing: .04em; }
   .report-table tr.rep-possibly-row td:first-child { box-shadow: inset 3px 0 0 var(--yellow); }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
@@ -855,7 +856,8 @@ async function ensureVersionsLoaded() {
 
 function renderAll() {
   recomputeOutcomeScope();   // refresh the page-wide version+outcome scope first
-  recomputeDocScope();       // …then the document-type scope (both feed gScopedEvents)
+  recomputeDocScope();       // …then the document-type scope
+  recomputeEnvScope();       // …and the prod/test scope (all three feed gScopedEvents)
   computeIssueHeld();        // per-issue held counts for the Issue Types coverage
   renderGlobalFilters();
   renderStats();
@@ -1276,6 +1278,46 @@ function docTypeKey(group) {
 function detectDocType(group) {
   const k = docTypeKey(group);
   return k ? (DOC_LABELS[k] || k) : null;
+}
+
+// ── Environment: which FaceKom backend the session actually ran against ───────
+// Two independent signals, and they do NOT always agree:
+//   1. the `identification_link` host — the server the identification REALLY ran on
+//      (`videoid-mobile.e-szigno.hu` = prod, `videoid-mobile-test.e-szigno.hu` = test);
+//   2. `configuration` (Crashlytics CONFIGURATION key) — the APP BUILD the tester installed
+//      ("PROD Release" / "INT Release"), which says nothing about the backend.
+// A PROD build scanning a test QR lands on the test backend (seen: 494e7f0f-…), so where we have
+// a link the host wins; the build config is only the fallback for reports without one. Anything we
+// can't place stays null and counts as prod — never hide real data on a guess.
+const TEST_HOST_RE = /(^|[-.])(test|int|dev|uat|stage|staging)([-.]|$)/i;
+function envHostOf(ev) {
+  return (String(ev.identification_link || '').match(/^https?:\/\/([^/]+)/) || [])[1] || '';
+}
+function envOfEvent(ev) {
+  const host = envHostOf(ev);
+  if (host) return TEST_HOST_RE.test(host) ? 'test' : 'prod';
+  const cfg = (ev.configuration || '').trim();
+  if (/\b(int|test|dev|debug|stag\w*)\b/i.test(cfg)) return 'test';
+  if (/prod/i.test(cfg)) return 'prod';
+  return null;
+}
+// One test report is enough to make the whole session a test session.
+function envOfGroup(group) {
+  const es = (group || []).map(envOfEvent);
+  return es.includes('test') ? 'test' : es.includes('prod') ? 'prod' : null;
+}
+// The event card shows the verdict AND the host it came from, so the source of the call is auditable.
+function envCellHtml(ev) {
+  const host = envHostOf(ev);
+  const env  = envOfEvent(ev);
+  return `<span class="kv-val${env === 'test' ? ' highlight' : ''}">${esc((env || 'unknown').toUpperCase())}` +
+         `${host ? ` <span style="color:var(--muted);font-size:10px">${esc(host)}</span>` : ''}</span>`;
+}
+const TEST_ENV_TITLE = 'ez a munkamenet a TESZT backendre futott (videoid-mobile-test…) — nem valós ügyfélazonosítás';
+const ENV_FILTER_TITLE = 'melyik FaceKom szerveren futott a munkamenet: az azonosítási link hostja dönt (videoid-mobile… = PROD, videoid-mobile-test… = TEST), link híján a build konfiguráció (PROD/INT Release). Alapértelmezés: PROD — a belső teszt-futások nem valós ügyfélforgalom.';
+function envTag(group) {
+  return envOfGroup(group) === 'test'
+    ? ` <span class="tag-test" title="${escAttr(TEST_ENV_TITLE)}">TEST</span>` : '';
 }
 
 function renderSessionListItems(groups, labelFn) {
@@ -2313,6 +2355,7 @@ function renderKeysContent(ev) {
     <span class="kv-key">crash_kind</span><span class="kv-val">${esc(ev.crash_kind || '—')}</span>
     <span class="kv-key">source</span><span class="kv-val">${esc(ev.source || '—')}</span>
     <span class="kv-key">configuration</span><span class="kv-val">${esc(ev.configuration || '—')}</span>
+    <span class="kv-key" title="${escAttr(ENV_FILTER_TITLE)}">environment</span>${envCellHtml(ev)}
     <span class="kv-key">app_version</span><span class="kv-val">${esc(ev.app_version || '—')}</span>
     <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
   </div>`;
@@ -2422,7 +2465,7 @@ function renderSessionCard(group, idx) {
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
-        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
+        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${envTag(group)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
         <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
@@ -2669,6 +2712,7 @@ function filterToDay(dayKey) {
 let gDayKey = null;
 let gOutcomeFilter = 'all', gVersionFilter = '3.8.1', gFkFilter = '';   // global filters (version is a key: 3.8.1 / 3.8.0 / 3.7.1 / 3.7.0 / all)
 let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
+let gEnvFilter = 'prod';                // 'prod' | 'test' | 'all' — defaults to PROD (see envOfEvent)
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
 const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
@@ -2685,7 +2729,7 @@ function toggleGantt() {
   panel.classList.toggle('collapsed', open);
   icon.classList.toggle('open', !open);
 }
-function gFilterActive() { return gOutcomeFilter !== 'all' || gVersionFilter !== 'all' || gDocFilter !== 'all' || !!gFkFilter; }
+function gFilterActive() { return gOutcomeFilter !== 'all' || gVersionFilter !== 'all' || gDocFilter !== 'all' || gEnvFilter !== 'all' || !!gFkFilter; }
 
 // ── Global scope: version + outcome filter (applied page-wide) ──────────────────
 // approve/failed/aborted/other = per-Firebase-session outcome; passed/notpassed =
@@ -2764,8 +2808,35 @@ function evDocMatch(ev) {
   return gDocBases.has(ev.session_id_base || ev.event_id || '?');
 }
 
-// Events passing the version + outcome + document filter — the page-wide data source.
-function gScopedEvents() { return events.filter(ev => evVersionMatch(ev) && evOutcomeMatch(ev) && evDocMatch(ev)); }
+// ── Global scope: environment (prod / test backend) ───────────────────────────
+// Same session-level shape as the doc scope: the env is a property of the whole Firebase session,
+// and a report without an identification link inherits it from its siblings. `prod` deliberately
+// means "everything not positively test" so the handful of unplaceable reports stay visible.
+let gEnvBases = null;    // null = not filtering (env = 'all')
+let gEnvCounts = {};     // 'prod' | 'test' → Firebase sessions in the current version scope
+function recomputeEnvScope() {
+  const byBase = new Map();
+  for (const ev of events) {
+    if (!evVersionMatch(ev)) continue;
+    const k = ev.session_id_base || ev.event_id || '?';
+    if (!byBase.has(k)) byBase.set(k, []);
+    byBase.get(k).push(ev);
+  }
+  gEnvCounts = { prod: 0, test: 0 };
+  gEnvBases = gEnvFilter === 'all' ? null : new Set();
+  for (const [k, evs] of byBase) {
+    const isTest = envOfGroup(evs) === 'test';
+    gEnvCounts[isTest ? 'test' : 'prod']++;
+    if (gEnvBases && isTest === (gEnvFilter === 'test')) gEnvBases.add(k);
+  }
+}
+function evEnvMatch(ev) {
+  if (!gEnvBases) return true;
+  return gEnvBases.has(ev.session_id_base || ev.event_id || '?');
+}
+
+// Events passing the version + outcome + document + environment filter — the page-wide data source.
+function gScopedEvents() { return events.filter(ev => evVersionMatch(ev) && evOutcomeMatch(ev) && evDocMatch(ev) && evEnvMatch(ev)); }
 
 // Server-side start of a session report = "FaceKom SelfService started" crumb (falls back to event date).
 function gStartTs(ev) {
@@ -3292,7 +3363,7 @@ function renderReport() {
       }
       dTries += u.tries.length;
       bodyRows += `<tr${recovered?' class="rep-recovered-row"':possibly?' class="rep-possibly-row"':''}>
-        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${laneNeverPassed?'<span title="ez a user sosem jutott át" style="color:var(--red)">⛔</span> ':''}${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span></td>
+        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${laneNeverPassed?'<span title="ez a user sosem jutott át" style="color:var(--red)">⛔</span> ':''}${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span>${envTag(u.tries.flatMap(t => t.group))}</td>
         <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
     }
@@ -3332,6 +3403,7 @@ function renderGlobalFilters() {
   // from the idFront step on older builds. Counts are over the current version scope.
   const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
   const dCounts = gDocCounts;
+  const eOpts = [['prod', 'PROD'], ['test', 'TEST'], ['all', 'All']];
   const loadHint = (!loadedVersions.has('3.7.0') && gVersionFilter === '3.7.1') ? ' <span class="gf-note">· 3.7.0 loads on demand</span>' : '';
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
@@ -3342,6 +3414,13 @@ function renderGlobalFilters() {
     dOpts.map(([k, l]) => {
       const n = k === 'all' ? null : (dCounts[k] || 0);
       return `<button class="filter-btn${gDocFilter === k ? ' active' : ''}" onclick="setGlobalDoc('${k}')">${l}${n !== null ? ` <span style="opacity:.6">${n}</span>` : ''}</button>`;
+    }).join('') +
+    // Environment: internal test runs (test backend / INT build) are NOT customer traffic, so the
+    // page starts on PROD — otherwise they'd quietly skew every rate on a small version.
+    `<span class="filter-label" style="margin-left:14px" title="${escAttr(ENV_FILTER_TITLE)}">Env</span>` +
+    eOpts.map(([k, l]) => {
+      const n = k === 'all' ? null : (gEnvCounts[k] || 0);
+      return `<button class="filter-btn${gEnvFilter === k ? ' active' : ''}" onclick="setGlobalEnv('${k}')" title="${escAttr(ENV_FILTER_TITLE)}">${l}${n !== null ? ` <span style="opacity:.6">${n}</span>` : ''}</button>`;
     }).join('') +
     loadHint;
 }
@@ -3355,6 +3434,7 @@ async function setGlobalVersion(v) {
 }
 function setGlobalOutcome(o) { gOutcomeFilter = o; renderAll(); }
 function setGlobalDoc(d) { gDocFilter = d; renderAll(); }
+function setGlobalEnv(e) { gEnvFilter = e; renderAll(); }
 
 function setGanttView(v) { gView = v; renderGantt(); }
 function setGanttFk(fk) { gFkFilter = fk; renderGantt(); }

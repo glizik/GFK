@@ -89,6 +89,14 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   the marker); `normalizeOutcome`'s enum is deliberately unchanged — `≈ Possibly` is a *view* over
   the approve bucket. These lanes stay listed in the Report on purpose: they're the to-verify queue.
   `buildStepFunnel()` buckets outcomes **separately** from `deriveSessionOutcome` — keep both in sync.
+- **PROD vs TEST környezet:** két független jel, és nem mindig egyeznek. (1) az `identification_link`
+  **hostja** = az a backend, amin a session **ténylegesen futott** (`videoid-mobile.e-szigno.hu` = prod,
+  `videoid-mobile-test.e-szigno.hu` = teszt); (2) `configuration` (Crashlytics `CONFIGURATION` key) =
+  az **app build** (`PROD Release` / `INT Release`). PROD build teszt QR-rel a teszt backendre megy —
+  ezért a host az erősebb jel, a build config csak fallback link nélküli reportokra (`envOfEvent`).
+  Session-szint: egy teszt report az egész munkamenetet teszté teszi (`envOfGroup`). A globális **Env**
+  szűrő alapból **PROD** (`gEnvFilter`), a `prod` bucket = "ami nem bizonyítottan teszt", hogy a
+  besorolhatatlan reportok ne tűnjenek el. Csak 3.8.1-ben van teszt forgalom (10-ből 3 lane).
 - **What counts as an ABORT:** the SDK fires `nextStep: end(status:"aborted")` **only when the user
   leaves a VIDEO step** (voice-liveness, deepfake, customerPortrait, id-back-video, hologram).
   Backgrounding a **non-video** step — e.g. 2-factor to read the SMS (`did enter background … ,
