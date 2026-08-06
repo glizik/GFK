@@ -25,8 +25,13 @@ permissions:
 # Every change lands as two pushes (the commit + the automatic "chore: bump vNNN"), so an
 # in-flight deploy of the older commit is always superseded — cancel it instead of queueing
 # behind it, which is what used to eat the deploy timeout.
+#
+# The group name must NOT be plain "pages": concurrency groups are per-REPOSITORY, and GitHub's
+# built-in `pages-build-deployment` workflow (the legacy "deploy from a branch" flow) uses exactly
+# that name. While both flows exist the two block and cancel each other — that is what left this
+# workflow's build "cancelled after 15m", waiting on a group it did not own.
 concurrency:
-  group: pages
+  group: pages-dashboard
   cancel-in-progress: true
 
 jobs:
