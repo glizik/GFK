@@ -1,0 +1,287 @@
+{
+  "title": "Crashlytics - Custom logs",
+  "bundle_identifier": "hu.microsec.eszigno.mobile",
+  "platform": "apple",
+  "display_version": "3.8.1",
+  "build_version": "2809",
+  "issue_id": "fc90ac57101d1258a32120e65642f194",
+  "session_id": "f979154da1a74754af165f430cdc267b_DNE_0_v2",
+  "event_timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+  "logs_and_breadcrumbs": [
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:14 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "PincodeScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:15 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:16 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "InnerQrReaderScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:18 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "DossierListScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:19 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoUserAgreementsScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:21 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoAssistanceScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:24 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom started from: Logged in videoId",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:24 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom started with assistance: false",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:26:25 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "VideoIntroScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:05 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom ID Verified, document type: id-card",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:05 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "IdVerificationScreen"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:27 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom SelfService started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:27 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom getSettings success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:27 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: connecting",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:27 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom connectSocket success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:27 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: connected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:27 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfServiceViewController"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:28 GMT+0200 (Central European Summer Time)",
+      "message": "Facekom flow successfully started, Listening...",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:28 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"startVideo\": 1, \"voiceLivenessCheckNumber\": 8300]), availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:28 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom auth success",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:28 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom capture consent shown",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:34 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom capture consent accepted",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:34 GMT+0200 (Central European Summer Time)",
+      "name": "screen_view",
+      "source": "analytics",
+      "params": {
+        "firebase_screen_class": "SelfieViewController"
+      }
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:35 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom WebRTC started",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:37 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:37 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent voice: nil, face: Optional(eSzigno.MessageStep.faceDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:37 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:41 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:41 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:27:41 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:voice\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:00 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: custom(type: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:01 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:01 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:01 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:card\", message: Optional(\"success\")))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:21 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom user initiated closing from: customerPortrait, isAlreadyClosed: false",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom aborted state: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom session ended, report early",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom nextStep: end(status: \"aborted\", additionalData: nil)",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "Facekom SelfService stopped and cleared.",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom aborted state: nil",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "Facekom végzett aborted(message: Optional(\"Ismeretlen hiba történt!\")) státusszal.",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom status changed: disconnected",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom stopStream",
+      "source": "crashlytics"
+    },
+    {
+      "timestamp": "Thu Aug 06 2026 11:28:51 GMT+0200 (Central European Summer Time)",
+      "message": "FaceKom user initiated closing from: end, isAlreadyClosed: true",
+      "source": "crashlytics"
+    }
+  ]
+}
