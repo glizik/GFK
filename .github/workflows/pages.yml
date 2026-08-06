@@ -34,9 +34,16 @@ concurrency:
   group: pages-dashboard
   cancel-in-progress: true
 
+# Build AND deploy in ONE job. The usual two-job split needs a second hosted runner just to call
+# deploy-pages, and that second acquisition is exactly what failed here ("The job was not acquired
+# by Runner of type hosted even after multiple attempts", an Actions-side internal error) after the
+# build had already succeeded. One job = one runner = one thing that can fail to be scheduled.
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -77,12 +84,5 @@ jobs:
         with:
           path: site
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
