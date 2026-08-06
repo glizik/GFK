@@ -71,6 +71,16 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   idBack → hologram → id-back-video → twoFactor → end(finished)→approve (varies by doc type).
 - **Outcome:** approve / aborted / failed / reject / other (`deriveSessionOutcome`); per-FaceKom-id
   override via `investigations`. Reject/fail reason is in `end(status:"failed", … reason = "X")`.
+- **≈ possibly approve:** a session that reached `twoFactor` and then just stops being reported —
+  no `end(…)` of any status AND no `user initiated closing` — is a **telemetry gap, not a drop-off**
+  (nothing can fail at 2FA any more). It derives as `approve` (`isPossiblyApprove`) but carries an
+  `≈ possibly` chip everywhere, because the verdict is INFERRED, not SDK-reported. The missing close
+  breadcrumb is the whole discriminator: users who really quit at 2FA (no SMS) do log it, and they
+  stay `aborted` — they have no `end(aborted)` either, since 2FA isn't a video step. Gate every chip
+  and counter on `isPossiblyApproveSession(group, fk)` (an `investigations` outcome override retires
+  the marker); `normalizeOutcome`'s enum is deliberately unchanged — `≈ Possibly` is a *view* over
+  the approve bucket. These lanes stay listed in the Report on purpose: they're the to-verify queue.
+  `buildStepFunnel()` buckets outcomes **separately** from `deriveSessionOutcome` — keep both in sync.
 - **What counts as an ABORT:** the SDK fires `nextStep: end(status:"aborted")` **only when the user
   leaves a VIDEO step** (voice-liveness, deepfake, customerPortrait, id-back-video, hologram).
   Backgrounding a **non-video** step — e.g. 2-factor to read the SMS (`did enter background … ,
