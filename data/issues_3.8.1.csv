@@ -1,3 +1,4 @@
 rank,issue_name,nserror_domain,nserror_code,issue_id,variants_total,events_total,users_total,processed_events,analysed_events,last_scraped
-1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,0,18,6,18,0,2026-08-06T06:34:30.705Z
-2,FaceKom handleFlow (0),FaceKom handleFlow,0,,0,7,6,7,0,2026-08-06T06:34:30.705Z
+1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,0,32,11,18,0,2026-08-06T11:35:25.567Z
+2,FaceKom handleFlow (0),FaceKom handleFlow,0,,0,11,10,7,0,2026-08-06T11:35:25.567Z
+3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,0,3,2,12,0,2026-08-06T11:35:25.567Z
