@@ -420,16 +420,20 @@
   .tl2-grid { min-width: 1080px; }
   .tl2-head, .tl2-row {
     display: grid;
-    grid-template-columns: 42px 104px 268px 172px 96px minmax(130px, 1fr) minmax(280px, 2.4fr);
+    grid-template-columns: 42px 100px 250px 152px 88px minmax(300px, 2.2fr) minmax(220px, 1.5fr);
     align-items: center; gap: 0 8px; padding: 0 10px;
   }
   .tl2-head { position: sticky; top: 0; z-index: 5; height: 44px; background: var(--surface2); border-bottom: 1px solid var(--border);
     font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .tl2-row { min-height: 32px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: copy; }
+  .tl2-row { min-height: 32px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: pointer; }
   .tl2-row:last-child { border-bottom: none; }
+  /* Stripes run per FaceKom session, not per row: the tries of one identification stay one block
+     and share one shade, so a multi-try lane reads as a single unit. */
+  .tl2-row.stripe { background: rgba(148,163,184,0.11); }
   .tl2-row:hover { background: var(--surface2); }
-  .tl2-row.copied { background: rgba(34,197,94,0.12); }
   .tl2-row.retry .tl2-num { color: var(--orange); }
+  .tl2-row.lane-start { border-top: 1px solid var(--border); }
+  .tl2-row.lane-start:first-child { border-top: none; }
   .tl2-num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 700; }
   .tl2-time { font-family: monospace; font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tl2-time span { color: var(--muted); margin-left: 5px; }
@@ -445,6 +449,13 @@
   .tl2-out .tl2-cause { color: var(--muted); font-size: 10px; }
   .tl2-note { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tl2-note.has { color: var(--yellow); }
+  .tl2-insight { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .tl2-insight.bad { color: #fca5a5; }
+  .tl2-insight.warn { color: var(--yellow); }
+  .tl2-insight.ok { color: var(--muted); }
+  .tl2-insight .tl2-usernote { color: var(--yellow); }
+  .event-card.tl2-flash { animation: tl2Flash 1.8s ease; }
+  @keyframes tl2Flash { 0%,100% { box-shadow: none } 20%,70% { box-shadow: 0 0 0 2px var(--accent) } }
   .tl2-track { position: relative; height: 26px; border-left: 1px solid var(--border); overflow: hidden; }
   .tl2-bar { position: absolute; top: 50%; transform: translateY(-50%); height: 14px; min-width: 4px; border-radius: 3px;
     border: 1px solid rgba(0,0,0,0.35); cursor: pointer; box-sizing: border-box; }
@@ -3290,12 +3301,105 @@ function tl2Latest() {
   const m = buildGanttModel(gDay2);
   if (m.dayKeys.length) { gDay2 = m.dayKeys[m.dayKeys.length - 1]; renderTimeline2(); }
 }
-// Row click = copy the FaceKom id, with the ✓ feedback landing on the row's own copy button.
-function tl2Copy(rowEl, fk) {
-  if (!fk) return;
-  copyToClipboard(fk, rowEl.querySelector('.tl2-copy'));
-  rowEl.classList.add('copied');
-  setTimeout(() => rowEl.classList.remove('copied'), 1500);
+// Row click = jump to this session in the collected Events grid and flash its card.
+function tl2Open(sessId) {
+  showSessionInEvents(sessId);
+  setTimeout(() => {
+    const card = document.querySelector('#eventsGrid .event-card');
+    if (!card) return;
+    card.classList.add('tl2-flash');
+    setTimeout(() => card.classList.remove('tl2-flash'), 1900);
+  }, 60);
+}
+
+// ── Insight: one sentence on what most likely went wrong ────────────────────────
+// Derived from the session's merged breadcrumbs, most-specific-first: an explicit SDK/server
+// verdict beats a behavioural signal (the user walked out), which beats a bare "nothing happened
+// for N seconds" stall. Qualifiers that are never the whole story (reconnects, a close button that
+// keeps bouncing) are appended to whatever the main cause turns out to be.
+const TL2_DET_HU = { faceDetection: 'arc', voiceDetection: 'hang', cardDetection: 'kártya' };
+function tl2Instr(raw) {
+  const parts = String(raw || '').split(',').map(s => s.trim().replace(/^eSzigno\.MessageStep\./, '')).filter(Boolean);
+  return parts.length ? parts.map(p => TL2_DET_HU[p] || p).join(' + ') : 'semmi';
+}
+// Longest silence INSIDE a FaceKom step: the gap that actually made the user wait. Gaps that start
+// with the user leaving (background) are the user's own time, not a stall, so they don't count.
+function tl2MaxStall(logs) {
+  let step = null, best = null;
+  for (let i = 1; i < logs.length; i++) {
+    const prev = logs[i-1].msg || '', cur = logs[i].msg || '';
+    const s = stepFromMsg(prev);
+    if (s && s !== 'end') step = s;
+    if (!step || !/FaceKom|Facekom/.test(prev)) continue;
+    if (/did enter background|user initiated closing|stopStream|stopped and cleared/.test(prev)) continue;
+    const sec = Math.round((logs[i].rawTs - logs[i-1].rawTs) / 1000);
+    if (sec > 0 && (!best || sec > best.sec)) best = { sec, step };
+  }
+  return best;
+}
+function tl2Insight(t) {
+  const logs = mergeGroupLogs(t.group);
+  if (!logs.length) return { kind: 'ok', text: 'nincs breadcrumb ebben a reportban' };
+  const all = logs.map(l => l.msg || '').join('\n');
+  const outcome = normalizeOutcome(t.outcome);
+  const step = deriveStuckStep(t.rep) || (t.lastStep !== '—' ? t.lastStep : '') || 'ismeretlen';
+
+  // Qualifiers (never the whole story on their own, but always worth naming).
+  const flags = [];
+  const rc = countReconnects(t.group);
+  if (rc >= 2) flags.push(`${rc}× újracsatlakozás`);
+  const closes = logs.filter(l => /user initiated closing/.test(l.msg || '') && /isAlreadyClosed: true/.test(l.msg || ''));
+  let burst = 0, burstSpan = 0;
+  for (let i = 0; i < closes.length; i++) {
+    let j = i;
+    while (j < closes.length && closes[j].rawTs - closes[i].rawTs <= 60000) j++;
+    if (j - i > burst) { burst = j - i; burstSpan = Math.round((closes[j-1].rawTs - closes[i].rawTs) / 1000); }
+  }
+  if (burst >= 4) flags.push(`a záró gomb ${burst}× nem reagált (${burstSpan} s)`);
+  const say = (kind, text) => ({ kind, text: [text, ...flags].join(' · ') });
+
+  let m;
+  // 1. Explicit SDK guards and server verdicts.
+  if ((m = all.match(/Deepfake detection timeout, received instructions: \[([^\]]*)\]/)))
+    return say('bad', `deepfake: a szerver 2 percig nem küldött kártya-detekciót (csak ${tl2Instr(m[1])}) → az SDK vágta el`);
+  if ((m = all.match(/waited for more than 60 seconds for detection, received instructions: \[([^\]]*)\]/)))
+    return say('bad', `${step}: 60 s-ig nem jött detekció (kapott: ${tl2Instr(m[1])}${/mic: authorized/.test(all) ? ', mikrofon engedélyezve' : ''}) → az SDK vágta el`);
+  if ((m = all.match(/failed integrity check at step: ([^,]+), aborted/)))
+    return say('bad', `a szerver integritássértést jelzett a ${m[1].trim()} lépésnél — jellemzően megszakadt kapcsolat vagy háttérbe lépés után`);
+  if ((m = all.match(/end\([^\n]*reason = "([^"]+)"/)))
+    return say('bad', `a szerver elutasította: ${m[1]}`);
+  if (/error: invalidToken|failed to stop with error: notAuthorized/.test(all))
+    return say('bad', `érvénytelen / lejárt token — az SDK notAuthorized hibával állt le a ${step} lépésnél`);
+  if (/consent timer expired/.test(all))
+    return say('warn', `lejárt a felvételi hozzájárulás visszaszámlálója a ${step} lépésnél`);
+
+  // 2. The user walked out of a video step (the SDK's own definition of an abort).
+  const { aborts } = deriveAbortExits(t.group);
+  if (aborts.length) {
+    const a = aborts[aborts.length - 1];
+    const waited = a.waitSec != null && a.waitSec >= 5 ? `${a.waitSec} s várakozás után ` : '';
+    const det = a.det ? ` (idáig jutott: ${TL2_DET_HU[a.det + 'Detection'] || a.det})` : '';
+    return say('warn', `a user ${waited}kilépett a ${a.step} videólépésnél${det}${aborts.length > 1 ? ` — ${aborts.length} ilyen kilépés` : ''}`);
+  }
+
+  // 2b. Left a video step, but no end(aborted) anywhere in the report — the SDK never got to
+  // fire it (mostly 3.7.x, where the report window closes with the app going to background).
+  if ((m = all.match(/did enter background at step: ([^,]+), isVideoStep: true/)))
+    return say('warn', `a user háttérbe tette az appot a ${m[1].trim()} videólépésnél — abortot már nem jelentett az SDK`);
+
+  // 3. Inferred approve — nothing failed, the telemetry just stops.
+  if (isPossiblyApproveSession(t.group, t.fk))
+    return say('warn', '2FA után nincs záró report — telemetria-hiány, valószínűleg átment (prodban ellenőrizendő)');
+
+  // 4. No verdict, no exit: name the longest silence.
+  const stall = tl2MaxStall(logs);
+  if (stall && stall.sec >= 45)
+    return say(outcome === 'approve' ? 'warn' : 'bad',
+      `${stall.step}: ${stall.sec} s-ig nem történt semmi${outcome === 'approve' ? ', de végül átment' : ''}`);
+
+  if (outcome === 'approve')
+    return say('ok', `végigment${stall ? ` (leglassabb lépés: ${stall.step} ${stall.sec} s)` : ''}`);
+  return say('ok', `nincs egyértelmű jel — utolsó lépés: ${t.lastStep}`);
 }
 
 // Percentage time map: active intervals keep their real length (in seconds), idle gaps collapse
@@ -3346,9 +3450,10 @@ function renderTimeline2() {
   document.getElementById('tl2Prev').disabled = idx <= 0;
   document.getElementById('tl2Next').disabled = idx < 0 || idx >= m.dayKeys.length - 1;
 
-  // One row per session (= per Firebase session), strictly in start-time order.
-  const rows = m.users.flatMap(u => u.tries.map(t => ({ t, u }))).sort((a, b) => a.t.start - b.t.start);
-  const tryNo = new Map();   // FaceKom id → how many of its tries we have numbered so far
+  // One row per session, chronological — but the tries of ONE FaceKom identification stay
+  // together as a block (m.users is already sorted by first start, its tries by start), so a
+  // lane is never split by an unrelated session that happens to fall between two retries.
+  const rows = m.users.flatMap((u, li) => u.tries.map((t, ti) => ({ t, u, lane: li, first: ti === 0, no: ti + 1 })));
 
   const summ = document.getElementById('tl2Summary'), sub = document.getElementById('tl2Subtitle');
   if (m.summary && rows.length) {
@@ -3368,24 +3473,24 @@ function renderTimeline2() {
 
   const tm = buildTimeMap2(rows.map(r => r.t));
   const body = rows.map((r, i) => {
-    const t = r.t, u = r.u;
+    const t = r.t, u = r.u, n = r.no;
     const fk = u.fk || '';
-    const n = (tryNo.get(fk || t.sessId) || 0) + 1;
-    tryNo.set(fk || t.sessId, n);
     const o = normalizeOutcome(t.outcome);
     const col = o === 'approve' ? 'var(--green)' : o === 'failed' ? 'var(--yellow)' : o === 'aborted' ? 'var(--red)' : 'var(--muted)';
     const cause = (o !== 'approve' && !t.investigated) ? getAbortCause(t.group) : null;
     const note = (getInvestigation(fk) || {}).note || '';
+    const ins = tl2Insight(t);
     const left = tm.tsToPct(t.start), w = Math.max(tm.secToPct(t.dur), 0.3);
     const idLabel = u.fbOnly ? 'FB ' + t.sessId : fk;
     const tip = `FaceKom ${fk || '(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${t.rep.event_id || t.sessId} · ${t.outcome}${cause?' ('+cause+')':''} · ${fmtTs(t.start)} · ${t.dur}s · ${t.lastStep} · ${u.model||'?'} · ${u.os||'?'}`;
-    return `<div class="tl2-row${n > 1 ? ' retry' : ''}" onclick="tl2Copy(this,'${escAttr(fk || t.sessId)}')" title="kattints: id másolása">
+    return `<div class="tl2-row${r.lane % 2 ? ' stripe' : ''}${r.first ? ' lane-start' : ''}${n > 1 ? ' retry' : ''}"
+        onclick="tl2Open('${escAttr(t.sessId)}')" title="kattints: ugrás a begyűjtött eseményhez">
       <div class="tl2-num">${i+1}</div>
       <div class="tl2-time">${fmtTs(t.start)}<span>${t.dur}s</span></div>
-      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}<button class="tl2-copy" onclick="event.stopPropagation();tl2Copy(this.closest('.tl2-row'),'${escAttr(fk || t.sessId)}')">⧉ copy</button></div>
+      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}</div>
       <div class="tl2-out" style="color:${col}">${esc(t.outcome)}${cause?` <span class="tl2-cause">· ${esc(cause)}</span>`:''}${possiblyTag(t.group, t.fk)}</div>
       <div><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>
-      <div class="tl2-note${note?' has':''}" title="${escAttr(note || '')}">${note ? esc(note) : '—'}</div>
+      <div class="tl2-insight ${ins.kind}" title="${escAttr(ins.text + (note ? ' — saját jegyzet: ' + note : ''))}">${esc(ins.text)}${note ? ` <span class="tl2-usernote">· ${esc(note)}</span>` : ''}</div>
       <div class="tl2-track">
         <div class="tl2-bar ${gOutcomeColor(t.outcome)}${t.reviewed?' rev':''}${t.investigated?' investigated':''}" style="left:${left}%;width:${w}%"
              title="${escAttr(tip)}" onclick="event.stopPropagation();openGanttCard('${escAttr(t.sessId)}')"></div>
@@ -3396,7 +3501,7 @@ function renderTimeline2() {
 
   chart.innerHTML = `<div class="tl2-wrap"><div class="tl2-grid">
     <div class="tl2-head">
-      <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Outcome</div><div>Reviewed</div><div>Megjegyzés</div>
+      <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Outcome</div><div>Reviewed</div><div>Insight</div>
       <div class="tl2-axis">${tm.axis}</div>
     </div>
     ${body}
