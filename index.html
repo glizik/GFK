@@ -407,6 +407,59 @@
   .inv-note:focus { border-color: var(--accent); }
   .inv-stamp { font-size: 10px; color: var(--yellow); white-space: nowrap; }
   .gantt-box.investigated, .gantt-bubble.investigated { outline: 2px dashed rgba(255,255,255,0.75); outline-offset: -2px; }
+
+  /* ── Timeline2 (one row per session, chronological, fits the page width) ────────── */
+  /* The Day Timeline packs users into shared lanes; here every session gets its own row,
+     ordered by start time, and the time axis is expressed in % so the chart never scrolls
+     sideways — only the meta columns force a min-width on narrow screens. */
+  .tl2-panel.collapsed { display: none; }
+  .tl2-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tl2-summary { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; align-items: center; }
+  .tl2-summary b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .tl2-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: auto; max-height: 82vh; }
+  .tl2-grid { min-width: 1080px; }
+  .tl2-head, .tl2-row {
+    display: grid;
+    grid-template-columns: 42px 104px 268px 172px 96px minmax(130px, 1fr) minmax(280px, 2.4fr);
+    align-items: center; gap: 0 8px; padding: 0 10px;
+  }
+  .tl2-head { position: sticky; top: 0; z-index: 5; height: 44px; background: var(--surface2); border-bottom: 1px solid var(--border);
+    font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .tl2-row { min-height: 32px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: copy; }
+  .tl2-row:last-child { border-bottom: none; }
+  .tl2-row:hover { background: var(--surface2); }
+  .tl2-row.copied { background: rgba(34,197,94,0.12); }
+  .tl2-row.retry .tl2-num { color: var(--orange); }
+  .tl2-num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .tl2-time { font-family: monospace; font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tl2-time span { color: var(--muted); margin-left: 5px; }
+  .tl2-fk { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .tl2-fk code { font-family: monospace; font-size: 11px; color: var(--accent2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl2-copy { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer;
+    padding: 1px 6px; font-size: 10px; line-height: 16px; flex-shrink: 0; }
+  .tl2-row:hover .tl2-copy { color: var(--text); border-color: var(--accent); }
+  /* min-width:0 everywhere: without it a nowrap grid child's auto minimum is its max-content
+     width, which would push the whole grid past the page and bring back the sideways scroll. */
+  .tl2-row > *, .tl2-head > * { min-width: 0; }
+  .tl2-out { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tl2-out .tl2-cause { color: var(--muted); font-size: 10px; }
+  .tl2-note { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl2-note.has { color: var(--yellow); }
+  .tl2-track { position: relative; height: 26px; border-left: 1px solid var(--border); overflow: hidden; }
+  .tl2-bar { position: absolute; top: 50%; transform: translateY(-50%); height: 14px; min-width: 4px; border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.35); cursor: pointer; box-sizing: border-box; }
+  .tl2-bar:hover { filter: brightness(1.25); box-shadow: 0 0 0 2px var(--accent); z-index: 3; }
+  .tl2-bar.investigated { outline: 2px dashed rgba(255,255,255,0.75); outline-offset: -2px; }
+  /* reviewed gets a green ring, not a green fill: the row already states the outcome, so
+     recolouring the bar (as the Day Timeline does) would contradict it. */
+  .tl2-bar.rev { box-shadow: 0 0 0 2px rgba(34,197,94,0.9); }
+  .tl2-bar-lbl { position: absolute; top: 50%; transform: translateY(-50%); font-size: 9px; font-family: monospace; color: var(--muted);
+    white-space: nowrap; pointer-events: none; padding-left: 4px; }
+  .tl2-bar-lbl.left { padding: 0 4px 0 0; text-align: right; }   /* bar ends near the right edge → label before it */
+  .tl2-axis { position: relative; height: 26px; overflow: hidden; }   /* a tick label at ~100% must not widen the grid */
+  .tl2-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--border); }
+  .tl2-tick span { position: absolute; top: 7px; left: 3px; font-size: 9px; color: var(--muted); font-family: monospace; white-space: nowrap; }
+  .tl2-gap { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(100,116,139,0.22) 3px, rgba(100,116,139,0.22) 5px); }
 </style>
 </head>
 <body>
@@ -456,6 +509,26 @@
   <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
   <div class="global-filters" id="globalFilters"></div>
+
+  <div class="section" id="timeline2Section">
+    <div class="section-header" onclick="toggleTimeline2()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon" id="tl2ToggleIcon">▶</span>Timeline2 <span class="count" id="tl2Subtitle"></span>
+      </div>
+    </div>
+    <div class="tl2-panel collapsed" id="tl2Panel">
+      <div class="tl2-toolbar">
+        <div class="gantt-daynav">
+          <button class="btn btn-ghost btn-sm" id="tl2Prev" onclick="tl2Day(-1)">← Prev</button>
+          <span class="gantt-day-label" id="tl2DayLabel">—</span>
+          <button class="btn btn-ghost btn-sm" id="tl2Next" onclick="tl2Day(1)">Next →</button>
+          <button class="btn btn-ghost btn-sm" onclick="tl2Latest()" title="Jump to the most recent day with data">⤓ Latest</button>
+        </div>
+      </div>
+      <div class="tl2-summary" id="tl2Summary"></div>
+      <div id="tl2Chart"></div>
+    </div>
+  </div>
 
   <div class="section" id="crashSection">
     <div class="section-header" onclick="toggleCrashes()">
@@ -904,6 +977,7 @@ function renderAll() {
   renderCrashes();
   renderReport();
   renderGantt();
+  renderTimeline2();
   renderDevTasks();
 }
 
@@ -2936,16 +3010,21 @@ function gOutcomeColor(outcome) {
 // part of the identifier: <uuid>-<ts> and <uuid> (or a different -<ts>) are DIFFERENT identifications.
 function fkBase(fk) { return fk || ''; }
 
-function buildGanttModel() {
+// dayKeyArg: omit to use (and update) the Day Timeline's own `gDayKey`; pass a key — or null for
+// "latest available" — to build the model for another view without moving the Day Timeline.
+function buildGanttModel(dayKeyArg) {
   // Version + outcome scope first, so day-nav only offers matching days.
   const scoped = gScopedEvents();
   const dayKeysSet = new Set();
   for (const ev of scoped) { const k = gDayKeyOf(gStartTs(ev)); if (k) dayKeysSet.add(k); }
   const dayKeys = [...dayKeysSet].sort();
-  if (!dayKeys.length) return { tracks: [], users: [], dayKeys: [], summary: null };
-  if (!gDayKey || !dayKeys.includes(gDayKey)) gDayKey = dayKeys[dayKeys.length - 1];
+  if (!dayKeys.length) return { tracks: [], users: [], dayKeys: [], summary: null, dayKey: null };
+  const ownDay = dayKeyArg === undefined;
+  let day = ownDay ? gDayKey : dayKeyArg;
+  if (!day || !dayKeys.includes(day)) day = dayKeys[dayKeys.length - 1];
+  if (ownDay) gDayKey = day;
 
-  const dayEvents = scoped.filter(ev => gDayKeyOf(gStartTs(ev)) === gDayKey);
+  const dayEvents = scoped.filter(ev => gDayKeyOf(gStartTs(ev)) === day);
 
   // Group by Firebase session (session_id_base) FIRST — across all its crash reports —
   // then resolve the FaceKom id from any report that carries it. (Some reports of the same
@@ -3004,7 +3083,7 @@ function buildGanttModel() {
 
   let allStart = Math.min(...users.map(u=>u.uStart).filter(isFinite));
   let allEnd   = Math.max(...users.map(u=>u.uEnd).filter(isFinite));
-  const dayBase = new Date(gDayKey + 'T00:00:00').getTime();
+  const dayBase = new Date(day + 'T00:00:00').getTime();
   if (!isFinite(allStart)) allStart = dayBase;
   if (!isFinite(allEnd) || allEnd <= allStart) allEnd = allStart + 60000;
 
@@ -3017,11 +3096,12 @@ function buildGanttModel() {
     // Counted inside .approve, reported alongside it — so the approve figure stays decomposable.
     if (isPossiblyApproveSession(t.group, t.fk)) summary.possibly++;
   }
-  return { tracks, users, dayKeys, summary };
+  return { tracks, users, dayKeys, summary, dayKey: day };
 }
 
-// Compressed pixel time-map: active intervals scaled by GSCALE, empty gaps collapsed to GGAP.
-function buildTimeMap(tries) {
+// The day's active intervals: try spans merged when less than GMERGE apart. Both time-maps
+// (px for the Day Timeline, % for Timeline2) project these same segments.
+function gActiveSegments(tries) {
   const iv = tries.map(t => [t.start, Math.max(t.end, t.start + 1000)]).filter(p => isFinite(p[0])).sort((a,b)=>a[0]-b[0]);
   const segs = [];
   for (const [s,e] of iv) {
@@ -3029,6 +3109,12 @@ function buildTimeMap(tries) {
     if (last && s - last.e <= GMERGE*1000) last.e = Math.max(last.e, e);
     else segs.push({ s, e });
   }
+  return segs;
+}
+
+// Compressed pixel time-map: active intervals scaled by GSCALE, empty gaps collapsed to GGAP.
+function buildTimeMap(tries) {
+  const segs = gActiveSegments(tries);
   let cursor = GPAD;
   for (const seg of segs) { seg.x0 = cursor; seg.x1 = cursor + ((seg.e - seg.s)/1000)*GSCALE; cursor = seg.x1 + GGAP; }
   const totalW = (segs.length ? segs[segs.length-1].x1 : 0) + GPAD;
@@ -3178,6 +3264,143 @@ function renderGanttList(m) {
     <tbody>${body}</tbody>
     <tfoot><tr class="gl-foot"><td></td><td>${s.users} users</td><td>${s.tries} events</td><td>avg ${avg}s</td><td></td><td colspan="3">${bar} <span style="font-size:11px;color:var(--muted);margin-left:8px">${pct(s.approve)}% appr · ${pct(s.aborted)}% abort</span></td></tr></tfoot>
   </table></div>`;
+}
+
+// ── Timeline2: one row per session, chronological, fits the page width ──────────
+// Same model as the Day Timeline, different projection: no lane packing (rows are simply
+// ordered by start time) and the axis is in % instead of px, so the whole day fits one
+// column and the meta columns (id / outcome / reviewed / note) sit next to every bar.
+let gDay2 = null;                  // own day cursor — navigating here doesn't move the Day Timeline
+const TL2_GAPSHARE = 0.04;         // a collapsed idle gap takes this share of the day's active time
+
+function toggleTimeline2() {
+  const panel = document.getElementById('tl2Panel');
+  const icon  = document.getElementById('tl2ToggleIcon');
+  const open  = !panel.classList.contains('collapsed');
+  panel.classList.toggle('collapsed', open);
+  icon.classList.toggle('open', !open);
+}
+function tl2Day(delta) {
+  const m = buildGanttModel(gDay2);
+  const i = m.dayKeys.indexOf(m.dayKey) + delta;
+  if (i < 0 || i >= m.dayKeys.length) return;
+  gDay2 = m.dayKeys[i]; renderTimeline2();
+}
+function tl2Latest() {
+  const m = buildGanttModel(gDay2);
+  if (m.dayKeys.length) { gDay2 = m.dayKeys[m.dayKeys.length - 1]; renderTimeline2(); }
+}
+// Row click = copy the FaceKom id, with the ✓ feedback landing on the row's own copy button.
+function tl2Copy(rowEl, fk) {
+  if (!fk) return;
+  copyToClipboard(fk, rowEl.querySelector('.tl2-copy'));
+  rowEl.classList.add('copied');
+  setTimeout(() => rowEl.classList.remove('copied'), 1500);
+}
+
+// Percentage time map: active intervals keep their real length (in seconds), idle gaps collapse
+// to a fixed share, then everything is normalized to 0–100% — the chart can never overflow.
+function buildTimeMap2(tries) {
+  const segs = gActiveSegments(tries);
+  if (!segs.length) return { tsToPct: () => 0, secToPct: () => 0, axis: '' };
+  const activeSec = segs.reduce((a, g) => a + (g.e - g.s)/1000, 0) || 1;
+  const gapUnits = Math.max(activeSec * TL2_GAPSHARE, 30);
+  let cursor = 0;
+  for (const seg of segs) { seg.u0 = cursor; seg.u1 = cursor + (seg.e - seg.s)/1000; cursor = seg.u1 + gapUnits; }
+  const total = Math.max(cursor - gapUnits, 1);
+  const pct = u => (u / total) * 100;
+  const clock = ts => `${pad(new Date(ts).getHours())}:${pad(new Date(ts).getMinutes())}`;
+  const tsToPct = ts => {
+    if (ts <= segs[0].s) return 0;
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      if (ts <= seg.e) return pct(seg.u0 + (ts - seg.s)/1000);
+      const next = segs[i+1];
+      if (next && ts < next.s) return pct(seg.u1 + gapUnits/2);
+    }
+    return 100;
+  };
+  let axis = '';
+  for (let i = 0; i < segs.length; i++) {
+    const seg = segs[i];
+    axis += `<div class="tl2-tick" style="left:${pct(seg.u0)}%"><span>${clock(seg.s)}</span></div>`;
+    const h = new Date(seg.s); h.setMinutes(0, 0, 0);
+    for (let tt = h.getTime() + 3600000; tt <= seg.e; tt += 3600000)
+      axis += `<div class="tl2-tick" style="left:${tsToPct(tt)}%"><span>${pad(new Date(tt).getHours())}:00</span></div>`;
+    if (i < segs.length - 1)
+      axis += `<div class="tl2-gap" style="left:${pct(seg.u1)}%;width:${pct(gapUnits)}%" title="szünet ${clock(seg.e)} → ${clock(segs[i+1].s)}"></div>`;
+  }
+  return { tsToPct, secToPct: secs => pct(secs), axis };
+}
+
+function renderTimeline2() {
+  const chart = document.getElementById('tl2Chart');
+  if (!chart) return;
+  const m = buildGanttModel(gDay2);
+  gDay2 = m.dayKey;
+
+  const lbl = document.getElementById('tl2DayLabel');
+  if (m.dayKey) { const d = new Date(m.dayKey + 'T00:00:00'); lbl.textContent = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }); }
+  else lbl.textContent = '—';
+  const idx = m.dayKeys.indexOf(m.dayKey);
+  document.getElementById('tl2Prev').disabled = idx <= 0;
+  document.getElementById('tl2Next').disabled = idx < 0 || idx >= m.dayKeys.length - 1;
+
+  // One row per session (= per Firebase session), strictly in start-time order.
+  const rows = m.users.flatMap(u => u.tries.map(t => ({ t, u }))).sort((a, b) => a.t.start - b.t.start);
+  const tryNo = new Map();   // FaceKom id → how many of its tries we have numbered so far
+
+  const summ = document.getElementById('tl2Summary'), sub = document.getElementById('tl2Subtitle');
+  if (m.summary && rows.length) {
+    const chip = (c, n, l) => `<span class="g-chip"><span class="g-dot" style="background:${c}"></span><b>${n}</b> ${l}</span>`;
+    summ.innerHTML =
+      `<span><b>${rows.length}</b> session · <b>${m.summary.users}</b> user</span>` +
+      chip('var(--green)', m.summary.approve, 'appr/fin') +
+      (m.summary.possibly ? `<span class="g-chip" title="${escAttr(POSSIBLY_TITLE)}">≈ <b>${m.summary.possibly}</b> possibly</span>` : '') +
+      chip('var(--yellow)', m.summary.failed, 'failed') +
+      chip('var(--red)', m.summary.aborted, 'aborted') + chip('#475569', m.summary.other, 'other') +
+      `<span><b>${m.summary.approved}</b> reviewed</span>` +
+      (gFkFilter ? `<button class="filter-btn active" style="margin-left:auto" onclick="clearGanttFk()">session: ${esc(gFkFilter.slice(0,12))}… ✕</button>` : '');
+  } else summ.innerHTML = '';
+  if (sub) sub.textContent = rows.length ? `— ${rows.length} session · ${m.summary.users} user` : '';
+
+  if (!rows.length) { chart.innerHTML = `<div class="empty">No sessions for this day${gFilterActive()?' with the current filter':''}.</div>`; return; }
+
+  const tm = buildTimeMap2(rows.map(r => r.t));
+  const body = rows.map((r, i) => {
+    const t = r.t, u = r.u;
+    const fk = u.fk || '';
+    const n = (tryNo.get(fk || t.sessId) || 0) + 1;
+    tryNo.set(fk || t.sessId, n);
+    const o = normalizeOutcome(t.outcome);
+    const col = o === 'approve' ? 'var(--green)' : o === 'failed' ? 'var(--yellow)' : o === 'aborted' ? 'var(--red)' : 'var(--muted)';
+    const cause = (o !== 'approve' && !t.investigated) ? getAbortCause(t.group) : null;
+    const note = (getInvestigation(fk) || {}).note || '';
+    const left = tm.tsToPct(t.start), w = Math.max(tm.secToPct(t.dur), 0.3);
+    const idLabel = u.fbOnly ? 'FB ' + t.sessId : fk;
+    const tip = `FaceKom ${fk || '(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${t.rep.event_id || t.sessId} · ${t.outcome}${cause?' ('+cause+')':''} · ${fmtTs(t.start)} · ${t.dur}s · ${t.lastStep} · ${u.model||'?'} · ${u.os||'?'}`;
+    return `<div class="tl2-row${n > 1 ? ' retry' : ''}" onclick="tl2Copy(this,'${escAttr(fk || t.sessId)}')" title="kattints: id másolása">
+      <div class="tl2-num">${i+1}</div>
+      <div class="tl2-time">${fmtTs(t.start)}<span>${t.dur}s</span></div>
+      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}<button class="tl2-copy" onclick="event.stopPropagation();tl2Copy(this.closest('.tl2-row'),'${escAttr(fk || t.sessId)}')">⧉ copy</button></div>
+      <div class="tl2-out" style="color:${col}">${esc(t.outcome)}${cause?` <span class="tl2-cause">· ${esc(cause)}</span>`:''}${possiblyTag(t.group, t.fk)}</div>
+      <div><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>
+      <div class="tl2-note${note?' has':''}" title="${escAttr(note || '')}">${note ? esc(note) : '—'}</div>
+      <div class="tl2-track">
+        <div class="tl2-bar ${gOutcomeColor(t.outcome)}${t.reviewed?' rev':''}${t.investigated?' investigated':''}" style="left:${left}%;width:${w}%"
+             title="${escAttr(tip)}" onclick="event.stopPropagation();openGanttCard('${escAttr(t.sessId)}')"></div>
+        <div class="tl2-bar-lbl${left + w > 62 ? ' left' : ''}" style="${left + w > 62 ? `right:${(100 - left).toFixed(2)}%` : `left:${(left + w).toFixed(2)}%`}">${esc(t.lastStep !== '—' ? t.lastStep : t.outcome)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  chart.innerHTML = `<div class="tl2-wrap"><div class="tl2-grid">
+    <div class="tl2-head">
+      <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Outcome</div><div>Reviewed</div><div>Megjegyzés</div>
+      <div class="tl2-axis">${tm.axis}</div>
+    </div>
+    ${body}
+  </div></div>`;
 }
 
 // ── Report view: abort sessions across ALL days, grouped by day ──────────────────
@@ -3454,6 +3677,7 @@ function reportFilterFk(fk, dayKey) {
   if (dayKey) gDayKey = dayKey;
   gFkFilter = fk;
   renderGantt();
+  renderTimeline2();
   const panel = document.getElementById('ganttPanel');
   if (panel && panel.classList.contains('collapsed')) toggleGantt();
   const sec = document.getElementById('ganttSection');
@@ -3521,9 +3745,9 @@ function setGlobalDoc(d) { gDocFilter = d; renderAll(); }
 function setGlobalEnv(e) { gEnvFilter = e; renderAll(); }
 
 function setGanttView(v) { gView = v; renderGantt(); }
-function setGanttFk(fk) { gFkFilter = fk; renderGantt(); }
-function clearGanttFk() { gFkFilter = ''; renderGantt(); }
-function gReviewToggle(sessId) { toggleReviewed(sessId); renderGantt(); }
+function setGanttFk(fk) { gFkFilter = fk; renderGantt(); renderTimeline2(); }
+function clearGanttFk() { gFkFilter = ''; renderGantt(); renderTimeline2(); }
+function gReviewToggle(sessId) { toggleReviewed(sessId); renderGantt(); renderTimeline2(); }
 function newTaskFromSession(sessId) {
   const title = prompt('New task title:', '');
   if (!title) return;
@@ -3573,6 +3797,7 @@ function closeGanttCard() {
   const modal = document.getElementById('gCardModal');
   modal.style.display = 'none'; modal.innerHTML = '';
   renderGantt();
+  renderTimeline2();
 }
 
 // ── Developer section ─────────────────────────────────────────────────────────
@@ -3712,6 +3937,7 @@ function saveInvestigation(fk, outcome, note) {
   }
   rerenderEventCards();
   if (typeof renderGantt === 'function') renderGantt();
+  if (typeof renderTimeline2 === 'function') renderTimeline2();
 }
 function saveInvestigationFromCard(cardId, fk, btn) {
   const out = document.getElementById('inv-out-' + cardId)?.value || '';
