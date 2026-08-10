@@ -1177,10 +1177,10 @@ function buildStepFunnel() {
     } else if (endSteps.some(s => s.includes('failed'))) {
       bucket = 'failed';
     } else if (endSteps.length > 0) {
-      bucket = 'aborted';
+      bucket = noVideoConsent(group) ? 'failed' : 'aborted';   // stays in sync with deriveSessionOutcome
     } else {
       // No end step in logs — scan all events in group
-      bucket = 'aborted';
+      bucket = noVideoConsent(group) ? 'failed' : 'aborted';
       for (const ev of group) {
         const o = normalizeOutcome(deriveOutcome(ev));
         if (o === 'approve') { isApprove = true; break; }
@@ -1326,12 +1326,32 @@ function possiblyTag(group, fk) {
 // FaceKom id for a group, for the lookups above.
 function groupFk(group) { return fkBase((group || []).map(facekomSessionId).find(Boolean) || ''); }
 
+// No camera feed: a video step ran to the SDK's 60-second detection timeout, and the instructions
+// the server had sent by then contain no face detection — nor did a single `detection:status:face`
+// ever arrive. The in-app capture consent IS accepted and the mic IS authorized in these sessions,
+// so what's missing is the device's camera permission: the user never granted the video feed.
+// That is a user-side setup error the SDK ends by itself, NOT an abort (nobody walked out), so it
+// belongs in the `failed` bucket. Only 3.8.1+ logs the instruction list; the older SDKs report the
+// same timeout without it, and those sessions deliberately keep their existing classification.
+function noVideoConsent(group) {
+  let timedOut = false;
+  for (const ev of group) for (const l of (ev.logs || [])) {
+    const m = l.msg || '';
+    if (m.includes('detection:status:face')) return false;   // the camera did deliver → not this case
+    if (!timedOut && m.includes('waited for more than 60 seconds for detection')) {
+      const instr = m.match(/received instructions: \[([^\]]*)\]/);
+      if (instr && !instr[1].includes('faceDetection')) timedOut = true;
+    }
+  }
+  return timedOut;
+}
+
 function deriveSessionOutcome(group) {
   // Session-level: approve wins over everything, then failed, then aborted
   const outcomes = group.map(ev => normalizeOutcome(deriveOutcome(ev)));
   if (outcomes.includes('approve')) return 'approve';
   if (outcomes.includes('failed'))  return 'failed';
-  if (outcomes.includes('aborted')) return 'aborted';
+  if (outcomes.includes('aborted')) return noVideoConsent(group) ? 'failed' : 'aborted';
   const observed = outcomes.find(o => o !== 'other');
   if (observed) return observed;
   // Nothing observable was reported — only now may we infer. Cannot override a real signal.
@@ -3357,7 +3377,10 @@ function tl2Insight(t) {
   const say = (kind, text) => ({ kind, text: [text, ...flags].join(' · ') });
 
   let m;
-  // 1. Explicit SDK guards and server verdicts.
+  // 1. Explicit SDK guards and server verdicts. The missing camera feed comes first: it explains
+  // the very same 60s timeout that the next rule would otherwise report as a server-side stall.
+  if (noVideoConsent(t.group))
+    return say('bad', 'no video consent — a user nem engedélyezte a videó feedet, arc-detekció sosem indult (user error)');
   if ((m = all.match(/Deepfake detection timeout, received instructions: \[([^\]]*)\]/)))
     return say('bad', `deepfake: a szerver 2 percig nem küldött kártya-detekciót (csak ${tl2Instr(m[1])}) → az SDK vágta el`);
   if ((m = all.match(/waited for more than 60 seconds for detection, received instructions: \[([^\]]*)\]/)))
