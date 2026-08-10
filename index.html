@@ -420,7 +420,7 @@
   .tl2-grid { min-width: 1080px; }
   .tl2-head, .tl2-row {
     display: grid;
-    grid-template-columns: 42px 100px 250px 152px 88px minmax(300px, 2.2fr) minmax(220px, 1.5fr);
+    grid-template-columns: 42px 100px 250px 88px minmax(300px, 2.2fr) minmax(240px, 1.6fr);
     align-items: center; gap: 0 8px; padding: 0 10px;
   }
   .tl2-head { position: sticky; top: 0; z-index: 5; height: 44px; background: var(--surface2); border-bottom: 1px solid var(--border);
@@ -445,8 +445,6 @@
   /* min-width:0 everywhere: without it a nowrap grid child's auto minimum is its max-content
      width, which would push the whole grid past the page and bring back the sideways scroll. */
   .tl2-row > *, .tl2-head > * { min-width: 0; }
-  .tl2-out { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .tl2-out .tl2-cause { color: var(--muted); font-size: 10px; }
   .tl2-note { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tl2-note.has { color: var(--yellow); }
   .tl2-insight { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
@@ -3476,10 +3474,10 @@ function renderTimeline2() {
     const t = r.t, u = r.u, n = r.no;
     const fk = u.fk || '';
     const o = normalizeOutcome(t.outcome);
-    const col = o === 'approve' ? 'var(--green)' : o === 'failed' ? 'var(--yellow)' : o === 'aborted' ? 'var(--red)' : 'var(--muted)';
     const cause = (o !== 'approve' && !t.investigated) ? getAbortCause(t.group) : null;
     const note = (getInvestigation(fk) || {}).note || '';
     const ins = tl2Insight(t);
+    const poss = possiblyTag(t.group, t.fk).trim();
     const left = tm.tsToPct(t.start), w = Math.max(tm.secToPct(t.dur), 0.3);
     const idLabel = u.fbOnly ? 'FB ' + t.sessId : fk;
     const tip = `FaceKom ${fk || '(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${t.rep.event_id || t.sessId} · ${t.outcome}${cause?' ('+cause+')':''} · ${fmtTs(t.start)} · ${t.dur}s · ${t.lastStep} · ${u.model||'?'} · ${u.os||'?'}`;
@@ -3488,9 +3486,8 @@ function renderTimeline2() {
       <div class="tl2-num">${i+1}</div>
       <div class="tl2-time">${fmtTs(t.start)}<span>${t.dur}s</span></div>
       <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}</div>
-      <div class="tl2-out" style="color:${col}">${esc(t.outcome)}${cause?` <span class="tl2-cause">· ${esc(cause)}</span>`:''}${possiblyTag(t.group, t.fk)}</div>
       <div><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>
-      <div class="tl2-insight ${ins.kind}" title="${escAttr(ins.text + (note ? ' — saját jegyzet: ' + note : ''))}">${esc(ins.text)}${note ? ` <span class="tl2-usernote">· ${esc(note)}</span>` : ''}</div>
+      <div class="tl2-insight ${ins.kind}" title="${escAttr(t.outcome + (cause ? ' · ' + cause : '') + ' — ' + ins.text + (note ? ' — saját jegyzet: ' + note : ''))}">${poss}${poss ? ' ' : ''}${esc(ins.text)}${note ? ` <span class="tl2-usernote">· ${esc(note)}</span>` : ''}</div>
       <div class="tl2-track">
         <div class="tl2-bar ${gOutcomeColor(t.outcome)}${t.reviewed?' rev':''}${t.investigated?' investigated':''}" style="left:${left}%;width:${w}%"
              title="${escAttr(tip)}" onclick="event.stopPropagation();openGanttCard('${escAttr(t.sessId)}')"></div>
@@ -3501,7 +3498,7 @@ function renderTimeline2() {
 
   chart.innerHTML = `<div class="tl2-wrap"><div class="tl2-grid">
     <div class="tl2-head">
-      <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Outcome</div><div>Reviewed</div><div>Insight</div>
+      <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Reviewed</div><div>Insight</div>
       <div class="tl2-axis">${tm.axis}</div>
     </div>
     ${body}
