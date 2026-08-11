@@ -809,15 +809,38 @@ function canonSdkMsg(msg) {
   }
   return s;
 }
+// ── SDK log SHAPE folding (3.8.2 / FaceKom SDK 2.12.1) ─────────────────────────
+// 3.8.2 re-wraps the very same events in a new envelope:
+//   "FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: …"
+//   "FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: …"
+// where ≤3.8.1 logged "FaceKom nextStep: custom(type: …" and "FaceKom -> StepMessage: task(step: …".
+// Same idea as SDK_MSG_L10N: fold it back to the ONE canonical shape at load, so no parser needs a
+// second pattern. Only the PREFIX is rewritten — never anchored on the closing paren, because
+// Crashlytics truncates long breadcrumbs, and one extra ")" at the end harms no parser.
+// (`statusChange(…)` is deliberately left alone: 3.8.2 still emits the old "status changed: X" line
+// too, and folding both would double-count every reconnect.)
+const SDK_SHAPE_L10N = [
+  ['FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.',            'FaceKom nextStep: '],
+  ['FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.', 'FaceKom -> StepMessage: '],
+];
+function canonSdkShape(msg) {
+  const s = msg || '';
+  if (!s.includes('main -> event')) return s;      // cheap gate: ~all breadcrumbs skip the table
+  for (const [from, to] of SDK_SHAPE_L10N) {
+    if (s.startsWith(from)) return to + s.slice(from.length);
+  }
+  return s;
+}
+
 // Fold one event's localized strings (the crash's nslocalized_description + every breadcrumb) to
 // canonical English. The original stays on `msgRaw` so the timeline can still show, on hover, what
 // the device actually logged — the data files themselves stay verbatim.
 function canonEventLang(ev) {
   const logs = (ev.logs || []).map(l => {
-    const msg = canonSdkMsg(l.msg || '');
+    const msg = canonSdkShape(canonSdkMsg(l.msg || ''));
     return msg === (l.msg || '') ? l : { ...l, msg, msgRaw: l.msg, type: logType(msg) };
   });
-  return { ...ev, nslocalized_description: canonSdkMsg(ev.nslocalized_description || ''), logs };
+  return { ...ev, nslocalized_description: canonSdkShape(canonSdkMsg(ev.nslocalized_description || '')), logs };
 }
 
 function fmtFullDateFromRaw(rawTs) {
