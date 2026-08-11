@@ -3458,6 +3458,15 @@ function tl2Insight(t) {
   const say = (kind, text) => ({ kind, text: [text, ...flags].join(' · ') });
 
   let m;
+  // 0. Dead room: the identification was already terminated, but the server still hands the old
+  // step back to every fresh connection with the same videoID. The signature is a session that
+  // consists of NOTHING but connect → auth → step → integrity abort: no media was ever started and
+  // no detection ever arrived. Retrying is futile (the QR maps to the same videoID), so this is the
+  // one case where the user needs a brand-new identification link.
+  const integ = all.match(/failed integrity check at step: ([^,]+), aborted/);
+  if (integ && !/WebRTC started|detection:status:/.test(all))
+    return say('bad', `beragadt szoba: a lezárt azonosítás ${integ[1].trim()} lépését kapja vissza a szervertől, az SDK azonnal abortál — újrapróbálás ugyanezt hozza, új azonosító link kell`);
+
   // 1. Explicit SDK guards and server verdicts. The missing camera feed comes first: it explains
   // the very same 60s timeout that the next rule would otherwise report as a server-side stall.
   if (noVideoConsent(t.group))
@@ -3466,6 +3475,9 @@ function tl2Insight(t) {
     return say('bad', `deepfake: a szerver 2 percig nem küldött kártya-detekciót (csak ${tl2Instr(m[1])}) → az SDK vágta el`);
   if ((m = all.match(/waited for more than 60 seconds for detection, received instructions: \[([^\]]*)\]/)))
     return say('bad', `${step}: 60 s-ig nem jött detekció (kapott: ${tl2Instr(m[1])}${/mic: authorized/.test(all) ? ', mikrofon engedélyezve' : ''}) → az SDK vágta el`);
+  // 3.8.1+ reports a terminal server verdict as failed(title:…, subtitle: "FaceKomError: X").
+  if ((m = all.match(/failed\(title:[^\n]*subtitle: Optional\("FaceKomError: (\w+)"/)))
+    return say('bad', `a szerver elutasította a ${step} lépésnél — FaceKomError: ${m[1]}`);
   if ((m = all.match(/failed integrity check at step: ([^,]+), aborted/)))
     return say('bad', `a szerver integritássértést jelzett a ${m[1].trim()} lépésnél — jellemzően megszakadt kapcsolat vagy háttérbe lépés után`);
   if ((m = all.match(/end\([^\n]*reason = "([^"]+)"/)))

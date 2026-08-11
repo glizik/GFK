@@ -3,5 +3,10 @@
     "outcome": "approve",
     "note": "passed in prod, app failed to report (confirmed)",
     "ts": "2026-06-01T07:45:39.324Z"
+  },
+  "15711a97-80dd-4e4e-8723-fec8a3bc3be8": {
+    "outcome": "",
+    "note": "no video consent",
+    "ts": "2026-08-11T07:58:26.138Z"
   }
 }
