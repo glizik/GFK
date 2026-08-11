@@ -391,6 +391,9 @@
   /* "possibly approve" = inferred, not reported by the SDK — dashed border so it never reads as a
      confirmed approve at a glance. */
   .tag-possibly { font-size: 10px; color: var(--yellow); border: 1px dashed rgba(234,179,8,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 600; }
+  /* "probably" = the log starts mid-flow, so the earlier steps are assumed, not observed.
+     Dashed like tag-possibly (both are inferences) but blue, so the two never read as the same claim. */
+  .tag-probably { font-size: 10px; color: var(--accent2); border: 1px dashed rgba(96,165,250,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 600; }
   .tag-test { font-size: 10px; color: var(--orange); border: 1px solid rgba(249,115,22,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 700; letter-spacing: .04em; }
   .tag-env-dev { color: var(--purple); border-color: rgba(167,139,250,0.55); }
   .report-table tr.rep-possibly-row td:first-child { box-shadow: inset 3px 0 0 var(--yellow); }
@@ -1150,19 +1153,25 @@ function buildStepFunnel() {
   // Enforce monotonicity: backward union pass.
   // Sessions that reached step N+1 but skipped step N are added to step N's reachedSet.
   // Track them separately so the UI can annotate "N counted via skip (passport)".
+  // A session whose log begins mid-flow didn't skip anything — its beginning was never captured,
+  // so it is tracked apart (partialSessData) and reported as ≈ probably, not as a skip.
   for (let i = stepRows.length - 2; i >= 0; i--) {
-    const skipped = new Set();
+    const skipped = new Set(), partial = new Set();
     for (const sd of stepRows[i + 1].reachedSet) {
       if (!stepRows[i].reachedSet.has(sd)) {
         stepRows[i].reachedSet.add(sd);
-        skipped.add(sd);
+        (isPartialLogSession(sd.group) ? partial : skipped).add(sd);
       }
     }
     stepRows[i].skippedSessData = skipped;
+    stepRows[i].partialSessData = partial;
     stepRows[i].reached = stepRows[i].reachedSet.size;
     stepRows[i].cumulativePct = Math.round(stepRows[i].reachedSet.size / total * 100);
   }
-  if (stepRows.length) stepRows[stepRows.length - 1].skippedSessData = new Set();
+  if (stepRows.length) {
+    stepRows[stepRows.length - 1].skippedSessData = new Set();
+    stepRows[stepRows.length - 1].partialSessData = new Set();
+  }
 
   // Outcomes — primary source: FaceKom nextStep: end(status: "...") in combined step sequence
   // 'retry' = approved but also had an earlier failure/abort in the same session
@@ -1319,6 +1328,29 @@ function isPossiblyApproveSession(group, fk) {
   if (inv && inv.outcome) return false;
   return isInferredApprove(group);
 }
+// ── ≈ probably: the captured breadcrumbs start MID-FLOW ─────────────────────────
+// Crashlytics keeps a rolling breadcrumb buffer per report, so a session's log can begin in the
+// middle of the flow — no EULA/QR screens, no "SelfService started", the first crumb is already a
+// `nextStep:` deep in the process. Those earlier steps were almost certainly taken (the later ones
+// are all there, in order); we simply have no record of them. Such a session must NOT be reported
+// as having SKIPPED or DROPPED at those steps — it carries an ≈ probably marker instead, exactly
+// like ≈ possibly does for an inferred approve. Distinct marker, distinct meaning: ≈ possibly is
+// about a missing END, ≈ probably about a missing BEGINNING.
+const PROBABLY_TITLE = 'a breadcrumb-lista a folyamat közepén kezdődik (a Crashlytics puffer nem őrizte meg az elejét) — a korábbi lépések valószínűleg lefutottak, csak nincs róluk logunk.';
+const SESSION_START_CRUMB = /FaceKom SelfService started|Facekom flow successfully started|FaceKom started from:/;
+function isPartialLogSession(group) {
+  let hasAny = false;
+  for (const ev of group || []) for (const l of (ev.logs || [])) {
+    hasAny = true;
+    if (SESSION_START_CRUMB.test(l.msg || '')) return false;
+  }
+  return hasAny;   // breadcrumbs exist, but none of them is the session start
+}
+function probablyTag(group) {
+  return isPartialLogSession(group)
+    ? ` <span class="tag-probably" title="${escAttr(PROBABLY_TITLE)}">≈ probably</span>` : '';
+}
+
 function possiblyTag(group, fk) {
   return isPossiblyApproveSession(group, fk)
     ? ` <span class="tag-possibly" title="${escAttr(POSSIBLY_TITLE)}">≈ possibly</span>` : '';
@@ -1576,7 +1608,8 @@ function renderStepFunnel() {
   // "WebRTC started" = media established. An approved session must have had media even if its WebRTC
   // breadcrumb rolled out of the captured window, so count (has WebRTC log) OR (approved).
   const hasMedia = sd => sd.group.some(ev => (ev.logs || []).some(l => /WebRTC started/.test(l.msg || ''))) ||
-                         normalizeOutcome(deriveSessionOutcome(sd.group)) === 'approve';
+                         normalizeOutcome(deriveSessionOutcome(sd.group)) === 'approve' ||
+                         isPartialLogSession(sd.group);   // its WebRTC crumb rolled out of the window
   const webrtcSet = new Set(sessionStepData.filter(hasMedia));
   const webrtcCount = webrtcSet.size, webrtcPct = total ? Math.round(webrtcCount / total * 100) : 0;
   const container = document.getElementById('stepsFunnel');
@@ -1640,6 +1673,19 @@ function renderStepFunnel() {
       <div class="flow-details-panel" id="fd-${skipId}">
         <div style="font-size:12px;font-weight:600;color:var(--yellow);margin-bottom:10px">${s.skippedSessData.size} session${s.skippedSessData.size !== 1 ? 's' : ''} skipped — ${dtLabel}</div>
         <div class="session-list">${renderSessionListItems(skipGroups, detectDocType)}</div>
+      </div>`;
+    }
+    if (s.partialSessData && s.partialSessData.size > 0) {
+      const partGroups = [...s.partialSessData].map(sd => sd.group);
+      const partId = `part${idx}`;
+      html += `<div style="font-size:11px;color:var(--accent2);margin:2px 0 4px 8px;display:flex;align-items:center;gap:6px">
+        <span>≈</span>
+        <span>${s.partialSessData.size} valószínűleg lefutott, csak a log eleje hiányzik (≈ probably) — nem drop</span>
+        <button class="btn btn-ghost btn-sm" id="fdb-${partId}" onclick="toggleFlowDetails('${partId}')">Details</button>
+      </div>
+      <div class="flow-details-panel" id="fd-${partId}">
+        <div style="font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:10px">${s.partialSessData.size} session ≈ probably — ${esc(PROBABLY_TITLE)}</div>
+        <div class="session-list">${renderSessionListItems(partGroups)}</div>
       </div>`;
     }
     // WebRTC media starts right after the first video step is issued — insert it here so the funnel
@@ -2631,7 +2677,7 @@ function renderSessionCard(group, idx) {
   return `<div class="event-card" id="${cardId}">
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
-        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${envTag(group)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
+        <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${probablyTag(group)}${envTag(group)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
         <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
@@ -3269,7 +3315,7 @@ function renderGanttList(m) {
     const eids = u.tries.map(t => `<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id || t.sessId)}</span>`).join('');
     const starts = u.tries.map(t => `<div class="gl-line">${fmtTs(t.start)}</div>`).join('');
     const durs = u.tries.map(t => `<div class="gl-line">${t.dur}s</div>`).join('');
-    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}${possiblyTag(t.group, t.fk)}</div>`; }).join('');
+    const outs = u.tries.map(t => { const o=normalizeOutcome(t.outcome); const c=o==='approve'?'var(--green)':o==='failed'?'var(--yellow)':o==='aborted'?'var(--red)':'var(--muted)'; const cause=o!=='approve'?getAbortCause(t.group):null; return `<div class="gl-line" style="color:${c}">${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}${possiblyTag(t.group, t.fk)}${probablyTag(t.group)}</div>`; }).join('');
     const revs = u.tries.map(t => `<div class="gl-line"><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>`).join('');
     const tasks = u.tries.map(t => {
       const ts = getTasksForSession(t.sessId);
@@ -3500,7 +3546,7 @@ function renderTimeline2() {
     const cause = (o !== 'approve' && !t.investigated) ? getAbortCause(t.group) : null;
     const note = (getInvestigation(fk) || {}).note || '';
     const ins = tl2Insight(t);
-    const poss = possiblyTag(t.group, t.fk).trim();
+    const poss = (possiblyTag(t.group, t.fk) + probablyTag(t.group)).trim();
     const left = tm.tsToPct(t.start), w = Math.max(tm.secToPct(t.dur), 0.3);
     const idLabel = u.fbOnly ? 'FB ' + t.sessId : fk;
     const tip = `FaceKom ${fk || '(none)'} · FB ${t.sessId.slice(0,8)}… · ev ${t.rep.event_id || t.sessId} · ${t.outcome}${cause?' ('+cause+')':''} · ${fmtTs(t.start)} · ${t.dur}s · ${t.lastStep} · ${u.model||'?'} · ${u.os||'?'}`;
@@ -3770,7 +3816,7 @@ function renderReport() {
         const eidHtml=`<span class="gl-eid" onclick="openGanttCard('${escAttr(t.sessId)}')" title="open event card">${esc(t.rep.event_id||t.sessId)}</span>`;
         const startHtml=`${datePrefix}${fmtTs(t.start)}`;
         const recoverBadge = (recovered && o==='approve') ? ` <span class="rep-recovered" title="ezt a munkamenetet egy video-lépés megszakítása (abort) után később jóváhagyták — jóváhagyva: ${escAttr(fmtTs(t.start))}">♻️ recovered after abort</span>` : '';
-        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>${possiblyTag(t.group, t.fk)}${recoverBadge}`;
+        const outHtml=`<span style="color:${outColor(o)}">${t.investigated?'🔎 ':''}${esc(t.outcome)}${cause?` <span style="color:var(--muted);font-size:10px">· ${esc(cause)}</span>`:''}</span>${possiblyTag(t.group, t.fk)}${probablyTag(t.group)}${recoverBadge}`;
         const taskHtml=ts.length?ts.map(tk=>`<span class="gl-task ${taskCls(tk.resolution)}" onclick="event.stopPropagation();scrollToTask('${escAttr(tk.id)}')" title="${escAttr(tk.title)} (${esc(tk.resolution||'open')})">${esc(ticketOf(tk.id))}</span>`).join(' '):mute('—');
         const block = (first) => { let h=`<div class="gl-line">${first}</div>`; for (let i=1;i<n;i++) h+=`<div class="gl-line">&nbsp;</div>`; return h; };
         cEid.push(block(eidHtml)); cStart.push(block(startHtml)); cDur.push(block(`${t.dur}s`)); cOut.push(block(outHtml)); cTask.push(block(taskHtml));
