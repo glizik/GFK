@@ -493,8 +493,17 @@ test('Discover Crashlytics issues for the configured version', async ({ page }) 
   // Stamp last_scraped on every refreshed row.
   for (const r of merged) r.last_scraped = nowIso;
 
-  writeIssuesCsv(ISSUES_CSV, [...merged, ...carryOver]);
-  console.log(`💾 Saved worklist → ${ISSUES_CSV}  (${merged.length} active + ${carryOver.length} carried-over)`);
+  // Finding NOTHING is not evidence that every issue disappeared — it is exactly what an expired
+  // Crashlytics login looks like (the page renders, the list comes back empty). Writing then would
+  // push every existing row through the carry-over branch above and blank its rank, quietly wrecking
+  // the worklist the dashboard and the collector both key on. Leave the CSV untouched; the audit
+  // screenshot below is still taken, and that is what diagnoses the failed login.
+  if (!discovered.length) {
+    console.log(`⚠️  0 ${ISSUE_BASE} issues discovered — leaving ${ISSUES_CSV} untouched (expired login / page change?).`);
+  } else {
+    writeIssuesCsv(ISSUES_CSV, [...merged, ...carryOver]);
+    console.log(`💾 Saved worklist → ${ISSUES_CSV}  (${merged.length} active + ${carryOver.length} carried-over)`);
+  }
 
   // ── Optional: rich JSON dump for debugging ──────────────────────────────
   if (ISSUES_JSON_DEBUG) {
