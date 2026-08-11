@@ -1843,7 +1843,12 @@ function renderStats() {
   const vers = gVersionFilter === 'all' ? Object.keys(issuesByVersion) : [gVersionFilter];
   const totalEv   = vers.flatMap(v => issuesByVersion[v] || []).reduce((s, i) => s + (i.events_total || 0), 0);
   const haveEv    = events.filter(evVersionMatch).length;   // version-scoped, outcome-independent
-  const pct       = totalEv ? Math.round(haveEv / totalEv * 100) : 0;
+  // The denominator is Crashlytics' ROLLING 90-day aggregate, the numerator is everything we ever
+  // collected for the version — so the ratio can legitimately pass 100% after a wide-window backfill
+  // pulls in events the current 90-day count no longer reports. Cap the headline (it reads as "how
+  // complete are we"), keep the honest figures in the tooltip.
+  const pctRaw    = totalEv ? Math.round(haveEv / totalEv * 100) : 0;
+  const pct       = Math.min(100, pctRaw);
   // Session stats follow the page-wide version+outcome filter.
   const allSessions = buildAllSessions(gScopedEvents());
   const uniqueSess  = allSessions.length;
@@ -1862,9 +1867,16 @@ function renderStats() {
   document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = haveEv;
   document.getElementById('statSessions').textContent  = uniqueSess || '—';
-  document.getElementById('statCoverage').textContent  = totalEv ? pct + '%' : '—';
+  const covEl = document.getElementById('statCoverage');
+  covEl.textContent = totalEv ? pct + '%' : '—';
+  covEl.title = totalEv
+    ? `${haveEv} begyűjtött / ${totalEv} esemény a Crashlytics mozgó 90 napos összegében (${pctRaw}%)` +
+      (pctRaw > 100 ? ' — többet tartunk, mint amennyit a 90 napos ablak most számol' : '')
+    : '';
+  // `recovered` is a SUBSET of `approved` (approved AND had an earlier failure), so it must not be
+  // added to it — that printed "76 of 75 sessions approved".
   document.getElementById('statInsight').textContent   = uniqueSess
-    ? `${approved + recovered} of ${uniqueSess} sessions approved (${recovered} as retry — completed after an earlier failure or abort)`
+    ? `${approved} of ${uniqueSess} sessions approved (${recovered} as retry — completed after an earlier failure or abort)`
     : '';
 }
 
