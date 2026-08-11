@@ -3455,6 +3455,14 @@ function tl2Insight(t) {
     if (j - i > burst) { burst = j - i; burstSpan = Math.round((closes[j-1].rawTs - closes[i].rawTs) / 1000); }
   }
   if (burst >= 4) flags.push(`a záró gomb ${burst}× nem reagált (${burstSpan} s)`);
+  // The client aborted but never ran the closing handshake — no end(aborted), no stopAndClear —
+  // so the server-side room is never told the identification is over. 3.7.x/3.8.0 sent it after
+  // ~90% of integrity aborts; 3.8.1 sends it after none of them, and every case where the camera
+  // had not started yet disconnects with "close while video was not recording" instead.
+  if (/finished with state: aborted/.test(all) &&
+      !/nextStep: end\(status: "aborted"/.test(all) &&
+      !/SelfService stopped and cleared/.test(all))
+    flags.push('a szoba nem lett lezárva (nincs end(aborted)/stopAndClear)');
   const say = (kind, text) => ({ kind, text: [text, ...flags].join(' · ') });
 
   let m;
