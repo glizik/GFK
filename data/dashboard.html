@@ -1900,8 +1900,15 @@ function deduplicateGroupEvents(group) {
       if (!ri || !rj) continue;
       if (Math.max(ri.start, rj.start) >= Math.min(ri.end, rj.end)) continue;
       if (extractStepSequence(group[i].logs).join('|') !== extractStepSequence(group[j].logs).join('|')) continue;
-      // Same crash type, overlapping time, identical steps: keep the more complete one
-      if (group[j].logs.length >= group[i].logs.length) { removed.add(i); break; }
+      // Same crash type, overlapping time, identical steps: keep the more complete one. Crashlytics
+      // often files the SAME report twice with an identical breadcrumb count, and only one copy
+      // carries the identification_link — so on a TIE the old "later event_id wins" rule threw away
+      // the FaceKom session id in 11 of 3.8.1's 102 sessions. The id is the whole deliverable, so
+      // let it break the tie; everything else (which pairs merge at all) is unchanged.
+      const li = group[i].logs.length, lj = group[j].logs.length;
+      const iWins = li > lj
+        || (li === lj && !!facekomSessionId(group[i]) && !facekomSessionId(group[j]));
+      if (!iWins) { removed.add(i); break; }
       else removed.add(j);
     }
   }
@@ -2642,7 +2649,11 @@ function renderSessionCard(group, idx) {
   const defaultRepIdx = group.length - 1;
   const outcome = deriveSessionOutcome(group);
   const fbSess   = primary.session_id_base || '';
-  const fkSess   = facekomSessionId(primary);
+  // The FaceKom id can sit on ANY report of the session — Crashlytics files plenty of reports with
+  // `identification_link: not available`, and the primary (latest-ended) one is often exactly that.
+  // Fall back to the first report that carries one, or the card titles itself with the raw Firebase
+  // hex while the Day Timeline right below it shows the FaceKom id for the same session.
+  const fkSess   = facekomSessionId(primary) || group.map(e => facekomSessionId(e)).find(Boolean) || '';
   const title = fkSess || fbSess || `Event ${idx + 1}`;   // just the id (no "FaceKom:" label)
 
   const crashHit = crashForSession(fbSess);

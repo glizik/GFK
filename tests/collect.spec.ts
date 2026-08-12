@@ -34,6 +34,10 @@ const ISSUES_CSV              = path.resolve(process.env.ISSUES_CSV  ?? './data/
 const LOGS_DIR                = path.resolve(process.env.LOGS_DIR    ?? './data/logs');
 const ISSUE_TIME_DEFAULT      = process.env.ISSUE_TIME_DEFAULT       ?? '90d';
 const COLLECT_LIMIT           = parseInt(process.env.COLLECT_LIMIT   ?? '0');
+/** How many times to re-open an issue that comes up with no event selected before giving up. */
+const MAX_EMPTY_TRIES         = parseInt(process.env.MAX_EMPTY_TRIES ?? '3');
+/** Append-only record of issues we could not collect — so a silent gap stays visible. */
+const COLLECT_GAPS            = path.resolve(process.env.COLLECT_GAPS ?? './data/collect-gaps.jsonl');
 /** FaceKom session UUID to force-recollect (removes matching events from dedup before run). */
 const FORCE_RECOLLECT_FK      = (process.env.FORCE_RECOLLECT_FK_SESSION ?? '').trim();
 
@@ -168,6 +172,29 @@ function forceRecollect(fkSession: string, existingKeys: Set<string>): number {
     updateProcessedEvents(ISSUES_CSV, issue, -count);
   }
   return toForce.length;
+}
+
+/**
+ * An issue we opened but could not collect a single event from. Appended as JSONL so a gap never
+ * disappears silently: `versions` + `window` say what we asked Crashlytics for, `url` is the page
+ * as the console actually resolved it (its effective time range often differs from ours).
+ */
+function recordCollectGap(issueType: string, url: string, tries: number) {
+  const entry = {
+    ts:       new Date().toISOString(),
+    versions: BASE_QUERY.versions,
+    issue:    issueType,
+    window:   ISSUE_TIME_DEFAULT,
+    tries,
+    url,
+  };
+  try {
+    ensureDirExists(path.dirname(COLLECT_GAPS));
+    fs.appendFileSync(COLLECT_GAPS, JSON.stringify(entry) + '\n');
+    console.log(`📝 Gap recorded → ${COLLECT_GAPS}`);
+  } catch (e) {
+    console.log(`⚠️  Could not write gap log: ${(e as Error).message}`);
+  }
 }
 
 function appendEventCsv(csvPath: string, record: EventRecord) {
@@ -437,16 +464,41 @@ async function collectIssueType(
   }
 
   // Wait for sessionEventKey to appear in the URL (Angular router updates it asynchronously).
-  for (let ms = 0; ms < 10_000; ms += 300) {
-    if (parsePageUrl(page.url()).sessionEventKey) break;
-    await page.waitForTimeout(300);
-  }
+  const waitForEventKey = async () => {
+    for (let ms = 0; ms < 10_000; ms += 300) {
+      if (parsePageUrl(page.url()).sessionEventKey) return true;
+      await page.waitForTimeout(300);
+    }
+    return false;
+  };
+  await waitForEventKey();
   console.log(`✅ Issue opened  url=${page.url().slice(-80)}`);
+
+  // Re-open the issue from the list — used to retry an "empty" issue page. The console sometimes
+  // serves an issue with no event selected even though events exist in the window (and the time
+  // filter it actually applies is not always the one we asked for), so one attempt is not proof.
+  const reopenFromList = async (): Promise<boolean> => {
+    await page.goto(listUrl);
+    await waitForStable(page);
+    await page.waitForTimeout(2000);
+    const link = page.locator('a.link-wrapper', {
+      has: page.locator('mark.fire-highlight', { hasText: ISSUE_BASE }),
+    }).filter({ hasText: issueType }).first();
+    try {
+      await link.waitFor({ timeout: 10_000 });
+      await link.click();
+      await waitForStable(page);
+    } catch {
+      return false;
+    }
+    return waitForEventKey();
+  };
 
   const crashKind = deriveCrashKind(issueType);
   let issueId     = parsePageUrl(page.url()).issueId;
   let eventIndex  = 0;
   let collected   = 0;
+  let emptyTries  = 0;
 
   while (true) {
     eventIndex++;
@@ -552,7 +604,19 @@ async function collectIssueType(
       const noIdentity = !eventUrl && !sessionEventKey && !eventId;
       const noPayload  = !app_version || app_version === '- - -';
       if (noIdentity && noPayload) {
-        console.log(`⏭️  Empty event page (no id, no data) — not writing a row.`);
+        // Retry before believing it: an empty page is usually the console not selecting an event,
+        // not an issue that really has none. Only after MAX_EMPTY_TRIES do we record a gap — that
+        // is the case worth looking at by hand (Crashlytics withholding the newest events).
+        emptyTries++;
+        if (emptyTries < MAX_EMPTY_TRIES) {
+          console.log(`🔁 Empty event page — retry ${emptyTries}/${MAX_EMPTY_TRIES - 1}…`);
+          const ok = await reopenFromList();
+          console.log(ok ? `   ↳ event selected, continuing` : `   ↳ still empty`);
+          eventIndex--;   // this pass collected nothing; don't count it as an event
+          continue;
+        }
+        console.log(`⏭️  Empty event page after ${emptyTries} tries — not writing a row.`);
+        recordCollectGap(issueType, page.url(), emptyTries);
         break;
       }
 

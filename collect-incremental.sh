@@ -52,6 +52,12 @@ tg () {
 echo "==== incremental collection  window=$WINDOW dry=$DRY ===="
 tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}, kicsitől nagyig). Self-reporting fut."
 
+# Issues the collector opened but could not get a single event out of (3 tries). Counted before
+# and after the run so the summary can say "this run left a gap" instead of it passing unnoticed.
+GAPS_FILE=./data/collect-gaps.jsonl
+gaps_of () { [ -f "$GAPS_FILE" ] || { echo 0; return; }; wc -l < "$GAPS_FILE" | tr -d ' '; }
+GAPS_BEFORE=$(gaps_of)
+
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
 # Data rows in a CSV (header excluded). A version collected for the FIRST time has no
@@ -178,6 +184,7 @@ if [ "$NO_PUSH" != "1" ]; then
   for v in "${VERSIONS[@]}"; do
     git add "data/events_${v}.csv" "data/issues_${v}.csv" "data/events_${v}.json" 2>/dev/null
   done
+  git add "$GAPS_FILE" 2>/dev/null
   # data/logs/ is deliberately NOT committed any more (it is in .gitignore): 6k+ raw log files /
   # 121 MB that only build-data.js reads, locally. Everything the dashboard needs is already baked
   # into events_<v>.json — publishing the raw logs was what pushed the Pages deploy over its
@@ -191,5 +198,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" && git push -q origin d
   fi
 fi
 
-tg "🎉 Gyűjtés kész — window=$WINDOW · $SUMMARY · commit+push kész. A dashboard pár perc múlva frissül."
-echo "==== DONE window=$WINDOW  $SUMMARY ===="
+GAPS_NEW=$(( $(gaps_of) - GAPS_BEFORE ))
+GAP_NOTE=""
+if [ "$GAPS_NEW" -gt 0 ]; then
+  GAP_NOTE="
+⚠️ $GAPS_NEW issue-ból 3 próbára sem jött event (a Crashlytics üres oldalt adott). Részletek: $GAPS_FILE"
+fi
+
+tg "🎉 Gyűjtés kész — window=$WINDOW · $SUMMARY · commit+push kész. A dashboard pár perc múlva frissül.$GAP_NOTE"
+echo "==== DONE window=$WINDOW  $SUMMARY ====${GAP_NOTE}"
