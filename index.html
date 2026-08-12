@@ -3929,8 +3929,13 @@ function renderGlobalFilters() {
         'archivált verziók (' + ARCHIVED_VERSIONS.join(', ') + '): nincsenek publikálva a Pages-re és nem is gyűjtjük őket. ' +
         'Helyben (node server.js) betölthetők; az élő oldalon "nincs publikálva" lesz. Kapcsolás: data/version_releases.csv → active oszlop.')}">🗄 archív</button>`
     : '';
+  // "No data file" has two very different causes: an ARCHIVED version (data exists, just isn't
+  // published here) vs. an ACTIVE one that simply hasn't been collected yet (a fresh release).
+  // Saying "archiválva" for the latter reads as a config bug that isn't there.
   const loadHint = gVersionFilter !== 'all' && unavailableVersions.has(gVersionFilter)
-    ? ` <span class="gf-note">· ${esc(gVersionFilter)} archiválva — nincs publikálva ezen a hoston</span>` : '';
+    ? ` <span class="gf-note">· ${esc(gVersionFilter)} ${ARCHIVED_VERSIONS.includes(gVersionFilter)
+        ? 'archiválva — nincs publikálva ezen a hoston'
+        : 'még nincs begyűjtve — nincs adat ehhez a verzióhoz'}</span>` : '';
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
     vOpts.map(([v, l]) => `<button class="filter-btn${gVersionFilter === v ? ' active' : ''}${ARCHIVED_VERSIONS.includes(v) ? ' btn-archived' : ''}" onclick="setGlobalVersion('${v}')">${l}${unavailableVersions.has(v) ? ' ⃠' : ''}</button>`).join('') +
