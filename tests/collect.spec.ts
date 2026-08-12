@@ -542,6 +542,20 @@ async function collectIssueType(
         session_elapsed_s:       '',
       };
 
+      // Nothing was actually on the page: no identity (the URL never resolved a sessionEventKey)
+      // AND no payload (the Data tab handed back Crashlytics' own "- - -" placeholders). Happens
+      // when an issue has no event inside the current time window. Such a row carries no
+      // information, and having no identity it can never match the alreadySeen dedup above — so
+      // writing it would add one more junk row on EVERY re-run. Note the two conditions must BOTH
+      // hold: an event with real fields but an unparseable URL is a genuine event, and is kept
+      // (its breadcrumbs land in unknown_<ts>.log).
+      const noIdentity = !eventUrl && !sessionEventKey && !eventId;
+      const noPayload  = !app_version || app_version === '- - -';
+      if (noIdentity && noPayload) {
+        console.log(`⏭️  Empty event page (no id, no data) — not writing a row.`);
+        break;
+      }
+
       appendEventCsv(EVENTS_CSV, record);
       if (eventUrl) existingEventUrls.add(eventUrl);
       if (sessionEventKey) existingEventUrls.add(sessionEventKey);
