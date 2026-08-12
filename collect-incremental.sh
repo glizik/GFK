@@ -36,6 +36,9 @@ case "$WINDOW" in
 esac
 
 export HEADLESS=true LOGS_DIR=./data/logs COLLECT_LIMIT=0
+# Collection path: 'api' talks to the console's own JSON API (correct time window, one request per
+# event); 'scrape' walks the UI as before and stays available as the fallback — COLLECT_MODE=scrape.
+export COLLECT_MODE="${COLLECT_MODE:-api}"
 DRY="${DRY:-0}"; NO_TG="${NO_TG:-0}"; NO_PUSH="${NO_PUSH:-0}"
 
 # ── Telegram self-reporting (token read at runtime, NOT committed) ────────────

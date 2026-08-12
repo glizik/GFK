@@ -34,6 +34,8 @@ const ISSUES_CSV              = path.resolve(process.env.ISSUES_CSV  ?? './data/
 const LOGS_DIR                = path.resolve(process.env.LOGS_DIR    ?? './data/logs');
 const ISSUE_TIME_DEFAULT      = process.env.ISSUE_TIME_DEFAULT       ?? '90d';
 const COLLECT_LIMIT           = parseInt(process.env.COLLECT_LIMIT   ?? '0');
+/** 'scrape' = walk the console UI (default, the fallback); 'api' = call the console's own JSON API. */
+const COLLECT_MODE            = (process.env.COLLECT_MODE ?? 'scrape').toLowerCase();
 /** How many times to re-open an issue that comes up with no event selected before giving up. */
 const MAX_EMPTY_TRIES         = parseInt(process.env.MAX_EMPTY_TRIES ?? '3');
 /** Append-only record of issues we could not collect — so a silent gap stays visible. */
@@ -665,6 +667,223 @@ async function collectIssueType(
 
 // ── Main test ─────────────────────────────────────────────────────────────────
 
+// ── API collection path (COLLECT_MODE=api) ───────────────────────────────────
+// The console itself drives Crashlytics through a plain JSON API, and calling that directly fixes
+// the one thing the UI gets wrong: the time window. On a single `time=3d` page load the issue list
+// asks for [day-2 … day-0] while the event list asks for [day-3 … day-1] — a whole day apart — so
+// the newest events are simply never offered and the issue page renders empty. Here WE pass the
+// interval. It also collapses four tab clicks + a file download per event into one GET.
+// The endpoints are internal and undocumented, hence the switch: the scraper stays the default.
+
+type ApiCtx = { base: string; key: string; headers: Record<string, string> };
+type EventKey = { sessionId: string; eventId: string };
+
+/** ISSUE_TIME_DEFAULT ("90d", "3d" or "<startMs>:<endMs>") → the interval the API expects. */
+function apiInterval(): { startTime: string; endTime: string } {
+  const now = Date.now();
+  const days = /^(\d+)d$/.exec(ISSUE_TIME_DEFAULT);
+  if (days) return { startTime: new Date(now - +days[1] * 86_400_000).toISOString(), endTime: new Date(now).toISOString() };
+  const range = /^(\d+):(\d+)$/.exec(ISSUE_TIME_DEFAULT);
+  if (range) return { startTime: new Date(+range[1]).toISOString(), endTime: new Date(+range[2]).toISOString() };
+  return { startTime: new Date(now - 90 * 86_400_000).toISOString(), endTime: new Date(now).toISOString() };
+}
+
+/** "3.8.2 (2823)" → the API's version filter shape. */
+function apiVersionFilters(): Array<{ buildVersions: string[]; displayVersion: string }> {
+  const m = /^(.+?)\s*\((.+?)\)\s*$/.exec(BASE_QUERY.versions.trim());
+  return m ? [{ buildVersions: [m[2].trim()], displayVersion: m[1].trim() }] : [];
+}
+
+/**
+ * Load the console once and capture a real API call: the `authorization` header is a time-bound
+ * SAPISIDHASH computed by the console's own JS, so it cannot be forged — only borrowed.
+ */
+async function captureApiCtx(page: Page): Promise<ApiCtx> {
+  let hit: { url: string; headers: Record<string, string> } | null = null;
+  const onReq = (req: { url(): string; headers(): Record<string, string> }) => {
+    if (hit) return;
+    if (/crashlytics-pa\.clients6\.google\.com\/v1\/projects\/\d+\/clients\//.test(req.url()))
+      hit = { url: req.url(), headers: req.headers() };
+  };
+  page.on('request', onReq);
+  const params = new URLSearchParams({ ...BASE_QUERY, time: ISSUE_TIME_DEFAULT });
+  await page.goto(`${FIREBASE_BASE}?${params.toString()}`);
+  for (let ms = 0; ms < 60_000 && !hit; ms += 500) await page.waitForTimeout(500);
+  page.off('request', onReq);
+  if (!hit) throw new Error('BLOCKER: no Crashlytics API call observed — the session is probably expired. Run: npm run setup');
+  const url = new URL(hit!.url);
+  const m = /^(\/v1\/projects\/\d+\/clients\/[^/]+)/.exec(url.pathname);
+  if (!m) throw new Error(`Unexpected API path: ${url.pathname}`);
+  const ctx = { base: `${url.origin}${m[1]}`, key: url.searchParams.get('key') ?? '', headers: hit!.headers };
+  console.log(`🔌 API ready: ${ctx.base}`);
+  return ctx;
+}
+
+/**
+ * Issue the request from INSIDE the console page: the call is authenticated by the session cookie
+ * plus the borrowed header, and from Node (context.request) the same call returns 401.
+ */
+async function apiCall<T>(page: Page, ctx: ApiCtx, endpoint: string, body?: unknown): Promise<T> {
+  // The borrowed SAPISIDHASH is time-bound. On a 401 we re-load the console once to mint a fresh
+  // one and retry — a long run must not die halfway through just because the token aged out.
+  for (let attempt = 0; ; attempt++) {
+    const url = `${ctx.base}${endpoint}${endpoint.includes('?') ? '&' : '?'}alt=json&key=${ctx.key}`;
+    const res = await page.evaluate(async (a: { url: string; headers: Record<string, string>; body?: unknown }) => {
+      const h: Record<string, string> = { 'content-type': 'application/json' };
+      for (const k of ['authorization', 'x-goog-authuser']) if (a.headers[k]) h[k] = a.headers[k];
+      const r = await fetch(a.url, {
+        method: a.body === undefined ? 'GET' : 'POST',
+        headers: h,
+        body: a.body === undefined ? undefined : JSON.stringify(a.body),
+        credentials: 'include',
+      });
+      return { status: r.status, text: await r.text() };
+    }, { url, headers: ctx.headers, body });
+    if (res.status === 200) return JSON.parse(res.text) as T;
+    if (res.status === 401 && attempt === 0) {
+      console.log(`🔑 API credentials aged out — re-capturing…`);
+      const fresh = await captureApiCtx(page);
+      ctx.base = fresh.base; ctx.key = fresh.key; ctx.headers = fresh.headers;
+      continue;
+    }
+    throw new Error(`API ${endpoint} → ${res.status}: ${res.text.slice(0, 300)}`);
+  }
+}
+
+/** The issue list, matched by "<signalName> (<signalCode>)" — the same name the CSVs use. */
+async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise<{ id: string; eventsCount: number }> {
+  const res = await apiCall<{ topIssues?: any[] }>(page, ctx, '/metrics:listFirebaseTopOpenIssues', {
+    filters: {
+      categories: [], customKeys: [], eventType: ['NON_FATAL'], manufacturerModels: [],
+      osVersions: [], rollouts: [], tagFilter: { tagTypes: ['TAG_UNSPECIFIED'] },
+      versionFilters: apiVersionFilters(),
+    },
+    interval: apiInterval(),
+    orderBy: 'ORDER_EVENTS',
+    pageDetails: { pageSize: '100', pageToken: '' },
+    searchTerm: { term: BASE_QUERY.issuesQuery },
+  });
+  const found = (res.topIssues ?? []).find(i =>
+    `${i?.caption?.signalName} (${i?.caption?.signalCode})` === issueType);
+  return { id: found?.id ?? '', eventsCount: +(found?.eventsCount ?? 0) };
+}
+
+async function listEventKeysApi(page: Page, ctx: ApiCtx, issueId: string): Promise<EventKey[]> {
+  const res = await apiCall<{ sessionEventKeys?: EventKey[] }>(
+    page, ctx, `/issues/${issueId}/metrics:listSessionEventIds`, {
+      direction: 'BOTH',
+      filters: {
+        categories: [], customKeys: [], excludedSubIssues: [], includedSubIssues: [],
+        manufacturerModels: [], osVersions: [], rollouts: [], versionFilters: apiVersionFilters(),
+      },
+      interval: apiInterval(),
+      maxNumResults: 1000,
+    });
+  return res.sessionEventKeys ?? [];
+}
+
+/** "Aug 2, 2026, 10:21:17 AM" — the exact shape the scraped rows carry. */
+function fmtEventDate(iso: string): string {
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+  });
+}
+
+/** Same file the Logs & Breadcrumbs download produced, so build-data.js needs no change. */
+function writeApiLogFile(ev: any, issueId: string): string {
+  const d = ev?.eventDataExternal ?? {};
+  const items = (d.logs ?? []).map((l: any) => l.analyticsObject
+    ? { timestamp: new Date(l.time).toString(), name: l.analyticsObject.name ?? '', source: 'analytics', params: l.analyticsObject.params ?? {} }
+    : { timestamp: new Date(l.time).toString(), message: l.logLine ?? '', source: 'crashlytics' });
+  fs.writeFileSync(path.join(LOGS_DIR, `${ev.eventId}.log`), JSON.stringify({
+    title:             'Crashlytics - Custom logs',
+    bundle_identifier: (process.env.FIREBASE_APP ?? '').replace(/^ios:/, ''),
+    platform:          'apple',
+    display_version:   d.application?.displayVersion ?? '',
+    build_version:     d.application?.buildVersion ?? '',
+    issue_id:          issueId,
+    session_id:        ev.sessionId ?? '',
+    event_timestamp:   d.eventTime ? new Date(d.eventTime).toString() : '',
+    logs_and_breadcrumbs: items,
+  }, null, 2));
+  return items.length ? 'downloaded' : 'not_available';
+}
+
+function recordFromApiEvent(ev: any, issueId: string, sessionIdBase: string, issueType: string, breadcrumbs: string): EventRecord {
+  const d    = ev?.eventDataExternal ?? {};
+  const keys = d.customKeys ?? {};
+  const identification_link = d.user?.id || 'not available';
+  const { userIdBase, userIdSuffix } = parseUserId(identification_link);
+  const osName     = d.operatingSystem?.name === 'IOS' ? 'iOS' : (d.operatingSystem?.name ?? '');
+  const os_version = d.operatingSystem?.displayVersion ? `${osName} ${d.operatingSystem.displayVersion}`.trim() : '';
+  const sek        = `${sessionIdBase}_${ev.eventId}`;
+  return {
+    event_url:               buildEventUrl(issueId, sek),
+    issue_id:                issueId,
+    session_event_key:       sek,
+    session_id_full:         ev.sessionId ?? '',
+    session_id_base:         sessionIdBase,
+    report_index:            ev.eventIndex != null ? String(ev.eventIndex) : '',
+    event_id:                ev.eventId ?? '',
+    user_id_base:            userIdBase,
+    user_id_suffix:          userIdSuffix,
+    identification_link,
+    app_version:             d.application ? `${d.application.displayVersion} (${d.application.buildVersion})` : '',
+    os_version,
+    os_major_version:        extractOsMajorVersion(os_version),
+    model:                   d.device?.marketingName ?? d.device?.model ?? '',
+    date:                    d.eventTime ? fmtEventDate(d.eventTime) : '',
+    crash_kind:              deriveCrashKind(issueType),
+    nserror_code:            keys['nserror-code'] ?? '',
+    nserror_domain:          keys['nserror-domain'] ?? '',
+    source:                  keys['SOURCE'] ?? '',
+    status:                  keys['STATUS'] ?? '',
+    configuration:           keys['CONFIGURATION'] ?? '',
+    breadcrumbs_status:      breadcrumbs,
+    nslocalized_description: keys['NSLocalizedDescription'] ?? '',
+    orientation_device:      d.orientation?.device ?? '',
+    ram_free_mib:            '',
+    jailbroken:              '',
+    orientation_os:          d.orientation?.ui ?? '',
+    outcome: '', reason: '', last_step: '', steps_reached: '', screen_views: '',
+    n_status_changes: '', first_breadcrumb_ts: '', last_breadcrumb_ts: '', session_elapsed_s: '',
+  };
+}
+
+async function collectIssueTypeViaApi(page: Page, ctx: ApiCtx, issueType: string, existingKeys: Set<string>): Promise<number> {
+  console.log(`\n${'═'.repeat(60)}\n🎯 Collecting via API: "${issueType}"`);
+  const { id: issueId, eventsCount } = await findIssueApi(page, ctx, issueType);
+  if (!issueId) { console.log(`⚠️  Not found in the issue list for this interval. Skipping.`); return 0; }
+
+  const keys = await listEventKeysApi(page, ctx, issueId);
+  console.log(`🔑 ${keys.length} event key(s) in the interval (issue list reports ${eventsCount})`);
+  // The issue list and the event list are two different queries; if the second returns fewer than
+  // the first promises, something was withheld or truncated — exactly the case worth recording.
+  if (keys.length < eventsCount) recordCollectGap(issueType, `api:${issueId} keys=${keys.length} expected=${eventsCount}`, 1);
+
+  let collected = 0;
+  for (const k of keys) {
+    const sek = `${k.sessionId}_${k.eventId}`;
+    if (existingKeys.has(sek) || existingKeys.has(buildEventUrl(issueId, sek))) continue;
+    let ev: any;
+    try {
+      ev = await apiCall<any>(page, ctx, `/processedevents/${sek}`);
+    } catch (e) {
+      console.log(`⚠️  ${sek}: ${(e as Error).message.slice(0, 160)}`);
+      continue;
+    }
+    const breadcrumbs = writeApiLogFile(ev, issueId);
+    appendEventCsv(EVENTS_CSV, recordFromApiEvent(ev, issueId, k.sessionId, issueType, breadcrumbs));
+    existingKeys.add(sek);
+    collected++;
+    console.log(`✅ ${sek}  (${breadcrumbs})`);
+    console.log(`[GFK:PROGRESS]`);
+    if (COLLECT_LIMIT > 0 && collected >= COLLECT_LIMIT) { console.log(`🛑 Limit ${COLLECT_LIMIT} reached.`); break; }
+  }
+  return collected;
+}
+
 test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
   test.setTimeout(10 * 60 * 60 * 1000);
 
@@ -697,9 +916,14 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
     .catch(() => false);
   if (isLoginPage) throw new Error('BLOCKER: Login required. Run: npm run setup');
 
+  const apiCtx = COLLECT_MODE === 'api' ? await captureApiCtx(page) : null;
+  console.log(`⚙️  Collect mode: ${COLLECT_MODE}`);
+
   let totalCollected = 0;
   for (const issueType of ISSUE_TYPES_LIST) {
-    const count = await collectIssueType(page, issueType, existingEventUrls);
+    const count = apiCtx
+      ? await collectIssueTypeViaApi(page, apiCtx, issueType, existingEventUrls)
+      : await collectIssueType(page, issueType, existingEventUrls);
     totalCollected += count;
     if (count > 0) updateProcessedEvents(ISSUES_CSV, issueType, count);
     console.log(`\n📊 "${issueType}": ${count} new events collected.`);
