@@ -31,9 +31,25 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
     a push, or with "Re-run all jobs" on an existing run.
 - **`cp index.html data/dashboard.html` before every `index.html` commit, and commit BOTH files** —
   the server/Pages serve `data/dashboard.html`, so an un-synced edit won't show up.
-- **Collect data:**
-  `HEADLESS=true ISSUE_VERSIONS="3.7.1 (2759)" ISSUES_CSV=./data/issues_3.7.1.csv EVENTS_CSV=./data/events_3.7.1.csv npm run discover`
-  then `npm run collect`.
+- **Collect data:** the normal path is the wrapper — `./collect-incremental.sh [1d|3d|7d|90d]`
+  (default `1d`): discovery at 90d per active version, then collect within the window, then
+  `build-data.js` + commit + push, self-reporting to Telegram. A full run of both active versions
+  takes ~3 minutes.
+  - **`COLLECT_MODE` (default `api`)** — `api` calls the console's OWN JSON API
+    (`crashlytics-pa.clients6.google.com`): `metrics:listFirebaseTopOpenIssues` → issue id,
+    `issues/<id>/metrics:listSessionEventIds` → every `{sessionId,eventId}`,
+    `processedevents/<sessionId>_<eventId>` → the full event *including all breadcrumbs*. One GET per
+    event instead of four tab clicks and a download, and **we** pass `interval:{startTime,endTime}`.
+    That last part is the point: driving the UI, `time=3d` got resolved by the console to a range
+    **ending ~1.5 days ago** (the issue list and the event list computed intervals a full day apart),
+    so short windows silently missed the newest events. Auth is the console's own time-bound
+    SAPISIDHASH header — captured from one real request, then the calls are issued from INSIDE the
+    page (`page.evaluate` + `fetch`); from Node the same call returns 401. On 401 it re-captures once.
+    `COLLECT_MODE=scrape` restores the old UI walk — the endpoints are internal and undocumented,
+    so keep the fallback working.
+  - Single issue, by hand:
+    `HEADLESS=true ISSUE_VERSIONS="3.8.2 (2823)" ISSUES_CSV=./data/issues_3.8.2.csv EVENTS_CSV=./data/events_3.8.2.csv npm run discover`
+    then `npm run collect` (add `ISSUE_TYPES_LIST="<issue name>"` to limit it).
 
 ## Verify UI changes (do this before committing)
 Headless Playwright against the running server, capturing page errors:
@@ -65,6 +81,10 @@ Analytics/Step-funnel → Events grid → Dev tasks.
 - `data/developer_tasks.csv` — `id,title,priority,resolution,category,noteFile,attachedSessions`
   (attachedSessions = `|`-joined Firebase session ids).
 - `data/investigations.json` — per-FaceKom-id outcome overrides `{ outcome, note, ts }`.
+- `data/collect-gaps.jsonl` — append-only record of issues the collector opened but got no event
+  out of (3 tries), or where the event list returned fewer keys than the issue list promised. Each
+  line says what we asked for (version + window) and what the console actually resolved it to. An
+  empty file means nothing was silently dropped; the run's final Telegram message flags new lines.
 - `data/reviewed_sessions.json`, `data/version_releases.csv`.
 
 ### Code map (functions in index.html)
@@ -100,6 +120,15 @@ Analytics/Step-funnel → Events grid → Dev tasks.
 - **Hierarchy:** user → attempt (FaceKom session) → Firebase session → crash report(s). One FaceKom
   session can span several Firebase sessions, even across days. One Firebase session's breadcrumbs can
   hold several retry/close cycles — **merge all its crash reports** to see the full timeline.
+- **Duplicate reports:** Crashlytics regularly files the SAME report twice with an identical
+  breadcrumb count, and often only ONE copy carries the `identification_link` (⇒ the FaceKom id).
+  `deduplicateGroupEvents` merges them (same crash kind + overlapping time + identical step
+  sequence, keep the more complete one) and **breaks a tie in favour of the copy that has the id** —
+  otherwise event_id order decided and the id could be thrown away. For the same reason
+  `renderSessionCard` falls back to any report of the session when the primary has no id; without
+  it the card titled itself with the raw Firebase hex while the Day Timeline showed the FaceKom id.
+  Collecting via `COLLECT_MODE=api` largely retires the problem: 100% of API-collected rows carry
+  the link, against ~90% of the scraped corpus.
 - **Verification flow:** voice-liveness-check → deepfake-detection → customerPortrait → idFront →
   idBack → hologram → id-back-video → twoFactor → end(finished)→approve (varies by doc type).
 - **Outcome:** approve / aborted / failed / reject / other (`deriveSessionOutcome`); per-FaceKom-id
