@@ -1,1 +1,2 @@
 {"ts":"2026-08-12T09:03:15.091Z","versions":"3.8.2 (2823)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"3d","tries":3,"url":"https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/1782c2128a0148281dace39bf8664159?versions=3.8.2%20(2823)&types=error&time=1786233600000:1786406399000"}
+{"ts":"2026-08-13T09:10:59.487Z","versions":"3.8.1 (2809)","issue":"FaceKom handleFlow (0)","window":"1d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=12 expected=14"}
