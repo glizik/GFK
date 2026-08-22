@@ -929,7 +929,7 @@ function mergeIssuesByName(primary, secondary) {
 // Archived versions can still be opened LOCALLY (node server.js serves every file); on Pages their
 // JSON isn't published, so the loader reports it instead of silently showing an empty dashboard.
 // APP_VERSIONS is filled in by loadData(); the literal is only the fallback for a missing CSV.
-let APP_VERSIONS      = ['3.8.1', '3.8.0'];
+let APP_VERSIONS      = ['3.8.2', '3.8.1'];
 let ARCHIVED_VERSIONS = [];
 let gShowArchived     = false;          // "archív" toggle in the filter bar
 let unavailableVersions = new Set();    // asked for, but no data file on this host (Pages)
@@ -941,8 +941,11 @@ function applyVersionConfig(rows) {
   // No `active` column at all (older CSV) → every listed version stays active, as before.
   if (!on.length && !off.length) { APP_VERSIONS = rows.slice().sort(byVersionDesc).map(r => r.version).filter(Boolean); ARCHIVED_VERSIONS = []; }
   else { APP_VERSIONS = on.sort(byVersionDesc).map(r => r.version); ARCHIVED_VERSIONS = off.sort(byVersionDesc).map(r => r.version); }
-  if (!APP_VERSIONS.length) APP_VERSIONS = ['3.8.1'];        // never leave the page with no version
-  if (!APP_VERSIONS.includes(gVersionFilter) && gVersionFilter !== 'all') gVersionFilter = APP_VERSIONS[0];
+  if (!APP_VERSIONS.length) APP_VERSIONS = ['3.8.2'];        // never leave the page with no version
+  // Until the user picks a version by hand, the page follows the CSV: newest ACTIVE version.
+  // A new release is then one row in version_releases.csv, with nothing to change here.
+  // ↺ Refresh re-runs this, so a hand-picked version (incl. 'all') must survive it.
+  if (!gVersionPinned || (!APP_VERSIONS.includes(gVersionFilter) && gVersionFilter !== 'all')) gVersionFilter = APP_VERSIONS[0];
 }
 
 let loadedVersions = new Set();
@@ -2970,7 +2973,8 @@ function filterToDay(dayKey) {
 let gDayKey = null;
 // Global filters. The version is a key from version_releases.csv (or 'all'); loadData()
 // re-points it at the newest ACTIVE version, so this literal only matters until then.
-let gOutcomeFilter = 'all', gVersionFilter = '3.8.1', gFkFilter = '';
+let gOutcomeFilter = 'all', gVersionFilter = '3.8.2', gFkFilter = '';
+let gVersionPinned = false;   // true once the user clicks a version → applyVersionConfig stops overriding it
 let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
 let gEnvFilter = 'prod';                // 'prod' | 'test' | 'dev' | 'all' — defaults to PROD (see envOfEvent)
 let gView = 'timeline';                 // 'timeline' | 'list'
@@ -3968,6 +3972,7 @@ function renderGlobalFilters() {
     loadHint;
 }
 async function setGlobalVersion(v) {
+  gVersionPinned = true;
   if (gVersionFilter === v) return;
   gVersionFilter = v;
   const el = document.getElementById('globalFilters');
