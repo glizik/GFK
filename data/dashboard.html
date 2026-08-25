@@ -770,8 +770,10 @@ const SDK_MSG_L10N = [
   [/Facekom endete mit dem Status:\s*/i,                                     'Facekom finished with state: '],
   // selfServiceRuntimeError.sessionBackgrounded — "…did enter background at step: %@, isVideoStep: %@…"
   // ("lépet" is a typo in the Hungarian strings file — accept both spellings so a fix upstream
-  //  doesn't quietly break the parsing again.)
-  [/FaceKom session háttérbe lépett? a:\s*(.+?) lépésnél,\s*(isVideoStep:)/i,
+  //  doesn't quietly break the parsing again.) 3.8.2 also switched "a:" → "a(z):" (a grammar fix
+  //  in Localizable.strings) — that one character silently unfolded EVERY backgrounding breadcrumb
+  //  in 3.8.2 (395 of them), so the article is optional here too.
+  [/FaceKom session háttérbe lépett? a(?:\(z\))?:\s*(.+?) lépésnél,\s*(isVideoStep:)/i,
    'FaceKom session did enter background at step: $1, $2'],
   [/Die FaceKom-Sitzung wurde im Schritt (.+?) in den Hintergrund versetzt;\s*(isVideoStep:)/i,
    'FaceKom session did enter background at step: $1, $2'],
