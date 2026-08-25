@@ -697,24 +697,44 @@ function apiVersionFilters(): Array<{ buildVersions: string[]; displayVersion: s
 /**
  * Load the console once and capture a real API call: the `authorization` header is a time-bound
  * SAPISIDHASH computed by the console's own JS, so it cannot be forged — only borrowed.
+ *
+ * The console moved its own traffic to gRPC-web (`crashlytics-pa…/$rpc/<Service>/<Method>`, body
+ * `application/json+protobuf`), so it no longer issues the REST call whose URL used to hand us the
+ * base path. The REST surface itself is very much alive — we just have to ASSEMBLE the base now:
+ * project NUMBER (scraped from any console request) + FIREBASE_APP as the client id. Any
+ * crashlytics-pa request will do for the headers, and the api key now rides in `x-goog-api-key`.
  */
 async function captureApiCtx(page: Page): Promise<ApiCtx> {
   let hit: { url: string; headers: Record<string, string> } | null = null;
-  const onReq = (req: { url(): string; headers(): Record<string, string> }) => {
+  let projectNumber = process.env.FIREBASE_PROJECT_NUMBER ?? '';
+  const onReq = (req: { url(): string; headers(): Record<string, string>; postData(): string | null }) => {
+    if (!projectNumber) {
+      const m = /projects\/(\d{6,})/.exec(req.url()) ?? /"(\d{9,})"/.exec(req.postData() ?? '');
+      if (m) projectNumber = m[1];
+    }
     if (hit) return;
-    if (/crashlytics-pa\.clients6\.google\.com\/v1\/projects\/\d+\/clients\//.test(req.url()))
+    if (/crashlytics-pa\.clients6\.google\.com\/(\$rpc|v1)\//.test(req.url()))
       hit = { url: req.url(), headers: req.headers() };
   };
   page.on('request', onReq);
   const params = new URLSearchParams({ ...BASE_QUERY, time: ISSUE_TIME_DEFAULT });
   await page.goto(`${FIREBASE_BASE}?${params.toString()}`);
-  for (let ms = 0; ms < 60_000 && !hit; ms += 500) await page.waitForTimeout(500);
+  for (let ms = 0; ms < 60_000 && !(hit && projectNumber); ms += 500) await page.waitForTimeout(500);
   page.off('request', onReq);
   if (!hit) throw new Error('BLOCKER: no Crashlytics API call observed — the session is probably expired. Run: npm run setup');
-  const url = new URL(hit!.url);
-  const m = /^(\/v1\/projects\/\d+\/clients\/[^/]+)/.exec(url.pathname);
-  if (!m) throw new Error(`Unexpected API path: ${url.pathname}`);
-  const ctx = { base: `${url.origin}${m[1]}`, key: url.searchParams.get('key') ?? '', headers: hit!.headers };
+  if (!projectNumber) throw new Error('BLOCKER: could not determine the project NUMBER from console traffic — set FIREBASE_PROJECT_NUMBER in .env.');
+  const req = hit as { url: string; headers: Record<string, string> };
+  const url = new URL(req.url);
+  // A legacy `/v1/projects/<num>/clients/<client>` sighting still wins — it is the base verbatim.
+  const legacy = /^(\/v1\/projects\/\d+\/clients\/[^/]+)/.exec(url.pathname);
+  const base = legacy
+    ? `${url.origin}${legacy[1]}`
+    : `${url.origin}/v1/projects/${projectNumber}/clients/${process.env.FIREBASE_APP}`;
+  const ctx = {
+    base,
+    key: url.searchParams.get('key') ?? req.headers['x-goog-api-key'] ?? '',
+    headers: req.headers,
+  };
   console.log(`🔌 API ready: ${ctx.base}`);
   return ctx;
 }
