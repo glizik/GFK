@@ -1386,6 +1386,34 @@ function possiblyTag(group, fk) {
 // FaceKom id for a group, for the lookups above.
 function groupFk(group) { return fkBase((group || []).map(facekomSessionId).find(Boolean) || ''); }
 
+// ── Known environmental incidents ────────────────────────────────────────────
+// Customer-side firewall outage on 2026-08-13, 08:21–09:54 CEST (G reported it, restored 09:54).
+// Sessions died with 0006-QR / face-detection-error / hasNoSelfServiceRoom in BOTH active versions
+// at the same clock time — that cross-version symmetry is what proves it was the network, not the
+// app. They land in the `aborted` bucket like any drop-off, so the outcome bar over-states real
+// user aborts unless they are called out. Time is the discriminator (the fingerprint alone would
+// also catch the ~2–3% baseline 0006 sessions). One line to add a future window.
+const INCIDENT_WINDOWS = [
+  { label: 'firewall outage (2026-08-13 08:21–09:54)',
+    from: new Date('2026-08-13T08:21:00+02:00').getTime(),
+    to:   new Date('2026-08-13T09:54:00+02:00').getTime() },
+];
+// The incident window a session started in, or null. Uses the earliest report start of the group.
+function incidentOf(group) {
+  const starts = (group || []).map(gStartTs).filter(Boolean);
+  if (!starts.length) return null;
+  const t = Math.min(...starts);
+  return INCIDENT_WINDOWS.find(w => t >= w.from && t <= w.to) || null;
+}
+// User key for a group — same rule as buildUserOutcomes: one FaceKom id = one person's attempt
+// chain, so several Firebase sessions of the same id collapse to ONE user.
+function groupUserKey(group) {
+  const fk = groupFk(group);
+  if (fk) return 'fk:' + fk;
+  const rep = (group || [])[0] || {};
+  return 'fb:' + (rep.session_id_base || rep.event_id || '?');
+}
+
 // No camera feed: a video step ran to the SDK's 60-second detection timeout, and the instructions
 // the server had sent by then contain no face detection — nor did a single `detection:status:face`
 // ever arrive. The in-app capture consent IS accepted and the mic IS authorized in these sessions,
@@ -1762,6 +1790,25 @@ function renderStepFunnel() {
   // you open only the one you care about (e.g. the 1 purple "rejected") and it doesn't push the rest far down.
   const outGroups = { aborted: [], failed: [], reject: [], other: [] };
   for (const sd of sessionStepData) { const o = normalizeOutcome(deriveSessionOutcome(sd.group)); if (outGroups[o]) outGroups[o].push(sd.group); }
+  // Abort breakdown: the aborted sessions are per-ATTEMPT, and two effects inflate them against the
+  // number of people who actually walked out — a known outage, and one person retrying N times.
+  // Split both out so "40 aborted" reads as "x outage + y real users".
+  let abortBreakdown = '';
+  if (outGroups.aborted.length) {
+    const inc = [], rest = [], incLabels = new Set();
+    for (const g of outGroups.aborted) {
+      const w = incidentOf(g);
+      if (w) { inc.push(g); incLabels.add(w.label); } else rest.push(g);
+    }
+    const userTries = new Map();
+    for (const g of rest) { const k = groupUserKey(g); userTries.set(k, (userTries.get(k) || 0) + 1); }
+    const nAbUsers = userTries.size;
+    const maxTries = nAbUsers ? Math.max(...userTries.values()) : 0;
+    const parts = [];
+    if (inc.length) parts.push(`<span style="color:var(--yellow)">${inc.length} during the ${[...incLabels].join(' / ')}</span>`);
+    parts.push(`<span style="color:var(--red)">${nAbUsers} distinct user${nAbUsers !== 1 ? 's' : ''}</span> across the other ${rest.length} attempt${rest.length !== 1 ? 's' : ''}`);
+    abortBreakdown = `<div style="font-size:11px;color:var(--muted);margin-top:4px">↳ of the ${outGroups.aborted.length} aborted: ${parts.join(' · ')}${maxTries > 1 ? ` (one user retried ${maxTries}×)` : ''}.</div>`;
+  }
   let detail = '';
   for (const [k, lbl, col] of segDefs) {
     if (k === 'approve' || !outGroups[k] || !outGroups[k].length) continue;
@@ -1780,6 +1827,7 @@ function renderStepFunnel() {
     <div class="flow-outcomes-bar">${segs}</div>
     <div class="seg-legend-row">${legend}</div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">↳ ${exitTotal} abort exits across ${sessWithExit} sessions (the Report counts these ${exitTotal}). ${sessOut.aborted} sessions ended aborted; ${sessWithExit - sessOut.aborted} aborted a step but still finished/other within the session.</div>
+    ${abortBreakdown}
     <div class="seg-detail-list">${detail}</div>
   </div>`;
 
