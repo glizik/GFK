@@ -52,8 +52,45 @@ tg () {
     --data-urlencode "chat_id=${TG_CHAT}" --data-urlencode "text=$1" || true
 }
 
+# ── local dashboard server (localhost:3737) ─────────────────────────────────
+# Same as the `gfkserver start` shell function, inlined here on purpose: this script also runs
+# from cron, where the interactive zsh profile (which defines gfkserver) is not loaded. If nothing
+# listens on the port, start `node server.js` detached so the freshly collected data is always
+# browsable at http://localhost:3737 without anyone (or any agent) having to start it by hand.
+# Best-effort: a server that refuses to start must never abort the collection.
+SERVER_PORT=3737
+SERVER_LOG=./data/logs/server.out
+SRV_NOTE=""
+ensure_server () {
+  [ "$DRY" = "1" ] && return 0
+  if lsof -ti tcp:$SERVER_PORT >/dev/null 2>&1; then
+    echo "local server already up → http://localhost:$SERVER_PORT"
+    SRV_NOTE="
+🖥 Lokál szerver fut → http://localhost:$SERVER_PORT"
+    return 0
+  fi
+  mkdir -p ./data/logs
+  nohup node server.js > "$SERVER_LOG" 2>&1 &
+  disown 2>/dev/null || true
+  sleep 1
+  if lsof -ti tcp:$SERVER_PORT >/dev/null 2>&1; then
+    echo "local server started → http://localhost:$SERVER_PORT"
+    SRV_NOTE="
+🖥 Lokál szervert elindítottam → http://localhost:$SERVER_PORT"
+  else
+    echo "⚠️  local server did NOT start — see $SERVER_LOG"
+    tail -5 "$SERVER_LOG" 2>/dev/null
+    SRV_NOTE="
+⚠️ A lokál szervert nem sikerült elindítani (log: $SERVER_LOG)"
+    return 1
+  fi
+}
+
 echo "==== incremental collection  window=$WINDOW dry=$DRY ===="
 tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}, kicsitől nagyig). Self-reporting fut."
+
+# Make sure the dashboard is reachable locally for the whole run (and after it).
+ensure_server
 
 # Issues the collector opened but could not get a single event out of (3 tries). Counted before
 # and after the run so the summary can say "this run left a gap" instead of it passing unnoticed.
@@ -208,5 +245,8 @@ if [ "$GAPS_NEW" -gt 0 ]; then
 ⚠️ $GAPS_NEW issue-ból 3 próbára sem jött event (a Crashlytics üres oldalt adott). Részletek: $GAPS_FILE"
 fi
 
-tg "🎉 Gyűjtés kész — window=$WINDOW · $SUMMARY · commit+push kész. A dashboard pár perc múlva frissül.$GAP_NOTE"
-echo "==== DONE window=$WINDOW  $SUMMARY ====${GAP_NOTE}"
+# The run may have taken a while — re-check the server so the final message is truthful.
+ensure_server
+
+tg "🎉 Gyűjtés kész — window=$WINDOW · $SUMMARY · commit+push kész. A dashboard pár perc múlva frissül.$GAP_NOTE$SRV_NOTE"
+echo "==== DONE window=$WINDOW  $SUMMARY ====${GAP_NOTE}${SRV_NOTE}"

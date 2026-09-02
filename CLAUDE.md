@@ -13,6 +13,8 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
 - **Local server:** `node server.js` → http://localhost:3737 (serves `data/dashboard.html` at `/`,
   static `data/`, plus `/api/save-note|discover|collect|save-investigations|save-reviewed`).
   `LOGS_DIR = data/logs`. If `:3737` is stuck: `lsof -ti tcp:3737 | xargs kill -9`.
+  `collect-incremental.sh` starts it itself (`ensure_server`, inlined `gfkserver start` so it
+  works from cron too) — after any collect the dashboard is browsable locally without asking.
 - **Deploy:** push to `development` → **`.github/workflows/pages.yml`** builds a CURATED artifact
   (`index.html` + only the files the page fetches, and only for **active** versions ⇒ ~20 files /
   8 MB) and deploys it. Pages **Source must stay "GitHub Actions"** — the old "deploy from a
