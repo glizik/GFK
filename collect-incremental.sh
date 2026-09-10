@@ -60,13 +60,10 @@ tg () {
 # Best-effort: a server that refuses to start must never abort the collection.
 SERVER_PORT=3737
 SERVER_LOG=./data/logs/server.out
-SRV_NOTE=""
 ensure_server () {
   [ "$DRY" = "1" ] && return 0
   if lsof -ti tcp:$SERVER_PORT >/dev/null 2>&1; then
     echo "local server already up → http://localhost:$SERVER_PORT"
-    SRV_NOTE="
-🖥 Lokál szerver fut → http://localhost:$SERVER_PORT"
     return 0
   fi
   mkdir -p ./data/logs
@@ -75,13 +72,9 @@ ensure_server () {
   sleep 1
   if lsof -ti tcp:$SERVER_PORT >/dev/null 2>&1; then
     echo "local server started → http://localhost:$SERVER_PORT"
-    SRV_NOTE="
-🖥 Lokál szervert elindítottam → http://localhost:$SERVER_PORT"
   else
     echo "⚠️  local server did NOT start — see $SERVER_LOG"
     tail -5 "$SERVER_LOG" 2>/dev/null
-    SRV_NOTE="
-⚠️ A lokál szervert nem sikerült elindítani (log: $SERVER_LOG)"
     return 1
   fi
 }
@@ -92,11 +85,10 @@ tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}, kicsitől nagyig)
 # Make sure the dashboard is reachable locally for the whole run (and after it).
 ensure_server
 
-# Issues the collector opened but could not get a single event out of (3 tries). Counted before
-# and after the run so the summary can say "this run left a gap" instead of it passing unnoticed.
+# Issues the collector opened but could not get a single event out of (3 tries) are appended here
+# by the collector and committed with the data. Deliberately NOT reported in the Telegram summary:
+# G reads the file when he wants it, the message stays short.
 GAPS_FILE=./data/collect-gaps.jsonl
-gaps_of () { [ -f "$GAPS_FILE" ] || { echo 0; return; }; wc -l < "$GAPS_FILE" | tr -d ' '; }
-GAPS_BEFORE=$(gaps_of)
 
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
@@ -104,6 +96,12 @@ build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases
 # events CSV yet: without this guard `wc -l` errored and the count became -1, so the
 # run reported one more new event than it actually collected.
 rows_of () { [ -f "$1" ] || { echo 0; return; }; echo $(( $(wc -l < "$1") - 1 )); }
+
+# Distinct USERS in an events CSV: column 8 is `user_id_base`, the 36-char QR uuid = one physical
+# person (the `-<unix_ts>` retry variants of the same QR collapse into it). Rows with no id are
+# skipped. The self-reporting speaks in users, not events: one abandoned identification can file
+# dozens of events, so an event delta says nothing about how many people were affected.
+users_of () { [ -f "$1" ] || { echo 0; return; }; awk -F, 'NR>1 && $8!="" && !seen[$8]++ {n++} END{print n+0}' "$1"; }
 
 # kill a pid and all its descendants (npm → npx → node → chromium); macOS has no setsid
 kill_tree () {
@@ -126,11 +124,13 @@ net_err () {
     | head -1
 }
 
-AUTH_OK=0; SUMMARY=""   # SUMMARY accumulates "<ver> +<n>" per collected version (version-agnostic)
+AUTH_OK=0; SUMMARY=""; USUMMARY=""   # per collected version, "<ver> +<n>": SUMMARY counts new
+                                     # EVENTS (commit message = data provenance), USUMMARY new USERS
+                                     # (everything G is told). Version-agnostic.
 for ver in "${VERSIONS[@]}"; do
   build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
   icsv="./data/issues_${ver}.csv"; ecsv="./data/events_${ver}.csv"
-  vbefore=$(rows_of "$ecsv")
+  vbefore=$(rows_of "$ecsv"); vusers_before=$(users_of "$ecsv")
 
   echo "## $ver ($build) discovery (90d)"
   out="$(ISSUE_VERSIONS="$ver ($build)" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" ISSUE_TIME_DEFAULT=90d npm run discover 2>&1)"
@@ -160,7 +160,7 @@ Most nem gyűjtöttem tovább. Ha újra van net, indítsd újra: collect."
   while IFS= read -r issue; do
     [ -z "$issue" ] && continue
     if [ "$DRY" = "1" ]; then echo "   dry: would collect $ver :: $issue"; continue; fi
-    local_before=$(rows_of "$ecsv")
+    local_before=$(rows_of "$ecsv"); local_users_before=$(users_of "$ecsv")
     echo "## collect $ver :: $issue"
     ISSUE_VERSIONS="$ver ($build)" ISSUE_TYPES_LIST="$issue" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" \
       ISSUE_TIME_DEFAULT="$WINDOW" npm run collect > /tmp/_gfk_collect.out 2>&1 &
@@ -188,8 +188,8 @@ Leállítottam (nem őröltem tovább a többi issue-t). Ha újra van net, indí
       fi
       sleep 30; secs=$((secs+30))
       if [ $((secs % HEARTBEAT)) -eq 0 ]; then
-        nownew=$(( $(rows_of "$ecsv") - local_before ))
-        tg "⏳ $ver $issue: +$nownew új eddig (window=$WINDOW)…"
+        nowusers=$(( $(users_of "$ecsv") - local_users_before ))
+        tg "⏳ $ver $issue: +$nowusers új user eddig (window=$WINDOW)…"
       fi
     done
     wait "$cpid" || true
@@ -206,12 +206,15 @@ Leállítottam. Ha újra van net, indítsd újra: collect."
       exit 4
     fi
     newcnt=$(( $(rows_of "$ecsv") - local_before ))
-    [ "$newcnt" -gt 0 ] && tg "✅ $ver $issue: +$newcnt új event"
+    newusers=$(( $(users_of "$ecsv") - local_users_before ))
+    [ "$newcnt" -gt 0 ] && tg "✅ $ver $issue: +$newusers új user"
   done <<< "$order"
 
   vnew=$(( $(rows_of "$ecsv") - vbefore ))
+  vusers=$(( $(users_of "$ecsv") - vusers_before ))
   SUMMARY="${SUMMARY:+$SUMMARY · }$ver +$vnew"
-  [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vnew új event (összes: $(rows_of "$ecsv"))"
+  USUMMARY="${USUMMARY:+$USUMMARY · }$ver +$vusers"
+  [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vusers új user (összes: $(users_of "$ecsv"))"
 done
 
 # ── pre-process JSON for the dashboard (one fetch instead of per-event logs) ──
@@ -238,15 +241,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" && git push -q origin d
   fi
 fi
 
-GAPS_NEW=$(( $(gaps_of) - GAPS_BEFORE ))
-GAP_NOTE=""
-if [ "$GAPS_NEW" -gt 0 ]; then
-  GAP_NOTE="
-⚠️ $GAPS_NEW issue-ból 3 próbára sem jött event (a Crashlytics üres oldalt adott). Részletek: $GAPS_FILE"
-fi
-
-# The run may have taken a while — re-check the server so the final message is truthful.
+# The run may have taken a while — make sure the dashboard is still browsable locally.
 ensure_server
 
-tg "🎉 Gyűjtés kész — window=$WINDOW · $SUMMARY · commit+push kész. A dashboard pár perc múlva frissül.$GAP_NOTE$SRV_NOTE"
-echo "==== DONE window=$WINDOW  $SUMMARY ====${GAP_NOTE}${SRV_NOTE}"
+tg "🎉 Gyűjtés kész — window=$WINDOW · $USUMMARY · commit+push kész. A dashboard pár perc múlva frissül."
+echo "==== DONE window=$WINDOW  $USUMMARY (events: $SUMMARY) ===="
