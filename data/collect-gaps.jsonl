@@ -55,3 +55,6 @@
 {"ts":"2026-09-25T13:14:03.894Z","versions":"3.8.2 (2823)","issue":"FaceKom stopAndClear (0)","window":"90d","tries":1,"url":"api:fc90ac57101d1258a32120e65642f194 keys=163 expected=164"}
 {"ts":"2026-09-25T13:14:42.602Z","versions":"3.8.2 (2823)","issue":"FaceKom handleFlow (0)","window":"90d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=972 expected=973"}
 {"ts":"2026-09-25T13:17:22.563Z","versions":"3.8.2 (2823)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2918"}
+{"ts":"2026-09-26T15:16:47.179Z","versions":"3.8.2 (2823)","issue":"FaceKom stopAndClear (0)","window":"90d","tries":1,"url":"api:fc90ac57101d1258a32120e65642f194 keys=166 expected=167"}
+{"ts":"2026-09-26T15:17:46.141Z","versions":"3.8.2 (2823)","issue":"FaceKom handleFlow (0)","window":"90d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=990 expected=991"}
+{"ts":"2026-09-26T15:18:29.066Z","versions":"3.8.2 (2823)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2965"}
