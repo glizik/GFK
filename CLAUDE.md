@@ -88,6 +88,14 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   line says what we asked for (version + window) and what the console actually resolved it to. An
   empty file means nothing was silently dropped; the run's final Telegram message flags new lines.
 - `data/reviewed_sessions.json`, `data/version_releases.csv`.
+- **`data/backend_versions.csv` — `env,version,since,note`**: hand-kept FaceKom BACKEND version
+  timeline (the crash data never names it). `backendOfGroup` picks the newest row of the session's
+  env with `since` ≤ session start → `BE …` chip + Backend column in the abort categories. Prod is
+  `initial` (old, number unknown); test/dev run `1.9.11.44` (expected to fix the reconnects). **When
+  prod switches, add a `prod,<version>,<date>` row** — earlier sessions keep `initial`.
+- **`archive/pre-3.9.0/`** — everything from 3.7.0–3.8.2 (events/issues/investigations/tasks+notes,
+  old reports; logs+screenshots local-only/gitignored). Fresh start on 2026-09-28 with 3.9.0: the
+  page offers active versions only, no archive toggle, no dev tasks. Read-only reference.
 
 ### Code map (functions in index.html)
 - **Load/render:** `loadData()` (reads `version_releases.csv` FIRST → `applyVersionConfig` fills
@@ -162,7 +170,10 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   isVideoStep:false`) — is NORMAL, the user returns, **not** an abort. Don't count every close.
 - **Main finding:** ~70% approve; the real failures cluster at the live video steps (deepfake,
   voice-liveness) where the detection stalls and users wait 1–4 min, retry, then quit. See
-  `data/notes/Task-009.md` and `non_approved_report.md`.
+  `archive/pre-3.9.0/data/notes/Task-009.md` and `archive/pre-3.9.0/non_approved_report.md`
+  (pre-3.9.0). Since 3.9.0 the Report opens with an **abort-category table** (`laneAbortCategory`,
+  `renderAbortCategories`; click a row to filter). **3.9.0 fixes the mic/camera permission
+  problem** — the `perm` category is flagged red as a regression if anything lands there.
 
 ## Working conventions (owner = "G", Hungarian; talks via Telegram)
 - Reply in **Hungarian** on Hungarian threads. Ack first, then work; report progress, don't go silent.

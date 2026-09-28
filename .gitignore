@@ -15,3 +15,7 @@ data/logs/server.out
 # data/events_<v>.json, which IS committed. They used to be published to GitHub Pages on every
 # deploy, which is what pushed the deployment past its 10-minute timeout.
 data/logs/
+
+# Archived raw logs stay LOCAL, same as data/logs/. New discover screenshots are local noise.
+archive/*/data/logs/
+data/screenshots/

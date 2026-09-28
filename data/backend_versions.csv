@@ -1,0 +1,4 @@
+env,version,since,note
+prod,initial,2026-01-01,régi backend (verziószám ismeretlen)
+test,1.9.11.44,2026-09-28,új backend — reconnect javítás várható
+dev,1.9.11.44,2026-09-28,új backend — reconnect javítás várható

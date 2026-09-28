@@ -60,7 +60,7 @@ jobs:
           cp data/dashboard.html site/data/ 2>/dev/null || true
           # `if` rather than `[ -f x ] && cp`: under `set -e` a missing optional file would abort
           # the whole step instead of being skipped.
-          for f in version_releases.csv developer_tasks.csv \
+          for f in version_releases.csv backend_versions.csv developer_tasks.csv \
                    crashes.json investigations.json reviewed_sessions.json; do
             if [ -f "data/$f" ]; then cp "data/$f" site/data/; fi
           done

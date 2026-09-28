@@ -397,6 +397,16 @@
   .tag-test { font-size: 10px; color: var(--orange); border: 1px solid rgba(249,115,22,0.55); border-radius: 8px; padding: 1px 6px; white-space: nowrap; font-weight: 700; letter-spacing: .04em; }
   .tag-env-dev { color: var(--purple); border-color: rgba(167,139,250,0.55); }
   .report-table tr.rep-possibly-row td:first-child { box-shadow: inset 3px 0 0 var(--yellow); }
+  .tag-backend { font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+  .tag-backend.be-new { color: var(--accent2); border-color: rgba(96,165,250,0.55); }
+  /* Abort categories summary (top of the Report) */
+  .rep-cats { margin-bottom: 14px; }
+  .rep-cats table { width: auto; min-width: 560px; }
+  .rep-cats tr.rep-cat-row { cursor: pointer; }
+  .rep-cats tr.rep-cat-row:hover td { background: var(--surface2); }
+  .rep-cats tr.rep-cat-active td { background: var(--surface2); box-shadow: inset 0 -1px 0 var(--accent); }
+  .rep-cats td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .rep-cats .rep-cat-unexpected { color: var(--red); font-weight: 700; }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
   .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
@@ -875,6 +885,7 @@ function copyToClipboard(text, btn) {
 let issues = [], events = [], releases = [], currentEventsForDisplay = [];
 let issuesByVersion = {};            // version → parsed issue rows (for version-scoped coverage)
 let reportNPOnly = false;            // Report: show only users who never passed
+let reportCatFilter = '';            // Report: abort-category key from the summary table ('' = all)
 let activeIssueIds = new Set();
 let analyticsTypeFilter = 'all', analyticsOutcomeFilter = 'all', analyticsVersionFilter = 'all';
 let eventsVersionFilter = 'all';
@@ -926,12 +937,11 @@ function mergeIssuesByName(primary, secondary) {
 // ── Which app versions are in play ────────────────────────────────────────────
 // `data/version_releases.csv` is the SINGLE source of truth: its `active` column (1/0) decides
 // what the dashboard offers, what `collect-incremental.sh` collects, and what the Pages workflow
-// publishes. Old versions nobody looks at any more are switched off there — their data files stay
-// in the repo, they're just not shipped to the site and not re-collected.
-// Archived versions can still be opened LOCALLY (node server.js serves every file); on Pages their
-// JSON isn't published, so the loader reports it instead of silently showing an empty dashboard.
+// publishes. Old versions nobody looks at any more are switched off there.
+// Since 3.9.0 (2026-09-28) the pre-3.9.0 data lives in archive/pre-3.9.0/ and the page offers
+// ACTIVE versions only — the "🗄 archív" toggle is no longer rendered (its data isn't in data/).
 // APP_VERSIONS is filled in by loadData(); the literal is only the fallback for a missing CSV.
-let APP_VERSIONS      = ['3.8.2', '3.8.1'];
+let APP_VERSIONS      = ['3.9.0'];
 let ARCHIVED_VERSIONS = [];
 let gShowArchived     = false;          // "archív" toggle in the filter bar
 let unavailableVersions = new Set();    // asked for, but no data file on this host (Pages)
@@ -943,7 +953,7 @@ function applyVersionConfig(rows) {
   // No `active` column at all (older CSV) → every listed version stays active, as before.
   if (!on.length && !off.length) { APP_VERSIONS = rows.slice().sort(byVersionDesc).map(r => r.version).filter(Boolean); ARCHIVED_VERSIONS = []; }
   else { APP_VERSIONS = on.sort(byVersionDesc).map(r => r.version); ARCHIVED_VERSIONS = off.sort(byVersionDesc).map(r => r.version); }
-  if (!APP_VERSIONS.length) APP_VERSIONS = ['3.8.2'];        // never leave the page with no version
+  if (!APP_VERSIONS.length) APP_VERSIONS = ['3.9.0'];        // never leave the page with no version
   // Until the user picks a version by hand, the page follows the CSV: newest ACTIVE version.
   // A new release is then one row in version_releases.csv, with nothing to change here.
   // ↺ Refresh re-runs this, so a hand-picked version (incl. 'all') must survive it.
@@ -1049,13 +1059,15 @@ async function loadData() {
     const releasesCsv = await fetch(`data/version_releases.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => '');
     releases = releasesCsv ? parseCsv(releasesCsv) : [];
     if (releases.length) applyVersionConfig(releases);
-    const [issueCsvs, reviewedRaw, invRaw, crashRaw] = await Promise.all([
+    const [issueCsvs, reviewedRaw, invRaw, crashRaw, backendCsv] = await Promise.all([
       Promise.all(APP_VERSIONS.map(v =>
         fetch(`data/issues_${v}.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''))),
       fetch(`data/reviewed_sessions.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/investigations.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`data/crashes.json?_=${ts}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`data/backend_versions.csv?_=${ts}`).then(r => r.ok ? r.text() : '').catch(() => ''),
     ]);
+    BACKEND_VERSIONS = backendCsv ? parseCsv(backendCsv).filter(r => r.env && r.version) : [];
     if (invRaw && typeof invRaw === 'object') investigations = invRaw;
     if (crashRaw && Array.isArray(crashRaw.issues)) crashes = crashRaw;
     // Per-version issue lists (a version with no CSV yet — e.g. one just released —
@@ -1572,6 +1584,70 @@ function envTag(group) {
   const env = envOfGroup(group);
   return (env === 'test' || env === 'dev')
     ? ` <span class="tag-test tag-env-${env}" title="${escAttr(ENV_TAG_TITLE[env])}">${env.toUpperCase()}</span>` : '';
+}
+
+// ── FaceKom backend version ───────────────────────────────────────────────────
+// Nothing in the crash reports says which backend BUILD served a session, so it's a hand-kept
+// timeline: data/backend_versions.csv `env,version,since,note` — one row per (env, rollout). A
+// session gets the newest row of ITS env (envOfGroup; unplaceable = prod) whose `since` is not
+// after the session's start. When prod moves to the new backend, add one prod row with its date:
+// every session before it stays "initial", every one after it gets the new version, so the
+// abort categories can be compared across the switch (expected: fewer connection drops).
+let BACKEND_VERSIONS = [];
+function backendOfGroup(group) {
+  const env = envOfGroup(group) || 'prod';
+  const starts = (group || []).map(gStartTs).filter(Boolean);
+  const t = starts.length ? Math.min(...starts) : Date.now();
+  let best = null;
+  for (const r of BACKEND_VERSIONS) {
+    if (r.env !== env) continue;
+    const since = new Date(r.since + 'T00:00:00').getTime();
+    if (!(since <= t)) continue;
+    if (!best || since >= best.since) best = { version: r.version, since, note: r.note || '' };
+  }
+  return best;
+}
+function backendTag(group) {
+  const be = backendOfGroup(group);
+  if (!be) return '';
+  const tip = `FaceKom backend: ${be.version}${be.note ? ' — ' + be.note : ''} (data/backend_versions.csv)`;
+  return ` <span class="tag-backend${be.version !== 'initial' ? ' be-new' : ''}" title="${escAttr(tip)}">BE ${esc(be.version)}</span>`;
+}
+
+// ── Abort categories (Report summary) ─────────────────────────────────────────
+// One category per Report lane, so the counts add up to the lane count and show what's left to
+// polish. First match wins:
+//   perm      — the SDK logged a missing mic/camera permission (or noVideoConsent). 3.9.0 is meant
+//               to have fixed this: any hit is a REGRESSION, flagged red.
+//   reject:*  — the server ended it with a reason (end(status:"failed", reason = "X")).
+//   abort:*   — left a VIDEO step (deriveAbortExits); keyed by the step of the LAST abort — the
+//               one the user gave up on (or, if they later passed, the one they recovered from).
+//   consent   — consent timer expired.
+//   possibly  — ≈ possibly approve: telemetry gap after 2FA, not a drop-off (to-verify queue).
+//   quit:*    — closed/backgrounded on a NON-video step and never came back.
+//   unexpected / unknown — no usable signal.
+const PERM_MISSING_RE = /\b(mic|video)(?: status)?:\s*(denied|restricted|notDetermined)\b/;
+function laneAbortCategory(u) {
+  const groups = u.tries.map(t => t.group);
+  const failedTries = u.tries.filter(t => normalizeOutcome(t.outcome) !== 'approve');
+  if (groups.some(g => noVideoConsent(g) || g.some(ev => (ev.logs || []).some(l => PERM_MISSING_RE.test(l.msg || '')))))
+    return { key: 'perm', label: 'Hiányzó engedély (mikrofon / kamera)', unexpected: true };
+  for (const t of failedTries) {
+    const r = getEndReason(t.group);
+    if (r) return { key: 'reject:' + r, label: 'Szerver elutasítás: ' + r };
+  }
+  const aborts = u.tries.flatMap(t => deriveAbortExits(t.group).aborts);
+  if (aborts.length) { const s = aborts[aborts.length - 1].step; return { key: 'abort:' + s, label: 'Abort @ ' + s }; }
+  const causes = failedTries.map(t => getAbortCause(t.group)).filter(Boolean);
+  if (causes.includes('consent timeout')) return { key: 'consent', label: 'Consent timeout' };
+  if (u.tries.some(t => isPossiblyApproveSession(t.group, t.fk))) return { key: 'possibly', label: '≈ Possibly approve (telemetria-rés 2FA után)' };
+  const last = failedTries[failedTries.length - 1];
+  if (last && causes.some(c => c === 'user closed' || c.startsWith('backgrounded'))) {
+    const s = deriveStuckStep({ logs: mergeGroupLogs(last.group) }) || '?';
+    return { key: 'quit:' + s, label: 'Kilépés (nem video lépés) @ ' + s };
+  }
+  if (causes.includes('unexpected error')) return { key: 'unexpected', label: 'Unexpected error' };
+  return { key: 'unknown', label: 'Ismeretlen (nincs jel)' };
 }
 
 function renderSessionListItems(groups, labelFn) {
@@ -3887,7 +3963,12 @@ function renderReport() {
   const neverPassed = allLanes.filter(neverPassedFn).length;
   let aborts = allLanes.filter(u => u.finalOutcome !== 'approve' || laneAbortExits(u) > 0 || lanePossibly(u));
   if (reportNPOnly) aborts = aborts.filter(neverPassedFn);   // item 6: only users who never passed
-  const npToggle = `<div class="rep-toolbar"><button class="filter-btn${reportNPOnly?' active':''}" onclick="toggleReportNP()" title="csak azok a userek, akik egyszer sem jutottak át">⛔ Only never-passed (${neverPassed})</button></div>`;
+  // Abort categories: summarise the (NP-filtered) list, THEN narrow it to the clicked category.
+  const catOf = new Map(aborts.map(u => [u.key, laneAbortCategory(u)]));
+  const catsHtml = renderAbortCategories(aborts, catOf, allLanes, neverPassedFn);
+  if (reportCatFilter && ![...catOf.values()].some(c => c.key === reportCatFilter)) reportCatFilter = '';
+  if (reportCatFilter) aborts = aborts.filter(u => catOf.get(u.key).key === reportCatFilter);
+  const npToggle = catsHtml + `<div class="rep-toolbar"><button class="filter-btn${reportNPOnly?' active':''}" onclick="toggleReportNP()" title="csak azok a userek, akik egyszer sem jutottak át">⛔ Only never-passed (${neverPassed})</button>${reportCatFilter ? `<button class="filter-btn active" onclick="setReportCat('')" title="kategória-szűrő törlése">✕ ${esc(catOf.get(aborts[0]?.key)?.label || reportCatFilter)}</button>` : ''}</div>`;
   if (!aborts.length) {
     if (sub) sub.textContent = reportNPOnly ? '0 never-passed' : '0 aborts';
     host.innerHTML = npToggle + `<div class="empty">No ${reportNPOnly?'never-passed':'aborted'} sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
@@ -3944,7 +4025,7 @@ function renderReport() {
       }
       dTries += u.tries.length;
       bodyRows += `<tr${recovered?' class="rep-recovered-row"':possibly?' class="rep-possibly-row"':''}>
-        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${laneNeverPassed?'<span title="ez a user sosem jutott át" style="color:var(--red)">⛔</span> ':''}${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span>${envTag(u.tries.flatMap(t => t.group))}</td>
+        <td><span class="gl-fk" onclick="reportFilterFk('${escAttr(fkVal)}','${escAttr(u.dayKey||'')}')" title="${escAttr(u.fk||u.tries[0].sessId)} — szűrés erre a munkamenetre (timeline)">${laneNeverPassed?'<span title="ez a user sosem jutott át" style="color:var(--red)">⛔</span> ':''}${u.fbOnly?'FB ':''}${esc(u.fk||u.tries[0].sessId)}</span>${envTag(u.tries.flatMap(t => t.group))}${backendTag(u.tries.flatMap(t => t.group))}<div style="color:var(--muted);font-size:10px">${esc(catOf.get(u.key).label)}</div></td>
         <td>${cEid.join('')}</td><td>${cStart.join('')}</td><td>${cLsw.join('')}</td><td>${cDur.join('')}</td><td>${cOut.join('')}</td><td>${cTask.join('')}</td>
       </tr>`;
     }
@@ -3962,6 +4043,46 @@ function renderReport() {
 }
 
 function toggleReportNP() { reportNPOnly = !reportNPOnly; renderReport(); }
+function setReportCat(k) { reportCatFilter = reportCatFilter === k ? '' : k; renderReport(); }
+
+// Summary table above the Report list: one row per laneAbortCategory, sorted by size. Columns split
+// the lanes the way the polishing questions go — who never got through, who recovered, how many
+// video-step exits, how many lanes saw a connection drop (the thing the new backend should fix),
+// the median wait before an abort, and which backend version the lanes ran on.
+function renderAbortCategories(lanes, catOf, allLanes, neverPassedFn) {
+  if (!lanes.length) return '';
+  const cats = new Map();
+  for (const u of lanes) {
+    const c = catOf.get(u.key);
+    if (!cats.has(c.key)) cats.set(c.key, { ...c, n: 0, np: 0, rec: 0, exits: 0, rc: 0, waits: [], be: {} });
+    const s = cats.get(c.key);
+    const exits = u.tries.flatMap(t => deriveAbortExits(t.group).aborts);
+    s.n++;
+    if (neverPassedFn(u)) s.np++; else if (exits.length) s.rec++;
+    s.exits += exits.length;
+    for (const a of exits) if (a.waitSec != null) s.waits.push(a.waitSec);
+    if (u.tries.some(t => countReconnects(t.group) > 0)) s.rc++;
+    const be = backendOfGroup(u.tries.flatMap(t => t.group))?.version || '?';
+    s.be[be] = (s.be[be] || 0) + 1;
+  }
+  const median = a => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const rows = [...cats.values()].sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+  const approved = allLanes.filter(u => !neverPassedFn(u)).length;
+  const rate = allLanes.length ? Math.round(approved / allLanes.length * 100) : 0;
+  const num = (v, cls) => `<td class="num"${cls ? ` style="color:var(--${cls})"` : ''}>${v || '<span style="color:var(--muted)">—</span>'}</td>`;
+  const body = rows.map(c => {
+    const med = median(c.waits);
+    const be = Object.entries(c.be).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${esc(v)} ${n}`).join(' · ');
+    return `<tr class="rep-cat-row${reportCatFilter === c.key ? ' rep-cat-active' : ''}" onclick="setReportCat('${escAttr(c.key)}')" title="szűrés erre a kategóriára">
+      <td class="${c.unexpected ? 'rep-cat-unexpected' : ''}">${c.unexpected ? '⚠ ' : ''}${esc(c.label)}${c.unexpected ? ' <span style="font-weight:400;font-size:10px">— 3.9.0-ban nem szabadna előfordulnia</span>' : ''}</td>
+      ${num(c.n)}${num(c.np, 'red')}${num(c.rec, 'green')}${num(c.exits)}${num(c.rc, 'yellow')}${num(med != null ? med + 's' : '')}
+      <td style="color:var(--muted);font-size:11px">${be}</td></tr>`;
+  }).join('');
+  return `<div class="rep-cats"><div style="margin-bottom:6px;color:var(--muted);font-size:12px">Abort-kategóriák — ${allLanes.length} user, ebből átjutott ${approved} (${rate}%). Kattints egy sorra a lista szűréséhez.</div>
+    <div class="table-wrap"><table class="gantt-list-table">
+    <thead><tr><th>Kategória</th><th title="userek (FaceKom munkamenetek) ebben a kategóriában">Userek</th><th title="egyszer sem jutott át">⛔ sosem</th><th title="video-lépésből kilépett, de később átjutott">♻️ recovered</th><th title="video-lépés elhagyások (end(aborted)) száma">Abort exit</th><th title="userek, akiknél legalább egyszer megszakadt és visszaállt a kapcsolat — az új backendnek ezt kellene megszüntetnie">🔌 szakadással</th><th title="medián várakozás az abort előtt (utolsó lépésváltás → bezárás)">⏱ medián</th><th title="FaceKom backend verzió (data/backend_versions.csv)">Backend</th></tr></thead>
+    <tbody>${body}</tbody></table></div></div>`;
+}
 
 // Click a FaceKom id in the Report → jump the Day timeline to that session's day and filter to it.
 function reportFilterFk(fk, dayKey) {
@@ -3986,14 +4107,8 @@ function renderGlobalFilters() {
   const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
   const dCounts = gDocCounts;
   const eOpts = [['prod', 'PROD'], ['test', 'TEST'], ['dev', 'DEV'], ['all', 'All']];
-  // Archived versions (active=0 in version_releases.csv) aren't published to Pages, so the button
-  // that reveals them says what to expect, and a version whose data really is missing is labelled
-  // rather than shown as an empty dashboard.
-  const archBtn = ARCHIVED_VERSIONS.length
-    ? `<button class="filter-btn${gShowArchived ? ' active' : ''}" onclick="toggleArchivedVersions()" title="${escAttr(
-        'archivált verziók (' + ARCHIVED_VERSIONS.join(', ') + '): nincsenek publikálva a Pages-re és nem is gyűjtjük őket. ' +
-        'Helyben (node server.js) betölthetők; az élő oldalon "nincs publikálva" lesz. Kapcsolás: data/version_releases.csv → active oszlop.')}">🗄 archív</button>`
-    : '';
+  // No "🗄 archív" toggle since 3.9.0: the pre-3.9.0 data moved to archive/pre-3.9.0/ and isn't
+  // served from data/ any more, so only ACTIVE versions are offered.
   // "No data file" has two very different causes: an ARCHIVED version (data exists, just isn't
   // published here) vs. an ACTIVE one that simply hasn't been collected yet (a fresh release).
   // Saying "archiválva" for the latter reads as a config bug that isn't there.
@@ -4004,7 +4119,6 @@ function renderGlobalFilters() {
   el.innerHTML =
     `<span class="filter-label">Version</span>` +
     vOpts.map(([v, l]) => `<button class="filter-btn${gVersionFilter === v ? ' active' : ''}${ARCHIVED_VERSIONS.includes(v) ? ' btn-archived' : ''}" onclick="setGlobalVersion('${v}')">${l}${unavailableVersions.has(v) ? ' ⃠' : ''}</button>`).join('') +
-    archBtn +
     `<span class="filter-label" style="margin-left:14px">Outcome</span>` +
     oOpts.map(([k, l, c]) => `<button class="filter-btn${c ? ' ' + c : ''}${gOutcomeFilter === k ? ' active' : ''}" onclick="setGlobalOutcome('${k}')">${l}</button>`).join('') +
     `<span class="filter-label" style="margin-left:14px">Document</span>` +
