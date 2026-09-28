@@ -1,0 +1,522 @@
+Couldn't read values in CFPrefsPlistSource<0x1146bc8c0> (Domain: group.hu.microsec.eszigno.mobile, User: kCFPreferencesAnyUser, ByHost: Yes, Container: (null), Contents Need Refresh: Yes (Cached: 0, Newest: 0, Index: 0): Using kCFPreferencesAnyUser with a container is only allowed for System Containers, detaching from cfprefsd
+Timestamp: 2026-08-11 10:14:34.765479+02:00
+[Firebase/Crashlytics] Version 11.8.1
+Timestamp: 2026-08-11 10:14:34.805925+02:00
+Application start to finish AppDelegate launching
+Timestamp: 2026-08-11 10:14:34.823708+02:00
+PASSWORD_HASHES table created.
+Timestamp: 2026-08-11 10:14:34.834014+02:00
+REQUESTS table created
+Timestamp: 2026-08-11 10:14:34.834117+02:00
+REQUEST_DN table created
+Timestamp: 2026-08-11 10:14:34.834126+02:00
+SETTINGS table created.
+Timestamp: 2026-08-11 10:14:34.834178+02:00
+IDENTITIES table created
+Timestamp: 2026-08-11 10:14:34.834456+02:00
+IDENTITIES table keytype index created
+Timestamp: 2026-08-11 10:14:34.834466+02:00
+Permission granted: true
+Timestamp: 2026-08-11 10:14:34.840213+02:00
+Showing After Launch Screen
+Timestamp: 2026-08-11 10:14:34.870640+02:00
+Application start to finish SceneDelegate launching
+Timestamp: 2026-08-11 10:14:35.032943+02:00
+Showing Pincode Window
+Timestamp: 2026-08-11 10:14:35.103065+02:00
+non-launching port is incompatible with service identifier "com.apple.PointerUI.pointeruid.default-service"
+Timestamp: 2026-08-11 10:14:35.106078+02:00
+Showing Loading Window
+Timestamp: 2026-08-11 10:14:35.106122+02:00
+Hiding Loading Window
+Timestamp: 2026-08-11 10:14:35.214116+02:00
+Register for RemoteNotifications
+Timestamp: 2026-08-11 10:14:35.218631+02:00
+Request started with url: https://device-test.passbyme.com/frontend/devices as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:14:35.242085+02:00
+Challenge received
+Timestamp: 2026-08-11 10:14:35.325178+02:00
+Challenge received
+Timestamp: 2026-08-11 10:14:35.366031+02:00
+DeviceToken [8174955f695ee708b12d1ee8e77e7a448252460565f0788a7da67e636344fdce] registered in passbyme
+Timestamp: 2026-08-11 10:14:35.747424+02:00
+Reading from public effective user settings.
+Timestamp: 2026-08-11 10:14:35.861536+02:00
+Request started with url: https://device-test.passbyme.com/frontend/devices/userkeystore as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:14:37.722252+02:00
+Failed to retrieve identity password: PassByMESDK.PbmNetworkingError(code: PassByMESDK.PbmNetworkingError.Code(rawValue: "MALFORMED_INPUT"), message: "", maintenanceErrorMessage: nil, rawPayload: Optional(172 bytes))
+Timestamp: 2026-08-11 10:14:37.760429+02:00
+Error: PassByMESDK.PbmNetworkingError(code: PassByMESDK.PbmNetworkingError.Code(rawValue: "MALFORMED_INPUT"), message: "", maintenanceErrorMessage: nil, rawPayload: Optional(172 bytes)), falling back to local keystore
+Timestamp: 2026-08-11 10:14:37.760476+02:00
+Pincode enrolled verify failed. Cause: Invalid PIN code. Unsuccessful max attempt count: 5.Unsuccessful attempt count 1.
+Timestamp: 2026-08-11 10:14:37.761813+02:00
+Request started with url: https://device-test.passbyme.com/frontend/devices/userkeystore as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:19.854121+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:19.883372+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:19.889093+02:00
+Request started with url: https://device-test.passbyme.com/frontend/devices/userkeystore as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:19.939641+02:00
+Pincode enrolled verify succeeded.
+Timestamp: 2026-08-11 10:15:19.965125+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/clientConfig on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.000776+02:00
+Data: {"accountDeletionForUsersEnabled":false,"activeDirectoryLoginAvailable":false,"adWithMobileEnabled":false,"adminCanSetUserPassword":true,"adminFileDelete":true,"adminFileDownload":true,"allowedAdesLevel":null,"apiBaseUrl":"https://webszigno-test.e-szigno.hu/api/v2","attributeCertUsage":true,"attributeCertificateEncryption":true,"authorizationHeaderKey":"Authorization","baseUrl":"https://webszigno-test.e-szigno.hu","corporateAddressBookEnabled":true,"customFooterHTMLEnabled":false,"customWelcomeHTMLEnabled":false,"deputy":true,"edossierFunctionalityEnabled":true,"esignProxyHost":"proxy-test.microsigner.com","externalAuthenticationEnabled":false,"feSwitchReasonMaxLength":500,"frontendSwitcherEnabled":true,"frontendVersion":null,"googleReCaptchaSiteKey":"6Lf8rW8UAAAAAEsDCrg1YsgTNaaAJZ0EsOZY1oXU","googleTagManagerId":"UA-121844940-1","isContainerModifiedAfterSignatureIndicatorEnabled":true,"isSecondFactorAuthenticationEnabled":true,"lockTimeInSec":5,"maxFileNameLengthWithExtension":255,"metaDataEnabled":true,"microSignerDownloadURLIOS":"https://download.microsigner.com/client/MicroSigner.dmg","microSignerDownloadURLLinux":"https://download.e-szigno.hu/microsigner_linux/microsigner_1.1.1_amd64__ubuntu_20.04_lts.deb","microSignerDownloadURLWin":"https://download.microsigner.com/client/microsigner_setup.msi","microSignerFunctionalityEnabled":true,"microsecPasswordChangeUrls":{"de":"https://srv.e-szigno.hu/english_password_change","en":"https://srv.e-szigno.hu/english_password_change","hu":"https://srv.e-szigno.hu/jelszovaltoztatas"},"mobileAuthenticationEnabled":true,"mobileFunctionalityEnabled":true,"newFrontendGuideUrls":{"de":null,"en":"https://e-szigno.hu/en/e-szigno-web-ujdonsagok","hu":"https://e-szigno.hu/e-szigno-web-ujdonsagok"},"newFrontendModalEnabled":true,"oidc":null,"oidcAdmin":null,"passwordRegexRules":{"minLength":12,"numbersCount":1,"specialCharCount":1,"upperCaseCount":1},"pdfFormSignStartAuto":false,"pushNotificationsEnabled":true,"releaseDate":"2026-07-24T11:42:06Z","samlURL":null,"secondFactorMode":"INDIVIDUAL","secondFactorType":"PBM","showChangelog":false,"showTermsAndConditions":true,"signatureProfileLimit":20,"signatureProfileModificationForUsersEnabled":true,"signatureReportEnabled":true,"signingWithCommentEnabled":false,"signingWithMicrosignerEnabled":true,"signingWithPushEnabled":true,"signingWithQrEnabled":true,"signingWorkflowAttachmentEnabled":true,"signingWorkflowAttachmentLimit":5,"signingWorkflowCommentMaximumLength":160,"signingWorkflowHandOverOperationEnabled":false,"signingWorkflowReportDownloadableByParticipants":false,"signingWorkflowStartDelaySeconds":3,"timestampCredentialModificationForUsersEnabled":true,"timestampLoginMode":"shared","tsaUrl":"https://bteszt.e-szigno.hu/tsa","uploadMaxFileSize":20971520,"userRegistrationEnabled":true,"userServiceLevelManagerAvailable":true,"version":"5.9.0","visibleSignatureConstraints":{"defaultHeight":37,"defaultWidth":185,"maxHeight":400,"maxWidth":400,"minHeight":20,"minWidth":100,"signatureTextProps":{"dateTextTopMarginMultiplier":0.7,"fontSizeMultiplier":20.0,"leftMarginMultiplier":0.07,"nameWithDateTopMarginMultiplier":0.5,"nameWithoutDateTopMarginMultiplier":0.6}},"visibleSignatureNameMaximumLength":30,"webszignoAttributeCertificateInfoURLs":{"de":"https://e-szigno.hu/attribute","en":"https://e-szigno.hu/attribute","hu":"https://e-szigno.hu/attributumtanusitvany"},"webszignoManualURLs":{"de":"https://download.e-szigno.hu/webszigno/docs/en/manual.pdf","en":"https://download.e-szigno.hu/webszigno/docs/en/manual.pdf","hu":"https://download.e-szigno.hu/webszigno/docs/hu/manual.pdf"},"webszignoOrderURLs":{"de":"https://e-szigno.hu/price-list","en":"https://e-szigno.hu/price-list","hu":"https://e-szigno.hu/hitelesites-szolgaltatas/arlista-oldal/#minositett_csomagok_box"},"webszignoPriceListURLs":{"de":"https://e-szigno.hu/price-list","en":"https://e-szigno.hu/price-list","hu":"https://e-szigno.hu/hitelesites-szolgaltatas/arlista-oldal/#minositett_csomagok_box"},"webszignoPrivacyPolicyURLs":{"de":"https://download.e-szigno.hu/webszigno/docs/en/privacy_policy.pdf","en":"https://e-szigno.hu/privacynotice","hu":"https://e-szigno.hu/adatkezelesi-tajekoztato"},"webszignoPromoForMicroSignerURLs":{"de":"https://e-szigno.hu/en/business-solutions/microsigner.html","en":"https://e-szigno.hu/en/business-solutions/microsigner.html","hu":"https://e-szigno.hu/uzleti-megoldasok/microsigner.html"},"webszignoTermsAndConditionsURLs":{"de":"https://download.e-szigno.hu/webszigno/docs/en/terms_and_conditions.pdf","en":"https://e-szigno.hu/docs/latest-regulation/aszf/eng","hu":"https://e-szigno.hu/docs/latest-regulation/aszf/hun"},"webszignoTimestampAuthorityManualURLs":{"de":"https://e-szigno.hu/qualified-time-stamp","en":"https://e-szigno.hu/qualified-time-stamp","hu":"https://e-szigno.hu/minositett-idobelyegzes"},"workflowRolesEnabled":true}
+Timestamp: 2026-08-11 10:15:20.083866+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/v2/features on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.095796+02:00
+Data: [{"key":"sign_copy"},{"key":"attribute_certificate"},{"key":"deputy"},{"key":"is_container_modified_after_signature_indicator"},{"key":"user_service_level_manager"},{"key":"signature_validation_with_result"},{"key":"document_preview"},{"key":"signing_workflow_approver"},{"key":"mobile_authentication"},{"key":"confirm_acceptances"},{"key":"bes_signature"},{"key":"sign_as_company_representative"},{"key":"signature_report"},{"key":"signing_workflow_metadata"},{"key":"active_directory_login"},{"key":"attribute_certificate_protocol_v2"},{"key":"signing_workflow_attachment"},{"key":"signing_workflow_signer"},{"key":"two_factor_authentication"},{"key":"container_search"},{"key":"search_by_last_modification_date"},{"key":"modify_signature_profile"},{"key":"signing_workflow_cancel"},{"key":"signing_workflow_report"},{"key":"get_user_info"},{"key":"get_visible_signature_image_content_as_binary"},{"key":"corporate_address_book_flag"},{"key":"system_notification"},{"key":"sign_with_qr_code"},{"key":"container_search_v2"},{"key":"mobile_notification"},{"key":"sign_with_microsigner"},{"key":"sign_with_mobile_notification"},{"key":"modify_timestamp_credentials"},{"key":"internal_authentication"}]
+Timestamp: 2026-08-11 10:15:20.128489+02:00
+Feature flags downloaded: ["sign_copy", "attribute_certificate", "deputy", "is_container_modified_after_signature_indicator", "user_service_level_manager", "signature_validation_with_result", "document_preview", "signing_workflow_approver", "mobile_authentication", "confirm_acceptances", "bes_signature", "sign_as_company_representative", "signature_report", "signing_workflow_metadata", "active_directory_login", "attribute_certificate_protocol_v2", "signing_workflow_attachment", "signing_workflow_signer", "two_factor_authentication", "container_search", "search_by_last_modification_date", "modify_signature_profile", "signing_workflow_cancel", "signing_workflow_report", "get_user_info", "get_visible_signature_image_content_as_binary", "corporate_address_book_flag", "system_notification", "sign_with_qr_code", "container_search_v2", "mobile_notification", "sign_with_microsigner", "sign_with_mobile_notification", "modify_timestamp_credentials", "internal_authentication"]
+Timestamp: 2026-08-11 10:15:20.128676+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/v2/user on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.139061+02:00
+Data: {"JWT":"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJzdWIiOiJwVmlWRFlkRUl0dHJtQTBkb2lJZUs3MHYzakxxSmdGRmI4WTNTbHQ3IiwiaXNzIjoiV0VCU1pJR05PIiwiZXhwIjoxNzk2NzEyMDk5LCJpYXQiOjE3ODYzNDQwOTksImp0aSI6InA2MFVHSGV6dzlyNHdnWG94dTdrSlpvZXNLZ3JMeTJEbWlHbzdma2ciLCJhdXRob3JpdGllcyI6WyJGQUNUT1JfWDUwOSJdfQ.fugrgnUTcju4XkL97jGjmViSXN6Lswx7RY3YvAArhD-1Je5VGLUo6TYONlL-XEWeMR89i_gcDBiq_yRzeOU99R0HDJ_CvKNhEnre6mI12P748Fk5ZRiHb4LaTj2dhUg2ozGyvN3HM0ubN6cfISi2tP5oEAErPzO8vwhJcLadMv7aHUZpiDQMinYZ0n-rre2n941nr165eeGXER4U5lMr6APdLlQLNU8d71TmMpYLiNzQF2IMnd6ldC7W-JAglDx7dvrBLuzMdrNKG1ZSTMCGRbC6EC0vnf3A7tHizBgkFAlZQrKObRRYwvK79iWZKOPlKhN8jamNClMG2veZTM_hYw","accessibleAttributeCertificateServices":[{"id":"personal_data_from_microsec_test","label":"tesztszemelyes"},{"id":"company_representative_from_occsz_test","label":"tesztceges"}],"confirmedAcceptances":true,"containerPageSize":null,"email":"renes.bela@microsec.hu","emailNotification":true,"notifyUser":false,"pushNotification":false,"registrationType":"microsec_oid","secondFactor":false,"signatureSetting":"AdES_T","signingWithTimestampOnly":false,"suggestedOperationDialogTimeoutSeconds":10,"templatesCount":0,"useAttributeCert":true,"userOid":"2.1.70910","userProfile":{"addTimestampToPdf":false,"cegtorvenyessegiFeature":true,"containerExpirationDays":180,"countersign":true,"createCompanyRegisterEDossier":true,"customSignatureImage":true,"massDocumentSignMaxNumber":40,"microsecCertsOnly":false,"mobileScanning":true,"participateWorkflow":true,"profileNames":{"code":"webszigno_platina","de":null,"en":"platinum plan","hu":"platina csomag"},"signAsCompanyRepresentative":true,"signContainers":true,"signPDF":true,"startWorkflow":true,"viewOnly":false},"userSignMode":"qr"}
+Timestamp: 2026-08-11 10:15:20.185216+02:00
+Active account:
+    userName: renes.bela@microsec.hu,
+    oid: 2.1.70910,
+    baseUrl: https://webszigno-test.e-szigno.hu,
+    secret: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJzdWIiOiJwVmlWRFlkRUl0dHJtQTBkb2lJZUs3MHYzakxxSmdGRmI4WTNTbHQ3IiwiaXNzIjoiV0VCU1pJR05PIiwiZXhwIjoxNzk2NzEyMDk5LCJpYXQiOjE3ODYzNDQwOTksImp0aSI6InA2MFVHSGV6dzlyNHdnWG94dTdrSlpvZXNLZ3JMeTJEbWlHbzdma2ciLCJhdXRob3JpdGllcyI6WyJGQUNUT1JfWDUwOSJdfQ.fugrgnUTcju4XkL97jGjmViSXN6Lswx7RY3YvAArhD-1Je5VGLUo6TYONlL-XEWeMR89i_gcDBiq_yRzeOU99R0HDJ_CvKNhEnre6mI12P748Fk5ZRiHb4LaTj2dhUg2ozGyvN3HM0ubN6cfISi2tP5oEAErPzO8vwhJcLadMv7aHUZpiDQMinYZ0n-rre2n941nr165eeGXER4U5lMr6APdLlQLNU8d71TmMpYLiNzQF2IMnd6ldC7W-JAglDx7dvrBLuzMdrNKG1ZSTMCGRbC6EC0vnf3A7tHizBgkFAlZQrKObRRYwvK79iWZKOPlKhN8jamNClMG2veZTM_hYw,
+    userProfile:
+        massDocumentSignMaxNumber: 40,
+        microsecCertsOnly: false,
+        customSignatureImage: true,
+        signAsCompanyRepresentative: true,
+        signContainers: true,
+        signPDF: true,
+        mobileScanning: true,
+        startWorkflow: true,
+        createCompanyRegisterEDossier: true,
+    isSelected: true,
+    certLoginUrl: https://webszigno-test-cert.e-szigno.hu,
+    loginType: certificate,
+    authState: nil,
+Timestamp: 2026-08-11 10:15:20.190843+02:00
+Showing Main Tabbar
+Timestamp: 2026-08-11 10:15:20.192312+02:00
+Tracking Main Window taps
+Timestamp: 2026-08-11 10:15:20.192322+02:00
+SearchAPI available, using it to list waiting containers, with page 0
+Timestamp: 2026-08-11 10:15:20.213933+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/v2/containers/search on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.219053+02:00
+SearchAPI available, using it to list other containers, with page 0
+Timestamp: 2026-08-11 10:15:20.219375+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/v2/containers/search on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.220008+02:00
+Request started with url: https://auth-user-test.passbyme.com/frontend/authListener/synchronization/active?offset=0&limit=10 as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:20.280545+02:00
+Accessing QualifiedUser
+Timestamp: 2026-08-11 10:15:20.286757+02:00
+Got User Sign Identity
+Timestamp: 2026-08-11 10:15:20.286950+02:00
+Pfx password cached
+Timestamp: 2026-08-11 10:15:20.288200+02:00
+Got pfx Password
+Timestamp: 2026-08-11 10:15:20.288214+02:00
+Got Initialization Vector
+Timestamp: 2026-08-11 10:15:20.288796+02:00
+Got encrypted credentials
+Timestamp: 2026-08-11 10:15:20.289370+02:00
+Data: {"offset":0,"limit":13,"count":3,"totalReceivedCount":null,"containers":[{"creationDate":"2026-08-10T15:42:56.406922+02:00","id":"7Mx7LaHOKTNNbkrqNssN25SfTCjUSvk38ZtQFvT0","modificationDatetime":"2026-08-10T15:42:56.406922+02:00","processStarter":null,"signedFromBulkSigning":"CREATED","status":"CREATED","title":"teszt","type":"pdf","wasOpened":true,"workflowGuid":null},{"creationDate":"2026-08-10T15:42:34.129481+02:00","id":"vLwgw6Ywz8Q39DBLuX3jF9hwFfMvpp5Wl9Vu2XRq","modificationDatetime":"2026-08-10T15:42:34.129481+02:00","processStarter":null,"signedFromBulkSigning":"CREATED","status":"CREATED","title":"Teknős';;';l';l34';l4'6;l423%$UIi490328","type":"pdf","wasOpened":true,"workflowGuid":null},{"creationDate":"2026-08-10T12:12:11.369404+02:00","id":"JY0JdZHphUBDXslUXQjhqpl98YWd7VbhHR2hbbtD","modificationDatetime":"2026-08-10T12:12:11.369404+02:00","processStarter":null,"signedFromBulkSigning":"CREATED","status":"CREATED","title":"el carte bela_kartyaatveteli_nyilatkozat","type":"pdf","wasOpened":true,"workflowGuid":null}]}
+Timestamp: 2026-08-11 10:15:20.290545+02:00
+Pfx password cached
+Timestamp: 2026-08-11 10:15:20.290589+02:00
+Data: {"offset":0,"limit":20,"count":3,"totalReceivedCount":null,"containers":[{"creationDate":"2026-08-10T08:51:35.198605+02:00","id":"XZ9S9JYbWZXmulFpUOFfPpxFfqgw6LMEnSyMusAN","modificationDatetime":"2026-08-10T08:52:03.430303+02:00","processStarter":null,"signedFromBulkSigning":"SIGNED","status":"SIGNED","title":"dummy_3 másolata (10) másolata","type":"pdf","wasOpened":true,"workflowGuid":null},{"creationDate":"2026-08-10T08:42:50.016577+02:00","id":"8jWYOAXEwmn7AEoUUQuBoBf6ljrPU7VQFFO3kdX9","modificationDatetime":"2026-08-10T08:51:11.130776+02:00","processStarter":null,"signedFromBulkSigning":"SIGNED","status":"SIGNED","title":"bt_aszf","type":"pdf","wasOpened":true,"workflowGuid":null},{"creationDate":"2026-08-10T08:17:08.890867+02:00","id":"stqdhLhuvrmVEsygMpW7sK8xxCwg9JEOtnH9p6mw","modificationDatetime":"2026-08-10T08:42:29.222629+02:00","processStarter":null,"signedFromBulkSigning":"SIGNED","status":"SIGNED","title":"BKK NYILATKOZAT 2026","type":"pdf","wasOpened":true,"workflowGuid":null}]}
+Timestamp: 2026-08-11 10:15:20.292540+02:00
+Request started with url: https://mtksz-test.e-szigno.hu/api/v1/config.json as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:20.294368+02:00
+Hiding Pincode Window
+Timestamp: 2026-08-11 10:15:20.296524+02:00
+Request started with url: https://ftksz-test-cert.e-szigno.hu/remotesign/csp/certificate.pem as a not idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:20.298359+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.323363+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.326839+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.353631+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.358536+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/v2/microsecRegistrationInformation/en on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.395177+02:00
+Request started: https://webszigno-test.e-szigno.hu/api/v2/tsp on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:20.399112+02:00
+Pfx password cached
+Timestamp: 2026-08-11 10:15:20.399574+02:00
+Request started with url: https://ftksz-test-cert.e-szigno.hu/remotesign/csp/certificate.pem as a not idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:20.401899+02:00
+Data: {"tsaUser":"GLOBAL"}
+Timestamp: 2026-08-11 10:15:20.451849+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.464000+02:00
+Request started with url: https://mtksz-test-api1.e-szigno.hu/api/v1/getUserInfo as an idempotent call, retryCount: 0, taskCancelled: false
+Timestamp: 2026-08-11 10:15:20.466278+02:00
+Get user's timestamp settings succeeded
+Timestamp: 2026-08-11 10:15:20.469264+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.470831+02:00
+Data: {"hasOid":true,"serviceCode":"webszigno_platina","serviceLevel":"platinum plan","maxDocumentSignNumber":40}
+Timestamp: 2026-08-11 10:15:20.471541+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.496432+02:00
+Challenge received
+Timestamp: 2026-08-11 10:15:20.505189+02:00
+Successfully synced Qualified Remote Key Management Service certs, size: 1
+Timestamp: 2026-08-11 10:15:20.578668+02:00
+(Fig) CMVideoFormatDescriptionGetDimensions signalled err=-12710 (kCMFormatDescriptionError_InvalidParameter) (Invalid desc) at FigVideoFormatDescription.c:645
+Timestamp: 2026-08-11 10:15:23.027769+02:00
+(Fig) CMVideoFormatDescriptionGetDimensions signalled err=-12710 (kCMFormatDescriptionError_InvalidParameter) (Invalid desc) at FigVideoFormatDescription.c:645
+Timestamp: 2026-08-11 10:15:23.027787+02:00
+(Fig) CMVideoFormatDescriptionGetDimensions signalled err=-12710 (kCMFormatDescriptionError_InvalidParameter) (Invalid desc) at FigVideoFormatDescription.c:645
+Timestamp: 2026-08-11 10:15:23.027810+02:00
+Showing Toast Window
+Timestamp: 2026-08-11 10:15:24.401995+02:00
+Hiding Toast Window
+Timestamp: 2026-08-11 10:15:29.872915+02:00
+Request started: https://videoid-mobile-test.e-szigno.hu/assistance on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:37.429195+02:00
+Data: {
+    "result": "OK"
+}
+Timestamp: 2026-08-11 10:15:37.581994+02:00
+FaceKom started from: Logged in videoId
+Timestamp: 2026-08-11 10:15:37.591771+02:00
+Request started: https://videoid-mobile-test.e-szigno.hu/identification/67d4dddf-cd10-430a-9bd5-ca0308f45666-1786355046 on <_NSMainThread: 0x101e18cc0>{number = 1, name = main}
+Timestamp: 2026-08-11 10:15:49.738737+02:00
+Data: {
+    "result": "OK",
+    "config": {
+        "token": "67d4dddf-cd10-430a-9bd5-ca0308f45666-1786355046",
+        "faceKomUrl": "https:\/\/facekom-client-test.e-szigno.hu",
+        "document": {
+            "type": "id-card",
+            "number": "393248IE"
+        },
+        "lightSensorThreshold": {
+            "android": 1,
+            "ios": 2
+        },
+        "bandwidthThreshold": {
+            "up": 3,
+            "down": 4
+        }
+    }
+}
+Timestamp: 2026-08-11 10:15:49.820721+02:00
+FaceKom ID Verified, document type: id-card
+Timestamp: 2026-08-11 10:15:49.841219+02:00
+FaceKom SelfService started
+Timestamp: 2026-08-11 10:15:50.883042+02:00
+FaceKom main listener started
+Timestamp: 2026-08-11 10:15:50.884949+02:00
+Successfully loaded config: VideoConfiguration(token: "67d4dddf-cd10-430a-9bd5-ca0308f45666-1786355046", faceKomUrl: "https://facekom-client-test.e-szigno.hu", product: nil, bandwidthThreshold: eSzigno.BandwidthThreshold(down: 4, up: 3), lightSensorThreshold: eSzigno.LightSensorThreshold(ios: 2, android: 1), document: eSzigno.DocumentType(type: eSzigno.CardType.idCard, number: "393248IE"))
+Timestamp: 2026-08-11 10:15:50.911404+02:00
+FaceKom getSettings success
+Timestamp: 2026-08-11 10:15:51.161530+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.connecting)
+Timestamp: 2026-08-11 10:15:51.197614+02:00
+FaceKom status changed: connecting
+Timestamp: 2026-08-11 10:15:51.197678+02:00
+FaceKom connectSocket success
+Timestamp: 2026-08-11 10:15:51.271891+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.connected)
+Timestamp: 2026-08-11 10:15:51.271927+02:00
+FaceKom status changed: connected
+Timestamp: 2026-08-11 10:15:51.272024+02:00
+Facekom flow successfully started, Listening...
+Timestamp: 2026-08-11 10:15:51.645370+02:00
+iOS App Version: 3.8.2 (2883), FaceKom SDK Version:2.12.1)
+Timestamp: 2026-08-11 10:15:51.646826+02:00
+FaceKom auth success
+Timestamp: 2026-08-11 10:15:51.648353+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: "voice-liveness-check", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["voiceLivenessCheckNumber": 3552, "startVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:15:51.696226+02:00
+FaceKom capture consent shown
+Timestamp: 2026-08-11 10:15:51.698359+02:00
+FaceKom capture consent accepted
+Timestamp: 2026-08-11 10:16:03.555529+02:00
+FaceKom WebRTC started
+Timestamp: 2026-08-11 10:16:04.133306+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "voice-liveness-check", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:face", message: Optional("success"))))
+Timestamp: 2026-08-11 10:16:07.868947+02:00
+FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check
+Timestamp: 2026-08-11 10:16:07.869032+02:00
+FaceKom consent voice: nil, face: Optional(eSzigno.MessageStep.faceDetection)
+Timestamp: 2026-08-11 10:16:07.872802+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "voice-liveness-check", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:voice", message: Optional("success"))))
+Timestamp: 2026-08-11 10:16:08.052843+02:00
+FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check
+Timestamp: 2026-08-11 10:16:08.052881+02:00
+FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)
+Timestamp: 2026-08-11 10:16:08.053456+02:00
+Facekom successfully requested next-step from selfie
+Timestamp: 2026-08-11 10:16:09.779939+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: "deepfake-detection", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:16:09.854696+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.guide(step: "deepfake-detection", data: FaceKomSDK.FKSelfService.StepMessageDataGuide(type: "head_position", instruction: "move_head_up")))
+Timestamp: 2026-08-11 10:16:10.398111+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "deepfake-detection", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:face", message: Optional("success"))))
+Timestamp: 2026-08-11 10:16:10.910799+02:00
+FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection
+Timestamp: 2026-08-11 10:16:10.910848+02:00
+FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil
+Timestamp: 2026-08-11 10:16:10.911498+02:00
+FaceKom main -> event stepMessage(message: FaceKomSDK.FKSelfService.StepMessage.task(step: "deepfake-detection", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: "detection:status:card", message: Optional("success"))))
+Timestamp: 2026-08-11 10:16:16.608828+02:00
+FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection
+Timestamp: 2026-08-11 10:16:16.608908+02:00
+FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)
+Timestamp: 2026-08-11 10:16:16.609599+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:16:16.741668+02:00
+FaceKom PhotoUploader finalizePhoto: success
+Timestamp: 2026-08-11 10:16:23.732629+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.idFront(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["stopVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:16:23.801148+02:00
+FaceKom stopStream
+Timestamp: 2026-08-11 10:16:23.969795+02:00
+FaceKom PhotoUploader finalizePhoto: success
+Timestamp: 2026-08-11 10:16:35.939198+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.idBack(idType: FaceKomSDK.FKUserData.IDCardType.identityCard, data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:16:36.300768+02:00
+FaceKom PhotoUploader finalizePhoto: success
+Timestamp: 2026-08-11 10:16:44.541133+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.hologram(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["startVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:16:44.559722+02:00
+FaceKom info shown
+Timestamp: 2026-08-11 10:16:44.561703+02:00
+FaceKom info ready, buttons shown
+Timestamp: 2026-08-11 10:16:58.650223+02:00
+FaceKom info accepted
+Timestamp: 2026-08-11 10:17:02.244466+02:00
+FaceKom info finished, presenting hologram
+Timestamp: 2026-08-11 10:17:03.013819+02:00
+FaceKom hologram screen appeared
+Timestamp: 2026-08-11 10:17:03.059401+02:00
+FaceKom WebRTC started
+Timestamp: 2026-08-11 10:17:03.124112+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.0, message: Optional("missingDocument")))
+Timestamp: 2026-08-11 10:17:08.217078+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.17, message: Optional("missingDocument")))
+Timestamp: 2026-08-11 10:17:11.203809+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.2, message: nil))
+Timestamp: 2026-08-11 10:17:11.463803+02:00
+FaceKom hologram progress reached 20%
+Timestamp: 2026-08-11 10:17:11.463868+02:00
+Hologram in progress: 20.000000 %...
+Timestamp: 2026-08-11 10:17:11.464526+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.4, message: nil))
+Timestamp: 2026-08-11 10:17:13.805340+02:00
+Hologram in progress: 40.000000 %...
+Timestamp: 2026-08-11 10:17:13.805383+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.62, message: nil))
+Timestamp: 2026-08-11 10:17:16.128240+02:00
+Hologram in progress: 62.000000 %...
+Timestamp: 2026-08-11 10:17:16.128292+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 0.8, message: nil))
+Timestamp: 2026-08-11 10:17:18.383020+02:00
+Hologram in progress: 80.000000 %...
+Timestamp: 2026-08-11 10:17:18.383068+02:00
+FaceKom main -> event progressInfo(data: FaceKomSDK.FKSelfService.StepProgressData(stepType: "hologram", value: 1.0, message: nil))
+Timestamp: 2026-08-11 10:17:20.610407+02:00
+FaceKom hologram progress reached 100%
+Timestamp: 2026-08-11 10:17:20.610481+02:00
+Hologram in progress: 100.000000 %...
+Timestamp: 2026-08-11 10:17:20.611227+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.custom(type: "id-back-video", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:17:22.931290+02:00
+FaceKom hologram idBackReady, requesting next step
+Timestamp: 2026-08-11 10:17:36.053660+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.twoFactor(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional(["stopVideo": 1]), availableStreamIDs: nil, maxRetryNumber: nil)))
+Timestamp: 2026-08-11 10:17:36.181433+02:00
+FaceKom stopStream
+Timestamp: 2026-08-11 10:17:36.324799+02:00
+FaceKom successfully requested next-step in hologram
+Timestamp: 2026-08-11 10:17:36.327601+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790013+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790408+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790414+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790418+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790463+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790541+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790545+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.790548+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.791771+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.791779+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.791782+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:17:36.791785+02:00
+Facekom get SMS token completed successfully
+Timestamp: 2026-08-11 10:17:36.854996+02:00
+elapsedCPUTimeForFrontBoard couldn't generate a task port
+Timestamp: 2026-08-11 10:17:36.920841+02:00
+elapsedCPUTimeForFrontBoard couldn't generate a task port
+Timestamp: 2026-08-11 10:17:36.922457+02:00
+Unable to simultaneously satisfy constraints.
+	Probably at least one of the constraints in the following list is one you don't want. 
+	Try this: 
+		(1) look at each constraint and try to figure out which you don't expect; 
+		(2) find the code that added the unwanted constraint or constraints and fix it. 
+	(Note: If you're seeing NSAutoresizingMaskLayoutConstraints that you don't understand, refer to the documentation for the UIView property translatesAutoresizingMaskIntoConstraints) 
+(
+    "<NSAutoresizingMaskLayoutConstraint:0x1361a3250 h=--& v=--& TUIPredictionViewCell:0x110645e00.width == 0   (active)>",
+    "<NSLayoutConstraint:0x1360f39d0 TUICandidateGradientContentLabel:0x136102800.trailing == TUIPredictionViewCell:0x110645e00.trailing - 6   (active)>",
+    "<NSLayoutConstraint:0x1360f3980 H:|-(6)-[TUICandidateGradientContentLabel:0x136102800]   (active, names: '|':TUIPredictionViewCell:0x110645e00 )>"
+)
+
+Will attempt to recover by breaking constraint 
+<NSLayoutConstraint:0x1360f39d0 TUICandidateGradientContentLabel:0x136102800.trailing == TUIPredictionViewCell:0x110645e00.trailing - 6   (active)>
+
+Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
+The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
+Timestamp: 2026-08-11 10:17:36.932731+02:00
+Unable to simultaneously satisfy constraints.
+	Probably at least one of the constraints in the following list is one you don't want. 
+	Try this: 
+		(1) look at each constraint and try to figure out which you don't expect; 
+		(2) find the code that added the unwanted constraint or constraints and fix it. 
+	(Note: If you're seeing NSAutoresizingMaskLayoutConstraints that you don't understand, refer to the documentation for the UIView property translatesAutoresizingMaskIntoConstraints) 
+(
+    "<NSAutoresizingMaskLayoutConstraint:0x1361a2a30 h=--& v=--& TUIPredictionViewCell:0x110646a00.width == 0   (active)>",
+    "<NSLayoutConstraint:0x1360f3110 H:|-(6)-[TUICandidateGradientContentLabel:0x136101400]   (active, names: '|':TUIPredictionViewCell:0x110646a00 )>",
+    "<NSLayoutConstraint:0x1360f3160 TUICandidateGradientContentLabel:0x136101400.trailing == TUIPredictionViewCell:0x110646a00.trailing - 6   (active)>",
+    "<NSLayoutConstraint:0x1360f2b70 'UIScrollView-frameLayoutGuide-width' UILayoutGuide:0x1138081c0'UIScrollView-frameLayoutGuide'.width == TUICandidateGradientContentLabel:0x136101400.width   (active)>"
+)
+
+Will attempt to recover by breaking constraint 
+<NSLayoutConstraint:0x1360f2b70 'UIScrollView-frameLayoutGuide-width' UILayoutGuide:0x1138081c0'UIScrollView-frameLayoutGuide'.width == TUICandidateGradientContentLabel:0x136101400.width   (active)>
+
+Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
+The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
+Timestamp: 2026-08-11 10:17:36.936692+02:00
+Unable to simultaneously satisfy constraints.
+	Probably at least one of the constraints in the following list is one you don't want. 
+	Try this: 
+		(1) look at each constraint and try to figure out which you don't expect; 
+		(2) find the code that added the unwanted constraint or constraints and fix it. 
+	(Note: If you're seeing NSAutoresizingMaskLayoutConstraints that you don't understand, refer to the documentation for the UIView property translatesAutoresizingMaskIntoConstraints) 
+(
+    "<NSAutoresizingMaskLayoutConstraint:0x1361a2a30 h=--& v=--& TUIPredictionViewCell:0x110646a00.width == 0   (active)>",
+    "<NSLayoutConstraint:0x1360f3110 H:|-(6)-[TUICandidateGradientContentLabel:0x136101400]   (active, names: '|':TUIPredictionViewCell:0x110646a00 )>",
+    "<NSLayoutConstraint:0x1360f3160 TUICandidateGradientContentLabel:0x136101400.trailing == TUIPredictionViewCell:0x110646a00.trailing - 6   (active)>"
+)
+
+Will attempt to recover by breaking constraint 
+<NSLayoutConstraint:0x1360f3160 TUICandidateGradientContentLabel:0x136101400.trailing == TUIPredictionViewCell:0x110646a00.trailing - 6   (active)>
+
+Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
+The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
+Timestamp: 2026-08-11 10:17:36.936808+02:00
+Unable to simultaneously satisfy constraints.
+	Probably at least one of the constraints in the following list is one you don't want. 
+	Try this: 
+		(1) look at each constraint and try to figure out which you don't expect; 
+		(2) find the code that added the unwanted constraint or constraints and fix it. 
+	(Note: If you're seeing NSAutoresizingMaskLayoutConstraints that you don't understand, refer to the documentation for the UIView property translatesAutoresizingMaskIntoConstraints) 
+(
+    "<NSAutoresizingMaskLayoutConstraint:0x1361a2210 h=--& v=--& TUIPredictionViewCell:0x110646400.width == 0   (active)>",
+    "<NSLayoutConstraint:0x1360f28a0 H:|-(6)-[TUICandidateGradientContentLabel:0x136100000]   (active, names: '|':TUIPredictionViewCell:0x110646400 )>",
+    "<NSLayoutConstraint:0x1360f28f0 TUICandidateGradientContentLabel:0x136100000.trailing == TUIPredictionViewCell:0x110646400.trailing - 6   (active)>",
+    "<NSLayoutConstraint:0x1360f2300 'UIScrollView-frameLayoutGuide-width' UILayoutGuide:0x11377baa0'UIScrollView-frameLayoutGuide'.width == TUICandidateGradientContentLabel:0x136100000.width   (active)>"
+)
+
+Will attempt to recover by breaking constraint 
+<NSLayoutConstraint:0x1360f2300 'UIScrollView-frameLayoutGuide-width' UILayoutGuide:0x11377baa0'UIScrollView-frameLayoutGuide'.width == TUICandidateGradientContentLabel:0x136100000.width   (active)>
+
+Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
+The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
+Timestamp: 2026-08-11 10:17:36.936938+02:00
+Unable to simultaneously satisfy constraints.
+	Probably at least one of the constraints in the following list is one you don't want. 
+	Try this: 
+		(1) look at each constraint and try to figure out which you don't expect; 
+		(2) find the code that added the unwanted constraint or constraints and fix it. 
+	(Note: If you're seeing NSAutoresizingMaskLayoutConstraints that you don't understand, refer to the documentation for the UIView property translatesAutoresizingMaskIntoConstraints) 
+(
+    "<NSAutoresizingMaskLayoutConstraint:0x1361a2210 h=--& v=--& TUIPredictionViewCell:0x110646400.width == 0   (active)>",
+    "<NSLayoutConstraint:0x1360f28a0 H:|-(6)-[TUICandidateGradientContentLabel:0x136100000]   (active, names: '|':TUIPredictionViewCell:0x110646400 )>",
+    "<NSLayoutConstraint:0x1360f28f0 TUICandidateGradientContentLabel:0x136100000.trailing == TUIPredictionViewCell:0x110646400.trailing - 6   (active)>"
+)
+
+Will attempt to recover by breaking constraint 
+<NSLayoutConstraint:0x1360f28f0 TUICandidateGradientContentLabel:0x136100000.trailing == TUIPredictionViewCell:0x110646400.trailing - 6   (active)>
+
+Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
+The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
+Timestamp: 2026-08-11 10:17:36.937026+02:00
+The variant selector cell index number could not be found.
+Timestamp: 2026-08-11 10:18:00.764474+02:00
+The variant selector cell index number could not be found.
+Timestamp: 2026-08-11 10:18:01.488803+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.345333+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.345364+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.345373+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.345379+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.352778+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.352804+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.352810+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:02.352814+02:00
+The variant selector cell index number could not be found.
+Timestamp: 2026-08-11 10:18:02.967990+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.219054+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.219083+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.219091+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.219097+02:00
+isKeyboardMinorEdgeWidth may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.228750+02:00
+keyboardVerticalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.228767+02:00
+keyboardHorizontalSizeClass may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.228773+02:00
+currentHandBias may only be set for UIKBDynamicRenderFactory, changes not saved
+Timestamp: 2026-08-11 10:18:06.228778+02:00
+The variant selector cell index number could not be found.
+Timestamp: 2026-08-11 10:18:06.822538+02:00
+The variant selector cell index number could not be found.
+Timestamp: 2026-08-11 10:18:07.285238+02:00
+Facekom set input: am4hdd, completed successfully
+Timestamp: 2026-08-11 10:18:07.625770+02:00
+FaceKom main -> event nextStep(step: FaceKomSDK.FKSelfService.Step.end(status: "finished", additionalData: nil))
+Timestamp: 2026-08-11 10:18:07.774993+02:00
+Facekom finished with state: finished
+Timestamp: 2026-08-11 10:18:07.791887+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.disconnected)
+Timestamp: 2026-08-11 10:18:07.798296+02:00
+FaceKom status changed: disconnected
+Timestamp: 2026-08-11 10:18:07.798320+02:00
+FaceKom main -> event statusChange(status: FaceKomSDK.FaceKomSocketStatus.disconnected)
+Timestamp: 2026-08-11 10:18:07.798669+02:00
+FaceKom status changed: disconnected
+Timestamp: 2026-08-11 10:18:07.798677+02:00
+FaceKom finished with type: approve
+Timestamp: 2026-08-11 10:18:08.732096+02:00
+Facekom flow closed
+Timestamp: 2026-08-11 10:18:08.733828+02:00
+FaceKom user initiated closing from: end, isAlreadyClosed: true
+Timestamp: 2026-08-11 10:18:08.742646+02:00
