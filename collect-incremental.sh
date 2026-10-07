@@ -90,6 +90,8 @@ ensure_server
 # G reads the file when he wants it, the message stays short.
 GAPS_FILE=./data/collect-gaps.jsonl
 
+CRASHES_ITEM="crashes (all)"   # worklist label of the crash pass (see the collect loop)
+
 build_of () { awk -F, -v v="$1" 'NR>1 && $1==v {print $2}' data/version_releases.csv; }
 
 # Data rows in a CSV (header excluded). A version collected for the FIRST time has no
@@ -157,13 +159,18 @@ Most nem gyűjtöttem tovább. Ha újra van net, indítsd újra: collect."
   fi
 
   order="$(awk -F, 'NR>1 && $7 ~ /^[0-9]+$/ {print $7"\t"$2}' "$icsv" | sort -n | cut -f2-)"
+  # Real crashes are not in the issues CSV (discovery only sees FaceKom non-fatals), so they ride
+  # along as one extra pseudo-issue at the end: the collector lists every crash issue of the
+  # version itself (COLLECT_CRASHES=1, api mode only) into the same events CSV.
+  [ "$COLLECT_MODE" = "api" ] && order="$order"$'\n'"$CRASHES_ITEM"
   while IFS= read -r issue; do
     [ -z "$issue" ] && continue
     if [ "$DRY" = "1" ]; then echo "   dry: would collect $ver :: $issue"; continue; fi
     local_before=$(rows_of "$ecsv"); local_users_before=$(users_of "$ecsv")
     echo "## collect $ver :: $issue"
+    crashes=0; [ "$issue" = "$CRASHES_ITEM" ] && crashes=1
     ISSUE_VERSIONS="$ver ($build)" ISSUE_TYPES_LIST="$issue" ISSUES_CSV="$icsv" EVENTS_CSV="$ecsv" \
-      ISSUE_TIME_DEFAULT="$WINDOW" npm run collect > /tmp/_gfk_collect.out 2>&1 &
+      ISSUE_TIME_DEFAULT="$WINDOW" COLLECT_CRASHES="$crashes" npm run collect > /tmp/_gfk_collect.out 2>&1 &
     cpid=$!
     secs=0
     while kill -0 "$cpid" 2>/dev/null; do

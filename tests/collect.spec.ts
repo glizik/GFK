@@ -40,6 +40,8 @@ const COLLECT_MODE            = (process.env.COLLECT_MODE ?? 'scrape').toLowerCa
 const MAX_EMPTY_TRIES         = parseInt(process.env.MAX_EMPTY_TRIES ?? '3');
 /** Append-only record of issues we could not collect — so a silent gap stays visible. */
 const COLLECT_GAPS            = path.resolve(process.env.COLLECT_GAPS ?? './data/collect-gaps.jsonl');
+/** 1 = ignore ISSUE_TYPES_LIST and collect every CRASH (fatal) issue of the version instead (api mode only). */
+const COLLECT_CRASHES         = process.env.COLLECT_CRASHES === '1';
 /** FaceKom session UUID to force-recollect (removes matching events from dedup before run). */
 const FORCE_RECOLLECT_FK      = (process.env.FORCE_RECOLLECT_FK_SESSION ?? '').trim();
 
@@ -788,6 +790,29 @@ async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise
   return { id: found?.id ?? '', eventsCount: +(found?.eventsCount ?? 0) };
 }
 
+/**
+ * Every open CRASH issue of the version. No search term on purpose: a crash issue is named after the
+ * crashing frame (e.g. "LogUtility.swift - …"), not after FaceKom, so the "FaceKom" filter that
+ * scopes the non-fatals would hide most of them — and app crashes are few enough to take them all.
+ */
+async function listCrashIssuesApi(page: Page, ctx: ApiCtx): Promise<Array<{ id: string; eventsCount: number; name: string }>> {
+  const res = await apiCall<{ topIssues?: any[] }>(page, ctx, '/metrics:listFirebaseTopOpenIssues', {
+    filters: {
+      categories: [], customKeys: [], eventType: ['FATAL'], manufacturerModels: [],
+      osVersions: [], rollouts: [], tagFilter: { tagTypes: ['TAG_UNSPECIFIED'] },
+      versionFilters: apiVersionFilters(),
+    },
+    interval: apiInterval(),
+    orderBy: 'ORDER_EVENTS',
+    pageDetails: { pageSize: '100', pageToken: '' },
+  });
+  return (res.topIssues ?? []).filter(i => i?.id).map(i => ({
+    id:          i.id,
+    eventsCount: +(i.eventsCount ?? 0),
+    name:        [i?.caption?.title, i?.caption?.subtitle].filter(Boolean).join(' — ') || `crash ${i.id}`,
+  }));
+}
+
 async function listEventKeysApi(page: Page, ctx: ApiCtx, issueId: string): Promise<EventKey[]> {
   const res = await apiCall<{ sessionEventKeys?: EventKey[] }>(
     page, ctx, `/issues/${issueId}/metrics:listSessionEventIds`, {
@@ -830,7 +855,7 @@ function writeApiLogFile(ev: any, issueId: string): string {
   return items.length ? 'downloaded' : 'not_available';
 }
 
-function recordFromApiEvent(ev: any, issueId: string, sessionIdBase: string, issueType: string, breadcrumbs: string): EventRecord {
+function recordFromApiEvent(ev: any, issueId: string, sessionIdBase: string, issueType: string, breadcrumbs: string, isCrash = false): EventRecord {
   const d    = ev?.eventDataExternal ?? {};
   const keys = d.customKeys ?? {};
   const identification_link = d.user?.id || 'not available';
@@ -854,9 +879,10 @@ function recordFromApiEvent(ev: any, issueId: string, sessionIdBase: string, iss
     os_major_version:        extractOsMajorVersion(os_version),
     model:                   d.device?.marketingName ?? d.device?.model ?? '',
     date:                    d.eventTime ? fmtEventDate(d.eventTime) : '',
-    crash_kind:              deriveCrashKind(issueType),
+    // A crash has no NSError: crash_kind 'CRASH' marks it, the issue title stands in for the domain.
+    crash_kind:              isCrash ? 'CRASH' : deriveCrashKind(issueType),
     nserror_code:            keys['nserror-code'] ?? '',
-    nserror_domain:          keys['nserror-domain'] ?? '',
+    nserror_domain:          keys['nserror-domain'] ?? (isCrash ? issueType : ''),
     source:                  keys['SOURCE'] ?? '',
     status:                  keys['STATUS'] ?? '',
     configuration:           keys['CONFIGURATION'] ?? '',
@@ -875,7 +901,13 @@ async function collectIssueTypeViaApi(page: Page, ctx: ApiCtx, issueType: string
   console.log(`\n${'═'.repeat(60)}\n🎯 Collecting via API: "${issueType}"`);
   const { id: issueId, eventsCount } = await findIssueApi(page, ctx, issueType);
   if (!issueId) { console.log(`⚠️  Not found in the issue list for this interval. Skipping.`); return 0; }
+  return collectIssueEventsApi(page, ctx, issueId, eventsCount, issueType, existingKeys, false);
+}
 
+async function collectIssueEventsApi(
+  page: Page, ctx: ApiCtx, issueId: string, eventsCount: number, issueType: string,
+  existingKeys: Set<string>, isCrash: boolean,
+): Promise<number> {
   const keys = await listEventKeysApi(page, ctx, issueId);
   console.log(`🔑 ${keys.length} event key(s) in the interval (issue list reports ${eventsCount})`);
   // The issue list and the event list are two different queries; if the second returns fewer than
@@ -894,7 +926,7 @@ async function collectIssueTypeViaApi(page: Page, ctx: ApiCtx, issueType: string
       continue;
     }
     const breadcrumbs = writeApiLogFile(ev, issueId);
-    appendEventCsv(EVENTS_CSV, recordFromApiEvent(ev, issueId, k.sessionId, issueType, breadcrumbs));
+    appendEventCsv(EVENTS_CSV, recordFromApiEvent(ev, issueId, k.sessionId, issueType, breadcrumbs, isCrash));
     existingKeys.add(sek);
     collected++;
     console.log(`✅ ${sek}  (${breadcrumbs})`);
@@ -940,6 +972,17 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
   console.log(`⚙️  Collect mode: ${COLLECT_MODE}`);
 
   let totalCollected = 0;
+  if (COLLECT_CRASHES) {
+    if (!apiCtx) throw new Error('COLLECT_CRASHES needs COLLECT_MODE=api');
+    const crashes = await listCrashIssuesApi(page, apiCtx);
+    console.log(`💥 ${crashes.length} crash issue(s) in the interval`);
+    for (const c of crashes) {
+      console.log(`\n${'═'.repeat(60)}\n💥 Collecting crash: "${c.name}"`);
+      totalCollected += await collectIssueEventsApi(page, apiCtx, c.id, c.eventsCount, c.name, existingEventUrls, true);
+    }
+    console.log(`\n🎉 Done. Total new crash events: ${totalCollected}`);
+    return;
+  }
   for (const issueType of ISSUE_TYPES_LIST) {
     const count = apiCtx
       ? await collectIssueTypeViaApi(page, apiCtx, issueType, existingEventUrls)
