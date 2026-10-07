@@ -49,6 +49,10 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
     page (`page.evaluate` + `fetch`); from Node the same call returns 401. On 401 it re-captures once.
     `COLLECT_MODE=scrape` restores the old UI walk — the endpoints are internal and undocumented,
     so keep the fallback working.
+  - **Crashes (fatal):** discovery only sees FaceKom-titled NON-fatals, so in api mode the wrapper
+    adds one pseudo-issue `crashes (all)` per version → `COLLECT_CRASHES=1` lists EVERY open crash
+    issue (`eventType: FATAL`, no search term — crash titles name the crashing frame) into the same
+    `events_<v>.csv`, `crash_kind=CRASH`, issue title in `nserror_domain`. Not in `issues_<v>.csv`.
   - Single issue, by hand:
     `HEADLESS=true ISSUE_VERSIONS="3.8.2 (2823)" ISSUES_CSV=./data/issues_3.8.2.csv EVENTS_CSV=./data/events_3.8.2.csv npm run discover`
     then `npm run collect` (add `ISSUE_TYPES_LIST="<issue name>"` to limit it).
