@@ -791,9 +791,9 @@ async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise
 }
 
 /**
- * Every open CRASH issue of the version. No search term on purpose: a crash issue is named after the
- * crashing frame (e.g. "LogUtility.swift - …"), not after FaceKom, so the "FaceKom" filter that
- * scopes the non-fatals would hide most of them — and app crashes are few enough to take them all.
+ * Every open CRASH issue of the version that matches the same "FaceKom" search as the non-fatals —
+ * only FaceKom crashes are of interest. The API search also hits the crashing frame's module
+ * ("[FaceKomSDK] …"), which the UI discovery's title-highlight match would miss.
  */
 async function listCrashIssuesApi(page: Page, ctx: ApiCtx): Promise<Array<{ id: string; eventsCount: number; name: string }>> {
   const res = await apiCall<{ topIssues?: any[] }>(page, ctx, '/metrics:listFirebaseTopOpenIssues', {
@@ -805,6 +805,7 @@ async function listCrashIssuesApi(page: Page, ctx: ApiCtx): Promise<Array<{ id: 
     interval: apiInterval(),
     orderBy: 'ORDER_EVENTS',
     pageDetails: { pageSize: '100', pageToken: '' },
+    searchTerm: { term: BASE_QUERY.issuesQuery },
   });
   return (res.topIssues ?? []).filter(i => i?.id).map(i => ({
     id:          i.id,
