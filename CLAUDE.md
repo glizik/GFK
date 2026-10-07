@@ -54,6 +54,9 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
     issues matching the same `FaceKom` search (`eventType: FATAL`; FaceKom crashes only — G's call;
     the API search also hits the `[FaceKomSDK]` frame module) into the same
     `events_<v>.csv`, `crash_kind=CRASH`, issue title in `nserror_domain`. Not in `issues_<v>.csv`.
+    Stack trace + fatal message go into the log file's `crash` block; **`build-data.js` assembles
+    `data/crashes.json`** (all active versions) → the dashboard's **Crashes** section. Hand-edited
+    `title` / `diagnosis` per issue_id survive rebuilds (fallback: the pre-3.9.0 archive's file).
   - Single issue, by hand:
     `HEADLESS=true ISSUE_VERSIONS="3.8.2 (2823)" ISSUES_CSV=./data/issues_3.8.2.csv EVENTS_CSV=./data/events_3.8.2.csv npm run discover`
     then `npm run collect` (add `ISSUE_TYPES_LIST="<issue name>"` to limit it).

@@ -234,7 +234,7 @@ if [ "$NO_PUSH" != "1" ]; then
   for v in "${VERSIONS[@]}"; do
     git add "data/events_${v}.csv" "data/issues_${v}.csv" "data/events_${v}.json" 2>/dev/null
   done
-  git add "$GAPS_FILE" 2>/dev/null
+  git add "$GAPS_FILE" data/crashes.json 2>/dev/null
   # data/logs/ is deliberately NOT committed any more (it is in .gitignore): 6k+ raw log files /
   # 121 MB that only build-data.js reads, locally. Everything the dashboard needs is already baked
   # into events_<v>.json — publishing the raw logs was what pushed the Pages deploy over its

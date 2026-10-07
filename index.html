@@ -3839,7 +3839,7 @@ function copyId(el, text) {
 
 // ── Crashes ───────────────────────────────────────────────────────────────────
 // FATAL issues (types=crash), which the normal collector never walks — it only iterates the
-// non-fatals (types=error). They come from data/crashes.json (see tests/crash-probe.spec.ts),
+// non-fatals (types=error). They come from data/crashes.json (build-data.js, from the collector's crash pass),
 // so this section is NOT affected by the version/outcome filters: it always shows everything
 // we have scraped, with per-event detail where we already pulled it.
 function renderCrashes() {

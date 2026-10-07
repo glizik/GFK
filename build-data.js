@@ -106,4 +106,96 @@ function buildVersion(v) {
   console.log(`built ${v}: ${out.length} events (${withLogs} with logs, ${missing} no log) → ${jsonPath} (${mb} MB)`);
 }
 
+// ── data/crashes.json (the dashboard's Crashes section) ──────────────────────
+// The collector's crash pass (COLLECT_CRASHES=1) puts FaceKom crash events into events_<v>.csv
+// with crash_kind=CRASH and their stack trace / fatal message into the log file's `crash` block.
+// Built across ALL active versions (not just the ones on the command line), because the section
+// ignores the version filter. A hand-written `title` / `diagnosis` survives rebuilds: carried over by
+// issue_id from the current file, else from the pre-3.9.0 archive.
+function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
+
+function crashedStep(logs) {
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const m = /currentStep: (\w+)/.exec(logs[i].msg) || /nextStep: custom\(type: "([^"]+)"/.exec(logs[i].msg)
+           || /nextStep: (\w+)\(/.exec(logs[i].msg);
+    if (m && m[1] !== 'end') return m[1];
+  }
+  return '';
+}
+
+function buildCrashes() {
+  const relCsv = path.join(DATA, 'version_releases.csv');
+  const active = fs.existsSync(relCsv)
+    ? parseCsv(fs.readFileSync(relCsv, 'utf8')).filter(r => r.version && (r.active ?? '1') !== '0').map(r => r.version)
+    : VERSIONS;
+  const outPath = path.join(DATA, 'crashes.json');
+  const prev = readJson(outPath)?.issues || [];
+  const archived = readJson(path.join(ROOT, 'archive/pre-3.9.0/data/crashes.json'))?.issues || [];
+  // Hand-kept fields: `title` (the raw one is a mangled Swift symbol) and `diagnosis`.
+  const keptOf = (id, k) => prev.find(i => i.issue_id === id)?.[k] || archived.find(i => i.issue_id === id)?.[k] || '';
+  // Fresh clone without data/logs: keep the previously built event entry instead of blanking it.
+  const prevEvent = new Map(prev.flatMap(i => i.events || []).map(e => [e.event_id, e]));
+
+  const byIssue = new Map();
+  for (const v of active) {
+    const csvPath = path.join(DATA, `events_${v}.csv`);
+    if (!fs.existsSync(csvPath)) continue;
+    for (const ev of parseCsv(fs.readFileSync(csvPath, 'utf8')).filter(r => r.crash_kind === 'CRASH')) {
+      const log = readJson(path.join(LOGS, `${ev.event_id}.log`));
+      const crash = log?.crash;
+      if (!crash && prevEvent.has(ev.event_id)) {
+        const old = prevEvent.get(ev.event_id);
+        if (!byIssue.has(ev.issue_id)) byIssue.set(ev.issue_id, { ev, crash: null, events: [] });
+        byIssue.get(ev.issue_id).events.push(old);
+        continue;
+      }
+      const logs = processLogs(log?.logs_and_breadcrumbs);
+      if (!byIssue.has(ev.issue_id)) byIssue.set(ev.issue_id, { ev, crash, events: [] });
+      const slot = byIssue.get(ev.issue_id);
+      if (!slot.crash && crash) slot.crash = crash;
+      slot.events.push({
+        event_id:        ev.event_id,
+        session_id_base: ev.session_id_base,
+        facekom_session: (/\/identification\/([^/?#]+)/.exec(ev.identification_link) || [])[1] || '',
+        app_version:     ev.app_version,
+        os_version:      ev.os_version,
+        model:           ev.model,
+        date:            ev.date,
+        crashed_step:    crashedStep(logs),
+        console_url:     (ev.event_url || '').replace('types=error', 'types=crash'),
+        stack_trace:     crash?.stack_trace || [],
+        breadcrumbs:     logs.map(({ ts, type, msg }) => ({ ts, type, msg })),
+      });
+    }
+  }
+
+  const issues = [...byIssue.entries()].map(([id, { ev, crash, events }]) => {
+    const prevIss = prev.find(i => i.issue_id === id) || {};
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    return {
+      issue_id:      id,
+      title:         keptOf(id, 'title') || crash?.title || ev.nserror_domain || 'crash',
+      symbol:        crash?.symbol || prevIss.symbol || '',
+      blame:         crash?.blame || prevIss.blame || '',
+      exception:     crash?.exception || prevIss.exception || '',
+      fatal_message: crash?.fatal_message || prevIss.fatal_message || '',
+      diagnosis:     keptOf(id, 'diagnosis'),
+      events_total:  events.length,
+      users_total:   new Set(events.map(e => e.facekom_session || e.session_id_base)).size,
+      version_range: [...new Set(events.map(e => (e.app_version || '').split(' ')[0]).filter(Boolean))].join(', '),
+      app_version:   events[0]?.app_version || '',
+      console_url:   (ev.event_url || '').replace('types=error', 'types=crash').replace(/&sessionEventKey=[^&]*/, ''),
+      events,
+    };
+  }).sort((a, b) => b.events_total - a.events_total);
+
+  fs.writeFileSync(outPath, JSON.stringify({
+    generated: new Date().toISOString(),
+    note: 'FaceKom FATAL Crashlytics issues of the active versions — built by build-data.js from the collector crash pass (COLLECT_CRASHES=1).',
+    issues,
+  }, null, 2) + '\n');
+  console.log(`built crashes.json: ${issues.length} issue(s), ${issues.reduce((a, i) => a + i.events.length, 0)} event(s)`);
+}
+
 for (const v of VERSIONS) buildVersion(v);
+buildCrashes();

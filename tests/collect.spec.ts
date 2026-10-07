@@ -836,6 +836,29 @@ function fmtEventDate(iso: string): string {
   });
 }
 
+/**
+ * Fatal events only: what the dashboard's Crashes section shows. Stored in the event's log file
+ * (`crash`), from which build-data.js assembles data/crashes.json. Undefined for non-fatals, so
+ * their log files stay exactly as before.
+ */
+function crashInfo(ev: any) {
+  const d = ev?.eventDataExternal ?? {};
+  if (d.fatality !== 'FATAL') return undefined;
+  const cap = d.issue?.issueCaption ?? {};
+  const threads = ev?.stacktraceGroup?.threads ?? [];
+  const crashed = threads.find((t: any) => t?.stacktrace?.blame === 'BLAMED') ?? threads[0];
+  return {
+    title:         cap.title ?? d.issue?.title ?? '',
+    exception:     d.issue?.subtitle ?? cap.signalName ?? '',
+    blame:         cap.blamedLibrary ?? '',
+    symbol:        cap.blamedSymbol ?? '',
+    fatal_message: d.customKeys?.crash_info_entry_0 ?? '',
+    stack_trace:   (crashed?.stacktrace?.frames ?? []).map((f: any, i: number) => ({
+      i, module: f.library ?? '', symbol: `${f.symbol ?? '?'}${f.offset ? ` + ${f.offset}` : ''}`,
+    })),
+  };
+}
+
 /** Same file the Logs & Breadcrumbs download produced, so build-data.js needs no change. */
 function writeApiLogFile(ev: any, issueId: string): string {
   const d = ev?.eventDataExternal ?? {};
@@ -852,6 +875,7 @@ function writeApiLogFile(ev: any, issueId: string): string {
     session_id:        ev.sessionId ?? '',
     event_timestamp:   d.eventTime ? new Date(d.eventTime).toString() : '',
     logs_and_breadcrumbs: items,
+    crash:             crashInfo(ev),
   }, null, 2));
   return items.length ? 'downloaded' : 'not_available';
 }
