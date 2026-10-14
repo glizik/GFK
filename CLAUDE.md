@@ -83,6 +83,9 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   hidden behind the 🗄 archív toggle, loadable locally, NOT published). Switching a version on/off
   = one character here. `build` feeds `ISSUE_VERSIONS="<v> (<build>)"`.
 - `data/issues_<v>.csv`, `data/events_<v>.csv` — Crashlytics issues + per-event rows.
+  Column `sdk_version` = the app's `FACEKOM_SDK_VERSION` Crashlytics key (set since 3.8.0) →
+  card meta + Keys tab, Timeline2 SDK column, violet first-seen line on the Timeline. Rows that
+  predate the column: `COLLECT_MODE=api BACKFILL_SDK_VERSION=1 EVENTS_CSV=… npm run collect`.
 - `data/events_<v>.json` — what the dashboard actually loads (built by `build-data.js`, embeds
   every breadcrumb). Committed.
 - `data/logs/<event_id>.log` — JSON `{ …, logs_and_breadcrumbs: [...] }` per crash report.

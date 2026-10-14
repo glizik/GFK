@@ -215,6 +215,11 @@
   .tl-chart-wrap { position: relative; }
   .tl-version-line { position: absolute; width: 4px; top: 26px; background: var(--red); border-radius: 2px; transform: translateX(-50%); opacity: 0.9; pointer-events: none; z-index: 8; }
   .tl-version-chip { position: absolute; top: 4px; transform: translateX(-50%); background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 9; letter-spacing: 0.02em; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+  /* FaceKom SDK markers: the same line + chip as an app release, in violet, on the day a SDK
+     version first shows up in the data (FACEKOM_SDK_VERSION key). */
+  .tl-version-line.sdk, .tl-version-chip.sdk { background: #8b5cf6; }
+  .tl-version-chip.sdk { top: 24px; }
+  .sdk-chip { color: #c4b5fd; font-weight: 700; }
   .tl-col-date { font-size: 11px; color: var(--muted); text-align: center; margin-top: 6px; font-family: monospace; line-height: 1.5; white-space: nowrap; }
   .tl-download-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); align-items: center; }
   .tl-legend { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
@@ -430,10 +435,10 @@
   .tl2-summary { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 10px; align-items: center; }
   .tl2-summary b { color: var(--text); font-variant-numeric: tabular-nums; }
   .tl2-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: auto; max-height: 82vh; }
-  .tl2-grid { min-width: 1080px; }
+  .tl2-grid { min-width: 1150px; }
   .tl2-head, .tl2-row {
     display: grid;
-    grid-template-columns: 42px 100px 250px 88px minmax(300px, 2.2fr) minmax(240px, 1.6fr);
+    grid-template-columns: 42px 100px 250px 88px minmax(300px, 2.2fr) minmax(240px, 1.6fr) 64px;
     align-items: center; gap: 0 8px; padding: 0 10px;
   }
   .tl2-head { position: sticky; top: 0; z-index: 5; height: 44px; background: var(--surface2); border-bottom: 1px solid var(--border);
@@ -447,6 +452,7 @@
   .tl2-row.retry .tl2-num { color: var(--orange); }
   .tl2-row.lane-start { border-top: 1px solid var(--border); }
   .tl2-row.lane-start:first-child { border-top: none; }
+  .tl2-sdk { font-family: monospace; font-size: 11px; color: #c4b5fd; white-space: nowrap; }
   .tl2-num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 700; }
   .tl2-time { font-family: monospace; font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tl2-time span { color: var(--muted); margin-left: 5px; }
@@ -1594,6 +1600,10 @@ function envTag(group) {
 // every session before it stays "initial", every one after it gets the new version, so the
 // abort categories can be compared across the switch (expected: fewer connection drops).
 let BACKEND_VERSIONS = [];
+// FaceKom SDK version: the app's FACEKOM_SDK_VERSION Crashlytics key (since 3.8.0). Any report of
+// the session will do — they all come from the same app build.
+function sdkOfGroup(group) { return (group || []).find(e => e.sdk_version)?.sdk_version || ''; }
+
 function backendOfGroup(group) {
   const env = envOfGroup(group) || 'prod';
   const starts = (group || []).map(gStartTs).filter(Boolean);
@@ -2740,6 +2750,7 @@ function renderKeysContent(ev) {
     <span class="kv-key">configuration</span><span class="kv-val">${esc(ev.configuration || '—')}</span>
     <span class="kv-key" title="${escAttr(ENV_FILTER_TITLE)}">environment</span>${envCellHtml(ev)}
     <span class="kv-key">app_version</span><span class="kv-val">${esc(ev.app_version || '—')}</span>
+    <span class="kv-key">facekom_sdk_version</span><span class="kv-val sdk-chip">${esc(ev.sdk_version || '—')}</span>
     <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
   </div>`;
 }
@@ -2853,7 +2864,7 @@ function renderSessionCard(group, idx) {
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
         <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${probablyTag(group)}${envTag(group)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
+        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${sdkOfGroup(group) ? ' &nbsp;·&nbsp; <span class="sdk-chip" title="FaceKom SDK verzió (FACEKOM_SDK_VERSION)">SDK ' + esc(sdkOfGroup(group)) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>
@@ -3056,11 +3067,25 @@ function renderTimeline(_retry = 0) {
     return `<div class="tl-version-line" style="left:${x}px;bottom:${DATE_H}px"></div>` +
            `<div class="tl-version-chip" style="left:${x}px">v${esc(r.version)}</div>`;
   }).join('');
+  // FaceKom SDK: first day each SDK version appears in the traffic this chart shows (same global
+  // filters — so PROD by default, not a pre-release test run). Nudged right when it lands on an
+  // app-release day so the two lines stay distinguishable.
+  const sdkFirstDay = new Map();
+  for (const ev of gScopedEvents()) {
+    const dk = ev.sdk_version && gDayKeyOf(gStartTs(ev));
+    if (dk && (!sdkFirstDay.has(ev.sdk_version) || dk < sdkFirstDay.get(ev.sdk_version))) sdkFirstDay.set(ev.sdk_version, dk);
+  }
+  const sdkMarkers = [...sdkFirstDay].map(([v, dk]) => ({ v, dk, idx: days.findIndex(d => d.key === dk) })).filter(m => m.idx !== -1);
+  const sdkMarkersHtml = sdkMarkers.map(({ v, dk, idx }) => {
+    const x = PAD + idx * (COL_W + GAP) + Math.floor(COL_W / 2) + (releasesInWindow.some(r => r.date.trim() === dk) ? 8 : 0);
+    return `<div class="tl-version-line sdk" style="left:${x}px;bottom:${DATE_H}px"></div>` +
+           `<div class="tl-version-chip sdk" style="left:${x}px">SDK ${esc(v)}</div>`;
+  }).join('');
 
   container.innerHTML = navHtml + legendHtml +
     `<div class="tl-grid-wrap">` +
       `<div class="tl-chart-outer"><div class="tl-chart-wrap"><div class="tl-chart" style="min-height:${CHART_H + 70}px">${colsHtml}</div>` +
-        (releasesInWindow.length ? `<div style="position:absolute;top:0;left:0;bottom:0;width:${PAD + 14 * (COL_W + GAP)}px;pointer-events:none">${versionMarkersHtml}</div>` : '') +
+        (releasesInWindow.length || sdkMarkers.length ? `<div style="position:absolute;top:0;left:0;bottom:0;width:${PAD + 14 * (COL_W + GAP)}px;pointer-events:none">${versionMarkersHtml}${sdkMarkersHtml}</div>` : '') +
       `</div></div>` +
       `<div style="position:absolute;bottom:0;left:0;right:0;height:${DATE_H + CHART_H}px;pointer-events:none">${gridLinesHtml}</div>` +
     `</div>` +
@@ -3758,13 +3783,14 @@ function renderTimeline2() {
              title="${escAttr(tip)}" onclick="event.stopPropagation();openGanttCard('${escAttr(t.sessId)}')"></div>
         <div class="tl2-bar-lbl${left + w > 62 ? ' left' : ''}" style="${left + w > 62 ? `right:${(100 - left).toFixed(2)}%` : `left:${(left + w).toFixed(2)}%`}">${esc(t.lastStep !== '—' ? t.lastStep : t.outcome)}</div>
       </div>
+      <div class="tl2-sdk" title="FaceKom SDK verzió">${esc(sdkOfGroup(t.group) || '—')}</div>
     </div>`;
   }).join('');
 
   chart.innerHTML = `<div class="tl2-wrap"><div class="tl2-grid">
     <div class="tl2-head">
       <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Reviewed</div><div>Insight</div>
-      <div class="tl2-axis">${tm.axis}</div>
+      <div class="tl2-axis">${tm.axis}</div><div>SDK</div>
     </div>
     ${body}
   </div></div>`;

@@ -44,6 +44,9 @@ const COLLECT_GAPS            = path.resolve(process.env.COLLECT_GAPS ?? './data
 const COLLECT_CRASHES         = process.env.COLLECT_CRASHES === '1';
 /** FaceKom session UUID to force-recollect (removes matching events from dedup before run). */
 const FORCE_RECOLLECT_FK      = (process.env.FORCE_RECOLLECT_FK_SESSION ?? '').trim();
+// One-shot: re-GET every CSV row that has no sdk_version yet and fill it in (rows collected before
+// the column existed). Needs COLLECT_MODE=api. The app sets FACEKOM_SDK_VERSION since 3.8.0.
+const BACKFILL_SDK_VERSION    = process.env.BACKFILL_SDK_VERSION === '1';
 
 const BASE_QUERY = {
   state:       process.env.ISSUE_STATE       ?? 'open',
@@ -60,7 +63,7 @@ const EVENT_HEADERS = [
   'event_url', 'issue_id', 'session_event_key',
   'session_id_full', 'session_id_base', 'report_index', 'event_id',
   'user_id_base', 'user_id_suffix', 'identification_link',
-  'app_version', 'os_version', 'os_major_version', 'model', 'date',
+  'app_version', 'sdk_version', 'os_version', 'os_major_version', 'model', 'date',
   'crash_kind', 'nserror_code', 'nserror_domain',
   'source', 'status', 'configuration',
   'breadcrumbs_status', 'nslocalized_description',
@@ -199,6 +202,16 @@ function recordCollectGap(issueType: string, url: string, tries: number) {
   } catch (e) {
     console.log(`⚠️  Could not write gap log: ${(e as Error).message}`);
   }
+}
+
+/** A CSV written before a column was added keeps its old header; appending a row with the new
+ *  layout would shift every field after the gap, so rewrite it in the current layout first. */
+function migrateEventCsv(csvPath: string) {
+  if (!fs.existsSync(csvPath)) return;
+  const first = fs.readFileSync(csvPath, 'utf-8').split(/\r?\n/, 1)[0];
+  if (!first || first === EVENT_HEADERS.map(escapeCsv).join(',')) return;
+  writeAllEvents(csvPath, readAllEvents(csvPath));
+  console.log(`🔧 ${csvPath}: header migrated to the current column set`);
 }
 
 function appendEventCsv(csvPath: string, record: EventRecord) {
@@ -547,6 +560,7 @@ async function collectIssueType(
       const source                 = await readKeyValue(page, 'SOURCE');
       const status                 = await readKeyValue(page, 'STATUS');
       const configuration          = await readKeyValue(page, 'CONFIGURATION');
+      const sdk_version            = await readKeyValue(page, 'FACEKOM_SDK_VERSION');
       const nslocalized_description = await readKeyValue(page, 'NSLocalizedDescription');
 
       // ── Logs & Breadcrumbs tab ──────────────────────────────────────────
@@ -581,6 +595,7 @@ async function collectIssueType(
         source,
         status,
         configuration,
+        sdk_version,
         breadcrumbs_status,
         nslocalized_description,
         orientation_device:      orientationDevice,
@@ -900,6 +915,7 @@ function recordFromApiEvent(ev: any, issueId: string, sessionIdBase: string, iss
     user_id_suffix:          userIdSuffix,
     identification_link,
     app_version:             d.application ? `${d.application.displayVersion} (${d.application.buildVersion})` : '',
+    sdk_version:             keys['FACEKOM_SDK_VERSION'] ?? '',
     os_version,
     os_major_version:        extractOsMajorVersion(os_version),
     model:                   d.device?.marketingName ?? d.device?.model ?? '',
@@ -920,6 +936,26 @@ function recordFromApiEvent(ev: any, issueId: string, sessionIdBase: string, iss
     outcome: '', reason: '', last_step: '', steps_reached: '', screen_views: '',
     n_status_changes: '', first_breadcrumb_ts: '', last_breadcrumb_ts: '', session_elapsed_s: '',
   };
+}
+
+async function backfillSdkVersion(page: Page, ctx: ApiCtx): Promise<void> {
+  const rows = readAllEvents(EVENTS_CSV);
+  const todo = rows.filter(r => !r.sdk_version && r.session_event_key);
+  console.log(`🧩 sdk_version backfill: ${todo.length} of ${rows.length} row(s) to fetch`);
+  let filled = 0, none = 0, failed = 0;
+  for (const r of todo) {
+    try {
+      const ev = await apiCall<any>(page, ctx, `/processedevents/${r.session_event_key}`);
+      const v = ev?.eventDataExternal?.customKeys?.FACEKOM_SDK_VERSION ?? '';
+      if (v) { r.sdk_version = v; filled++; } else none++;
+    } catch (e) {
+      failed++;
+      console.log(`⚠️  ${r.session_event_key}: ${(e as Error).message.slice(0, 160)}`);
+    }
+    if ((filled + none + failed) % 100 === 0) { writeAllEvents(EVENTS_CSV, rows); console.log(`   … ${filled + none + failed}/${todo.length}`); }
+  }
+  writeAllEvents(EVENTS_CSV, rows);
+  console.log(`🎉 sdk_version backfill: ${filled} filled, ${none} without the key, ${failed} failed`);
 }
 
 async function collectIssueTypeViaApi(page: Page, ctx: ApiCtx, issueType: string, existingKeys: Set<string>): Promise<number> {
@@ -966,6 +1002,7 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
 
   ensureDirExists(EVENTS_CSV);
   fs.mkdirSync(LOGS_DIR, { recursive: true });
+  migrateEventCsv(EVENTS_CSV);
 
   const existingEventUrls = readExistingKeys(EVENTS_CSV);
   if (FORCE_RECOLLECT_FK) forceRecollect(FORCE_RECOLLECT_FK, existingEventUrls);
@@ -995,6 +1032,12 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
 
   const apiCtx = COLLECT_MODE === 'api' ? await captureApiCtx(page) : null;
   console.log(`⚙️  Collect mode: ${COLLECT_MODE}`);
+
+  if (BACKFILL_SDK_VERSION) {
+    if (!apiCtx) throw new Error('BACKFILL_SDK_VERSION needs COLLECT_MODE=api');
+    await backfillSdkVersion(page, apiCtx);
+    return;
+  }
 
   let totalCollected = 0;
   if (COLLECT_CRASHES) {
