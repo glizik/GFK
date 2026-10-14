@@ -101,7 +101,8 @@ Analytics/Step-funnel → Events grid → Dev tasks.
 - `data/reviewed_sessions.json`, `data/version_releases.csv`.
 - **`data/backend_versions.csv` — `env,version,since,note`**: hand-kept FaceKom BACKEND version
   timeline (the crash data never names it). `backendOfGroup` picks the newest row of the session's
-  env with `since` ≤ session start → `BE …` chip + Backend column in the abort categories. Prod is
+  env with `since` ≤ session start → `BE …` chip + Backend column in the abort categories, and
+  a teal `BE <v> · <ENV>` rollout line on the Timeline (`initial` rows draw none). Prod is
   `initial` (old, number unknown); test/dev run `1.9.11.44` (expected to fix the reconnects). **When
   prod switches, add a `prod,<version>,<date>` row** — earlier sessions keep `initial`.
 - **`archive/pre-3.9.0/`** — everything from 3.7.0–3.8.2 (events/issues/investigations/tasks+notes,
