@@ -1,3 +1,4 @@
 {"ts":"2026-10-08T17:53:51.857Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=548 expected=551"}
 {"ts":"2026-10-15T10:24:44.437Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=1021"}
 {"ts":"2026-10-18T10:09:52.525Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=1162"}
+{"ts":"2026-10-19T17:35:06.411Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=1305"}
