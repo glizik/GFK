@@ -464,6 +464,10 @@
   .tl2-copy { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer;
     padding: 1px 6px; font-size: 10px; line-height: 16px; flex-shrink: 0; }
   .tl2-row:hover .tl2-copy { color: var(--text); border-color: var(--accent); }
+  /* multi-try lanes: xN stands out, #n says whether THAT try made it */
+  .tl2-copy.tl2-tries, .tl2-row:hover .tl2-copy.tl2-tries { background: #f97316; border-color: #f97316; color: #fff; font-weight: 800; cursor: default; }
+  .tl2-copy.try-ok, .tl2-row:hover .tl2-copy.try-ok { color: var(--green); font-weight: 700; }
+  .tl2-copy.try-bad, .tl2-row:hover .tl2-copy.try-bad { color: var(--red); font-weight: 700; }
   /* min-width:0 everywhere: without it a nowrap grid child's auto minimum is its max-content
      width, which would push the whole grid past the page and bring back the sideways scroll. */
   .tl2-row > *, .tl2-head > * { min-width: 0; }
@@ -3792,7 +3796,7 @@ function renderTimeline2() {
         onclick="tl2Open('${escAttr(t.sessId)}')" title="kattints: ugrás a begyűjtött eseményhez">
       <div class="tl2-num">${i+1}</div>
       <div class="tl2-time">${fmtTs(t.start)}<span class="${tl2DurClass(t)}">${t.dur}s</span></div>
-      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${r.first && u.tries.length > 1 ? `<span class="tl2-copy" style="cursor:default" title="ez a FaceKom session ${u.tries.length} próbálkozásból (újracsatlakozásból) áll">x${u.tries.length}</span>` : ''}${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}</div>
+      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${r.first && u.tries.length > 1 ? `<span class="tl2-copy tl2-tries" title="ez a FaceKom session ${u.tries.length} próbálkozásból (újracsatlakozásból) áll">x${u.tries.length}</span>` : ''}${u.tries.length > 1 ? `<span class="tl2-copy ${o === 'approve' ? 'try-ok' : 'try-bad'}" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása — ${o === 'approve' ? 'sikerült' : 'nem sikerült'}">#${n}</span>` : ''}</div>
       <div><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>
       <div class="tl2-insight ${ins.kind}" title="${escAttr(t.outcome + (cause ? ' · ' + cause : '') + ' — ' + ins.text + (note ? ' — saját jegyzet: ' + note : ''))}">${poss}${poss ? ' ' : ''}${esc(ins.text)}${note ? ` <span class="tl2-usernote">· ${esc(note)}</span>` : ''}</div>
       <div class="tl2-track">
