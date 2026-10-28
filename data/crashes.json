@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-26T14:56:16.646Z",
+  "generated": "2026-10-28T10:50:23.419Z",
   "note": "FaceKom FATAL Crashlytics issues of the active versions — built by build-data.js from the collector crash pass (COLLECT_CRASHES=1).",
   "issues": [
     {
@@ -1861,12 +1861,317 @@
       "exception": "SIGABRT (ABORT)",
       "fatal_message": "",
       "diagnosis": "Memory corruption while LogUtility appends to a shared log String (called from SocketIOManager.handleReceivedData on a Socket.IO ack, main thread). malloc \"pointer being freed was not allocated\" in a String append = a data race: the SDK log buffer is mutated from several threads (WebRTC / socket callbacks) without a lock. SDK-side, not backend; fix = make LogUtility thread-safe.",
-      "events_total": 1,
-      "users_total": 1,
+      "events_total": 2,
+      "users_total": 2,
       "version_range": "3.9.0",
       "app_version": "3.9.0 (2853)",
       "console_url": "https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/c1f6d36aeb7c105a32015504776adff5?time=90d&versions=3.9.0+%282853%29&types=crash",
       "events": [
+        {
+          "event_id": "2280097167333218566",
+          "session_id_base": "fde5c2b742bd4d588f166c54d549cb57",
+          "facekom_session": "69d6f8db-3cc9-443c-8d5c-9473b72fdaf2",
+          "app_version": "3.9.0 (2853)",
+          "os_version": "iOS 26.7.1",
+          "model": "iPhone 17",
+          "date": "Oct 28, 2026, 10:41:31 AM",
+          "crashed_step": "voice-liveness-check",
+          "console_url": "https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/c1f6d36aeb7c105a32015504776adff5?time=90d&versions=3.9.0+%282853%29&types=crash&sessionEventKey=fde5c2b742bd4d588f166c54d549cb57_2280097167333218566",
+          "stack_trace": [
+            {
+              "i": 0,
+              "module": "libsystem_kernel.dylib",
+              "symbol": "__pthread_kill + 8"
+            },
+            {
+              "i": 1,
+              "module": "libsystem_pthread.dylib",
+              "symbol": "pthread_kill + 268"
+            },
+            {
+              "i": 2,
+              "module": "libsystem_c.dylib",
+              "symbol": "abort + 148"
+            },
+            {
+              "i": 3,
+              "module": "libsystem_malloc.dylib",
+              "symbol": "malloc_vreport + 892"
+            },
+            {
+              "i": 4,
+              "module": "libsystem_malloc.dylib",
+              "symbol": "malloc_report + 64"
+            },
+            {
+              "i": 5,
+              "module": "libsystem_malloc.dylib",
+              "symbol": "___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED + 76"
+            },
+            {
+              "i": 6,
+              "module": "libswiftCore.dylib",
+              "symbol": "_swift_release_dealloc + 64"
+            },
+            {
+              "i": 7,
+              "module": "libswiftCore.dylib",
+              "symbol": "bool swift::RefCounts<swift::RefCountBitsT<(swift::RefCountInlinedness)1>>::doDecrementSlow<(swift::PerformDeinit)1>(swift::RefCountBitsT<(swift::RefCountInlinedness)1>, unsigned int) + 168"
+            },
+            {
+              "i": 8,
+              "module": "libswiftCore.dylib",
+              "symbol": "_StringGuts.prepareForAppendInPlace(totalCount:otherUTF8Count:) + 348"
+            },
+            {
+              "i": 9,
+              "module": "libswiftCore.dylib",
+              "symbol": "_StringGuts.append(_:) + 180"
+            },
+            {
+              "i": 10,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK10LogUtilityO31printMessageForCategoryWithName33_04289EABA36EE90C50B2032891F9CBBDLL_5level5items9separator10terminator011shouldLocalD00v6RemoteD0ySS_AA0D5LevelOypdS2SS2btFZTf4nnnndnnd_n + 1508"
+            },
+            {
+              "i": 11,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerC4emit5event4datayAA0D5EventO_ypdtFyyXEfU_ + 260"
+            },
+            {
+              "i": 12,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK13FKSelfServiceC5EventOytIegnr_AEIegn_TRTA + 20"
+            },
+            {
+              "i": 13,
+              "module": "FaceKomSDK",
+              "symbol": "$sIeg_IyB_TR + 20"
+            },
+            {
+              "i": 14,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_client_callout + 16"
+            },
+            {
+              "i": 15,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_lane_barrier_sync_invoke_and_complete + 56"
+            },
+            {
+              "i": 16,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerC4emit5event4datayAA0D5EventO_ypdtF + 248"
+            },
+            {
+              "i": 17,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerCAA07ISocketE0A2aDP4emit5event4datayAA0D5EventO_ypdtFTW + 20"
+            },
+            {
+              "i": 18,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK13WebRTCManagerC04sendD6RTCLog33_47A25F228FC0D1F405EC0557FE3CEC50LL3logyAA0dG0V_tF + 356"
+            },
+            {
+              "i": 19,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK13WebRTCManagerC14peerConnection_9didChangeySo07RTCPeerG0C_So17RTCSignalingStateVtF + 536"
+            },
+            {
+              "i": 20,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK13WebRTCManagerC14peerConnection_9didChangeySo07RTCPeerG0C_So17RTCSignalingStateVtFTo + 60"
+            },
+            {
+              "i": 21,
+              "module": "WebRTC",
+              "symbol": "RTCGetAndResetMetrics + 4232"
+            },
+            {
+              "i": 22,
+              "module": "WebRTC",
+              "symbol": "? + 4350421524"
+            },
+            {
+              "i": 23,
+              "module": "WebRTC",
+              "symbol": "? + 4350436496"
+            },
+            {
+              "i": 24,
+              "module": "WebRTC",
+              "symbol": "? + 4350440988"
+            },
+            {
+              "i": 25,
+              "module": "WebRTC",
+              "symbol": "? + 4350479236"
+            },
+            {
+              "i": 26,
+              "module": "WebRTC",
+              "symbol": "? + 4350538720"
+            },
+            {
+              "i": 27,
+              "module": "WebRTC",
+              "symbol": "? + 4350440184"
+            },
+            {
+              "i": 28,
+              "module": "WebRTC",
+              "symbol": "? + 4349984168"
+            },
+            {
+              "i": 29,
+              "module": "WebRTC",
+              "symbol": "? + 4349939656"
+            },
+            {
+              "i": 30,
+              "module": "WebRTC",
+              "symbol": "RTCShutdownInternalTracer + 98892"
+            },
+            {
+              "i": 31,
+              "module": "WebRTC",
+              "symbol": "RTCShutdownInternalTracer + 95020"
+            },
+            {
+              "i": 32,
+              "module": "WebRTC",
+              "symbol": "RTCShutdownInternalTracer + 100076"
+            },
+            {
+              "i": 33,
+              "module": "libsystem_pthread.dylib",
+              "symbol": "_pthread_start + 136"
+            },
+            {
+              "i": 34,
+              "module": "libsystem_pthread.dylib",
+              "symbol": "thread_start + 8"
+            }
+          ],
+          "breadcrumbs": [
+            {
+              "ts": "10:39:27",
+              "type": "screen",
+              "msg": "EULAScreen"
+            },
+            {
+              "ts": "10:41:02",
+              "type": "screen",
+              "msg": "LoginStartScreen"
+            },
+            {
+              "ts": "10:41:05",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "10:41:07",
+              "type": "screen",
+              "msg": "VideoUserAgreementsScreen"
+            },
+            {
+              "ts": "10:41:09",
+              "type": "screen",
+              "msg": "VideoAssistanceScreen"
+            },
+            {
+              "ts": "10:41:14",
+              "type": "log",
+              "msg": "FaceKom started from: videoId"
+            },
+            {
+              "ts": "10:41:14",
+              "type": "log",
+              "msg": "FaceKom started with assistance: false"
+            },
+            {
+              "ts": "10:41:14",
+              "type": "screen",
+              "msg": "VideoIntroScreen"
+            },
+            {
+              "ts": "10:41:27",
+              "type": "log-ok",
+              "msg": "FaceKom ID Verified, document type: id-card"
+            },
+            {
+              "ts": "10:41:27",
+              "type": "screen",
+              "msg": "IdVerificationScreen"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log",
+              "msg": "FaceKom SelfService started"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log-ok",
+              "msg": "FaceKom getSettings success"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log-ok",
+              "msg": "FaceKom connectSocket success"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log-ok",
+              "msg": "Facekom flow successfully started, Listening..."
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log-ok",
+              "msg": "FaceKom auth success"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log",
+              "msg": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"startVideo\": 1, \"voiceLivenessCheckNumber\": 1146]), availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "log",
+              "msg": "FaceKom capture consent shown"
+            },
+            {
+              "ts": "10:41:29",
+              "type": "screen",
+              "msg": "SelfServiceViewController"
+            },
+            {
+              "ts": "10:41:31",
+              "type": "log",
+              "msg": "FaceKom capture consent accepted"
+            },
+            {
+              "ts": "10:41:31",
+              "type": "screen",
+              "msg": "SelfieViewController"
+            },
+            {
+              "ts": "10:41:31",
+              "type": "log",
+              "msg": "FaceKom WebRTC started"
+            }
+          ]
+        },
         {
           "event_id": "2271915460051767323",
           "session_id_base": "b509498e377a4e1bae4d338790f9fdbe",
