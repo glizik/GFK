@@ -456,6 +456,9 @@
   .tl2-num { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 700; }
   .tl2-time { font-family: monospace; font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tl2-time span { color: var(--muted); margin-left: 5px; }
+  .tl2-time span.dur-ok { color: var(--green); }
+  .tl2-time span.dur-warn { color: var(--yellow); }
+  .tl2-time span.dur-bad { color: var(--red); }
   .tl2-fk { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .tl2-fk code { font-family: monospace; font-size: 11px; color: var(--accent2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tl2-copy { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer;
@@ -524,9 +527,9 @@
       <div class="stat-sub">events we hold</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Unique Sessions</div>
+      <div class="stat-label">Unique Users</div>
       <div class="stat-value" id="statSessions" style="color:var(--accent)">—</div>
-      <div class="stat-sub">distinct user sessions</div>
+      <div class="stat-sub" id="statSessionsSub">distinct users</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Coverage</div>
@@ -537,6 +540,18 @@
   <div id="statInsight" style="font-size:12px;color:var(--muted);margin:-14px 0 20px 2px"></div>
 
   <div class="global-filters" id="globalFilters"></div>
+
+  <div class="section" id="timelineSection">
+    <div class="section-header" onclick="toggleTimeline()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon" id="timelineToggleIcon">▶</span>Timeline <span class="count" id="timelineSubtitle"></span>
+      </div>
+    </div>
+    <div class="tl-section-panel collapsed" id="tlSectionPanel">
+      <div id="tlChartContainer"></div>
+      <div id="tlDownloads"></div>
+    </div>
+  </div>
 
   <div class="section" id="timeline2Section">
     <div class="section-header" onclick="toggleTimeline2()">
@@ -558,14 +573,14 @@
     </div>
   </div>
 
-  <div class="section" id="crashSection">
-    <div class="section-header" onclick="toggleCrashes()">
+  <div class="section" id="stepsSection">
+    <div class="section-header" onclick="toggleStepsPanel()">
       <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon" id="crashToggleIcon">▶</span>Crashes <span class="count" id="crashSubtitle"></span>
+        <span class="toggle-icon" id="stepsToggleIcon">▶</span>Step Funnel <span class="count" id="stepsSubtitle"></span>
       </div>
     </div>
-    <div class="crash-panel collapsed" id="crashPanel">
-      <div id="crashList"></div>
+    <div class="steps-panel collapsed" id="stepsPanel">
+      <div id="stepsFunnel"></div>
     </div>
   </div>
 
@@ -577,6 +592,17 @@
     </div>
     <div class="report-panel collapsed" id="reportPanel">
       <div id="reportTable"></div>
+    </div>
+  </div>
+
+  <div class="section" id="crashSection">
+    <div class="section-header" onclick="toggleCrashes()">
+      <div class="section-title" style="margin-bottom:0">
+        <span class="toggle-icon" id="crashToggleIcon">▶</span>Crashes <span class="count" id="crashSubtitle"></span>
+      </div>
+    </div>
+    <div class="crash-panel collapsed" id="crashPanel">
+      <div id="crashList"></div>
     </div>
   </div>
 
@@ -654,17 +680,6 @@
     </div>
   </div>
 
-  <div class="section" id="stepsSection">
-    <div class="section-header" onclick="toggleStepsPanel()">
-      <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon" id="stepsToggleIcon">▶</span>Step Funnel <span class="count" id="stepsSubtitle"></span>
-      </div>
-    </div>
-    <div class="steps-panel collapsed" id="stepsPanel">
-      <div id="stepsFunnel"></div>
-    </div>
-  </div>
-
   <div class="section" id="eventsSection">
     <div class="section-header" onclick="toggleEvents()">
       <div class="section-title" style="margin-bottom:0">
@@ -681,35 +696,6 @@
         <div class="search-match-count" id="searchMatchCount"></div>
       </div>
       <div id="eventsGrid"></div>
-    </div>
-  </div>
-
-  <div class="section" id="timelineSection">
-    <div class="section-header" onclick="toggleTimeline()">
-      <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon" id="timelineToggleIcon">▶</span>Timeline <span class="count" id="timelineSubtitle"></span>
-      </div>
-    </div>
-    <div class="tl-section-panel collapsed" id="tlSectionPanel">
-      <div id="tlChartContainer"></div>
-      <div id="tlDownloads"></div>
-    </div>
-  </div>
-
-  <div class="section" id="devSection">
-    <div class="section-header" onclick="toggleDevSection()">
-      <div class="section-title" style="margin-bottom:0">
-        <span class="toggle-icon" id="devToggleIcon">▶</span>Developer <span class="count" id="devSubtitle"></span>
-      </div>
-    </div>
-    <div class="dev-section-panel collapsed" id="devSectionPanel">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="addDevTask()">+ New Task</button>
-        <button class="btn btn-ghost btn-sm" id="devCsvConnectBtn" onclick="connectDevTasksCSV()" style="display:none">⇄ Connect CSV</button>
-        <button class="btn btn-ghost btn-sm" id="devNotesDirBtn" onclick="connectNotesDir()" style="display:none">📁 Connect Notes Folder</button>
-        <span id="devCsvStatus" style="font-size:12px;color:var(--muted)">Tasks stored in localStorage · attach sessions via 📎 on event cards</span>
-      </div>
-      <div id="devTaskList"></div>
     </div>
   </div>
 
@@ -1991,6 +1977,7 @@ function renderStats() {
   // Session stats follow the page-wide version+outcome filter.
   const allSessions = buildAllSessions(gScopedEvents());
   const uniqueSess  = allSessions.length;
+  const uniqueUsers = new Set(gScopedEvents().map(ev => ev.user_id_base).filter(Boolean)).size;
 
   // Per-session outcome: approve wins; also count sessions that recovered after a failure
   let approved = 0, recovered = 0;
@@ -2005,7 +1992,8 @@ function renderStats() {
   document.getElementById('statIssues').textContent    = activeIssues.length;
   document.getElementById('statEvents').textContent    = totalEv || '—';
   document.getElementById('statCollected').textContent = haveEv;
-  document.getElementById('statSessions').textContent  = uniqueSess || '—';
+  document.getElementById('statSessions').textContent  = uniqueUsers || '—';
+  document.getElementById('statSessionsSub').textContent = `distinct users · ${uniqueSess} Firebase session${uniqueSess !== 1 ? 's' : ''}`;
   const covEl = document.getElementById('statCoverage');
   covEl.textContent = totalEv ? pct + '%' : '—';
   covEl.title = totalEv
@@ -2805,12 +2793,9 @@ function renderSessionCard(group, idx) {
   const taskBadgesHtml = attachedTasks.map(t =>
     `<span class="task-badge" onclick="scrollToTask('${escAttr(t.id)}')" title="${escAttr(t.title)}">${esc(t.title.length > 16 ? t.title.slice(0, 16) + '…' : t.title)}</span>`
   ).join(' ');
-  const hasAttached = attachedTasks.length > 0;
   const isReviewed = reviewedSessions.has(primary.session_id_base);
   const attachBtnHtml = primary.session_id_base
-    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${hasAttached ? ';border-color:var(--accent2);color:#fff;background:var(--accent2)' : ''}" onclick="openAttachMenu('${escAttr(primary.session_id_base)}',this)" title="${hasAttached ? attachedTasks.length + ' task(s) attached' : 'Attach to existing task'}">📎</button>
-       <button class="btn btn-ghost btn-sm" style="flex-shrink:0" onclick="newTaskFromSession('${escAttr(primary.session_id_base)}')" title="Create a new task with this session attached">➕ Task</button>
-       <button class="btn btn-ghost btn-sm" style="flex-shrink:0${isReviewed ? ';color:var(--green);border-color:var(--green)' : ''}" onclick="toggleReviewed('${escAttr(primary.session_id_base)}')" title="${isReviewed ? 'Reviewed — click to unmark' : 'Mark as reviewed'}">✓ Reviewed</button>`
+    ? `<button class="btn btn-ghost btn-sm" style="flex-shrink:0${isReviewed ? ';color:var(--green);border-color:var(--green)' : ''}" onclick="toggleReviewed('${escAttr(primary.session_id_base)}')" title="${isReviewed ? 'Reviewed — click to unmark' : 'Mark as reviewed'}">✓ Reviewed</button>`
     : '';
 
   const subReportsHtml = `
@@ -3730,6 +3715,13 @@ function buildTimeMap2(tries) {
   return { tsToPct, secToPct: secs => pct(secs), axis };
 }
 
+// Duration colour: an aborted try is red whatever its length; otherwise <180s green,
+// 180–360s yellow, longer red.
+function tl2DurClass(t) {
+  if (normalizeOutcome(t.outcome) === 'aborted') return 'dur-bad';
+  return t.dur < 180 ? 'dur-ok' : t.dur <= 360 ? 'dur-warn' : 'dur-bad';
+}
+
 function renderTimeline2() {
   const chart = document.getElementById('tl2Chart');
   if (!chart) return;
@@ -3779,8 +3771,8 @@ function renderTimeline2() {
     return `<div class="tl2-row${r.lane % 2 ? ' stripe' : ''}${r.first ? ' lane-start' : ''}${n > 1 ? ' retry' : ''}"
         onclick="tl2Open('${escAttr(t.sessId)}')" title="kattints: ugrás a begyűjtött eseményhez">
       <div class="tl2-num">${i+1}</div>
-      <div class="tl2-time">${fmtTs(t.start)}<span>${t.dur}s</span></div>
-      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}</div>
+      <div class="tl2-time">${fmtTs(t.start)}<span class="${tl2DurClass(t)}">${t.dur}s</span></div>
+      <div class="tl2-fk"><code title="${escAttr(idLabel)}">${esc(idLabel)}</code>${r.first && u.tries.length > 1 ? `<span class="tl2-copy" style="cursor:default" title="ez a FaceKom session ${u.tries.length} próbálkozásból (újracsatlakozásból) áll">x${u.tries.length}</span>` : ''}${n > 1 ? `<span class="tl2-copy" style="cursor:default" title="ugyanennek a FaceKom sessionnek a ${n}. próbálkozása">#${n}</span>` : ''}</div>
       <div><button class="gl-rev-btn${t.reviewed?' on':''}" onclick="event.stopPropagation();gReviewToggle('${escAttr(t.sessId)}')">${t.reviewed?'✓ reviewed':'mark'}</button></div>
       <div class="tl2-insight ${ins.kind}" title="${escAttr(t.outcome + (cause ? ' · ' + cause : '') + ' — ' + ins.text + (note ? ' — saját jegyzet: ' + note : ''))}">${poss}${poss ? ' ' : ''}${esc(ins.text)}${note ? ` <span class="tl2-usernote">· ${esc(note)}</span>` : ''}</div>
       <div class="tl2-track">
@@ -3794,7 +3786,7 @@ function renderTimeline2() {
 
   chart.innerHTML = `<div class="tl2-wrap"><div class="tl2-grid">
     <div class="tl2-head">
-      <div>#</div><div>Start · hossz</div><div>FaceKom session</div><div>Reviewed</div><div>Insight</div>
+      <div>#</div><div>Start · duration</div><div>FaceKom session</div><div>Reviewed</div><div>Insight</div>
       <div class="tl2-axis">${tm.axis}</div><div>SDK</div>
     </div>
     ${body}
@@ -4334,8 +4326,11 @@ function renderDevConnectBtn() {
   }
 }
 
+// Dev tasks were retired with the 3.9.0 fresh start (the Developer section is gone). Drop the
+// browser's stale pre-3.9.0 copy too, or its tasks would keep showing up as badges on the cards.
 function loadDevTasks() {
-  try { devTasks = JSON.parse(localStorage.getItem('gfk_dev_tasks') || '[]'); } catch { devTasks = []; }
+  devTasks = [];
+  try { localStorage.removeItem('gfk_dev_tasks'); } catch {}
 }
 
 function saveDevTasks() {
