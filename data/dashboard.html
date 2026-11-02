@@ -412,6 +412,10 @@
   .rep-cats tr.rep-cat-active td { background: var(--surface2); box-shadow: inset 0 -1px 0 var(--accent); }
   .rep-cats td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .rep-cats .rep-cat-unexpected { color: var(--red); font-weight: 700; }
+  .rep-cats tr.rep-cat-sec { cursor: pointer; }
+  .rep-cats tr.rep-cat-sec td { font-weight: 700; background: var(--surface2); border-top: 2px solid var(--border); }
+  .rep-cats tr.rep-cat-sec:hover td { color: var(--accent); }
+  .rep-cats tr.rep-cat-row td:first-child { padding-left: 18px; }
 
   .gantt-modal-bg { display: none; position: fixed; inset: 0; z-index: 600; background: rgba(0,0,0,0.72); }
   .gantt-modal { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 601; width: min(94vw, 720px); max-height: 86vh; overflow-y: auto; }
@@ -1633,7 +1637,9 @@ function backendTag(group) {
 
 // ── Abort categories (Report summary) ─────────────────────────────────────────
 // One category per Report lane, so the counts add up to the lane count and show what's left to
-// polish. First match wins:
+// polish. Each category belongs to one of three sections — crash / abort / decline — the way the
+// table is split (REPORT_SECTIONS). First match wins:
+//   crash:*   — the app itself crashed (a FATAL report, crash_kind CRASH); keyed by the last step.
 //   perm      — the SDK logged a missing mic/camera permission (or noVideoConsent). 3.9.0 is meant
 //               to have fixed this: any hit is a REGRESSION, flagged red.
 //   reject:*  — the server ended it with a reason (end(status:"failed", reason = "X")).
@@ -1642,11 +1648,30 @@ function backendTag(group) {
 //   consent   — consent timer expired.
 //   possibly  — ≈ possibly approve: telemetry gap after 2FA, not a drop-off (to-verify queue).
 //   quit:*    — closed/backgrounded on a NON-video step and never came back.
-//   unexpected / unknown — no usable signal.
+//   unexpected — the SDK said "Unexpected error" and nothing else.
+//   fkerr:*   — no breadcrumbs, but a report carries a FaceKomSDK.FaceKomError code (e.g. 36 =
+//               hasNoSelfServiceRoom) — the only signal there is.
+//   nologs    — the Crashlytics report has no breadcrumbs at all (breadcrumbs_status not_available).
+//   unknown   — breadcrumbs exist but say nothing usable.
+// crash:* → 'crash', reject:* → 'decline', everything else → 'abort'.
+const REPORT_SECTIONS = [
+  { key: 'crash',   label: 'Crash',          title: 'az app összeomlott (FATAL crash report)' },
+  { key: 'abort',   label: 'Abort',          title: 'a user kilépett / megszakadt, a szerver nem hozott döntést' },
+  { key: 'decline', label: 'Server decline', title: 'a szerver end(status:"failed", reason = …) válasszal lezárta' },
+];
 const PERM_MISSING_RE = /\b(mic|video)(?: status)?:\s*(denied|restricted|notDetermined)\b/;
 function laneAbortCategory(u) {
+  const c = laneAbortCategoryRaw(u);
+  return { ...c, section: c.key.startsWith('crash:') ? 'crash' : c.key.startsWith('reject:') ? 'decline' : 'abort' };
+}
+function laneAbortCategoryRaw(u) {
   const groups = u.tries.map(t => t.group);
   const failedTries = u.tries.filter(t => normalizeOutcome(t.outcome) !== 'approve');
+  const crashTry = u.tries.find(t => t.group.some(ev => ev.crash_kind === 'CRASH'));
+  if (crashTry) {
+    const s = deriveStuckStep({ logs: mergeGroupLogs(crashTry.group) }) || '?';
+    return { key: 'crash:' + s, label: 'Crash @ ' + s };
+  }
   if (groups.some(g => noVideoConsent(g) || g.some(ev => (ev.logs || []).some(l => PERM_MISSING_RE.test(l.msg || '')))))
     return { key: 'perm', label: 'Hiányzó engedély (mikrofon / kamera)', unexpected: true };
   for (const t of failedTries) {
@@ -1664,6 +1689,14 @@ function laneAbortCategory(u) {
     return { key: 'quit:' + s, label: 'Kilépés (nem video lépés) @ ' + s };
   }
   if (causes.includes('unexpected error')) return { key: 'unexpected', label: 'Unexpected error' };
+  if (groups.every(g => g.every(ev => !(ev.logs || []).length))) {
+    const fkErr = groups.flat().find(ev => ev.nserror_domain === 'FaceKomSDK.FaceKomError' && ev.nserror_code);
+    if (fkErr) {
+      const name = FACEKOMCODES[fkErr.nserror_code] || 'FaceKomError';
+      return { key: 'fkerr:' + fkErr.nserror_code, label: `Abort: ${name} (FaceKomError ${fkErr.nserror_code})` };
+    }
+    return { key: 'nologs', label: 'Nincs breadcrumb (a Crashlytics nem adta át)' };
+  }
   return { key: 'unknown', label: 'Ismeretlen (nincs jel)' };
 }
 
@@ -2514,6 +2547,11 @@ function stepFromMsg(m) {
   return null;
 }
 
+// The close breadcrumb names the step in the SDK's camelCase enum (`voiceLivenessCheck`); map it to
+// the canonical name stepFromMsg yields, so the abort joins the same category.
+const CLOSE_STEP_CANON = { voiceLivenessCheck: 'voice-liveness-check', deepfakeDetection: 'deepfake-detection', idBackVideo: 'id-back-video' };
+function stepFromClose(s) { return CLOSE_STEP_CANON[s] || s; }
+
 // Union of all breadcrumbs across a Firebase session's crash reports (dedup by ts+msg, time-sorted).
 // One crash report only captures a rolling window, so a session that retried several times is only
 // fully visible after merging all its reports.
@@ -2545,7 +2583,11 @@ function deriveAbortExits(group) {
         const mj = logs[j].msg || '';
         const b = mj.match(/did enter background at step:\s*([^,]+),\s*isVideoStep:\s*(true|false)/);
         if (b) { exitTs = logs[j].rawTs; isVideo = b[2] === 'true'; break; }
-        if (/user initiated closing, isAlreadyClosed:\s*false/.test(mj)) { exitTs = logs[j].rawTs; break; }
+        // Current SDKs log `user initiated closing from: <step>, isAlreadyClosed: false`; older ones
+        // had no `from:`. The step named there is the fallback when no `nextStep:` crumb made it
+        // into the buffer (otherwise the abort lands in "Abort @ ?").
+        const cl = mj.match(/user initiated closing(?: from: ([A-Za-z0-9-]+))?, isAlreadyClosed:\s*false/);
+        if (cl) { exitTs = logs[j].rawTs; if (!step && cl[1]) step = stepFromClose(cl[1]); break; }
       }
       const waitSec = (lastRealTs && exitTs) ? Math.max(0, Math.round((exitTs - lastRealTs) / 1000)) : null;
       aborts.push({ step: step || '?', waitSec, fromTs: lastRealTs, toTs: exitTs, isVideo, det: lastDet });
@@ -4013,9 +4055,14 @@ function renderReport() {
   // Abort categories: summarise the (NP-filtered) list, THEN narrow it to the clicked category.
   const catOf = new Map(aborts.map(u => [u.key, laneAbortCategory(u)]));
   const catsHtml = renderAbortCategories(aborts, catOf, allLanes, neverPassedFn);
-  if (reportCatFilter && ![...catOf.values()].some(c => c.key === reportCatFilter)) reportCatFilter = '';
-  if (reportCatFilter) aborts = aborts.filter(u => catOf.get(u.key).key === reportCatFilter);
-  const npToggle = catsHtml + `<div class="rep-toolbar"><button class="filter-btn${reportNPOnly?' active':''}" onclick="toggleReportNP()" title="csak azok a userek, akik egyszer sem jutottak át">⛔ Only never-passed (${neverPassed})</button>${reportCatFilter ? `<button class="filter-btn active" onclick="setReportCat('')" title="kategória-szűrő törlése">✕ ${esc(catOf.get(aborts[0]?.key)?.label || reportCatFilter)}</button>` : ''}</div>`;
+  // reportCatFilter is a category key, or 'sec:<section>' from a section header row.
+  const catMatch = c => reportCatFilter.startsWith('sec:') ? c.section === reportCatFilter.slice(4) : c.key === reportCatFilter;
+  if (reportCatFilter && !reportCatFilter.startsWith('sec:') && ![...catOf.values()].some(catMatch)) reportCatFilter = '';
+  if (reportCatFilter) aborts = aborts.filter(u => catMatch(catOf.get(u.key)));
+  const catFilterLabel = reportCatFilter.startsWith('sec:')
+    ? (REPORT_SECTIONS.find(s => 'sec:' + s.key === reportCatFilter)?.label || reportCatFilter)
+    : (catOf.get(aborts[0]?.key)?.label || reportCatFilter);
+  const npToggle = catsHtml + `<div class="rep-toolbar"><button class="filter-btn${reportNPOnly?' active':''}" onclick="toggleReportNP()" title="csak azok a userek, akik egyszer sem jutottak át">⛔ Only never-passed (${neverPassed})</button>${reportCatFilter ? `<button class="filter-btn active" onclick="setReportCat('')" title="kategória-szűrő törlése">✕ ${esc(catFilterLabel)}</button>` : ''}</div>`;
   if (!aborts.length) {
     if (sub) sub.textContent = reportNPOnly ? '0 never-passed' : '0 aborts';
     host.innerHTML = npToggle + `<div class="empty">No ${reportNPOnly?'never-passed':'aborted'} sessions${gVersionFilter!=='all'?' in '+esc(gVersionFilter):''}. 🎉</div>`;
@@ -4117,13 +4164,23 @@ function renderAbortCategories(lanes, catOf, allLanes, neverPassedFn) {
   const approved = allLanes.filter(u => !neverPassedFn(u)).length;
   const rate = allLanes.length ? Math.round(approved / allLanes.length * 100) : 0;
   const num = (v, cls) => `<td class="num"${cls ? ` style="color:var(--${cls})"` : ''}>${v || '<span style="color:var(--muted)">—</span>'}</td>`;
-  const body = rows.map(c => {
+  const catRow = c => {
     const med = median(c.waits);
     const be = Object.entries(c.be).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${esc(v)} ${n}`).join(' · ');
     return `<tr class="rep-cat-row${reportCatFilter === c.key ? ' rep-cat-active' : ''}" onclick="setReportCat('${escAttr(c.key)}')" title="szűrés erre a kategóriára">
       <td class="${c.unexpected ? 'rep-cat-unexpected' : ''}">${c.unexpected ? '⚠ ' : ''}${esc(c.label)}${c.unexpected ? ' <span style="font-weight:400;font-size:10px">— 3.9.0-ban nem szabadna előfordulnia</span>' : ''}</td>
       ${num(c.n)}${num(c.np, 'red')}${num(c.rec, 'green')}${num(c.exits)}${num(c.rc, 'yellow')}${num(med != null ? med + 's' : '')}
       <td style="color:var(--muted);font-size:11px">${be}</td></tr>`;
+  };
+  // Crash / Abort / Server decline: one header row per section (its subtotal, click = filter the
+  // whole section), its categories under it. Empty sections still show, so a 0 reads as a result.
+  const body = REPORT_SECTIONS.map(sec => {
+    const secRows = rows.filter(c => c.section === sec.key);
+    const sum = f => secRows.reduce((a, c) => a + c[f], 0);
+    const fk = 'sec:' + sec.key;
+    return `<tr class="rep-cat-sec${reportCatFilter === fk ? ' rep-cat-active' : ''}" onclick="setReportCat('${fk}')" title="${escAttr(sec.title)} — szűrés az egész szekcióra">
+      <td>${esc(sec.label)}</td>${num(sum('n'))}${num(sum('np'), 'red')}${num(sum('rec'), 'green')}${num(sum('exits'))}${num(sum('rc'), 'yellow')}<td></td><td></td></tr>` +
+      secRows.map(catRow).join('');
   }).join('');
   return `<div class="rep-cats"><div style="margin-bottom:6px;color:var(--muted);font-size:12px">Abort-kategóriák — ${allLanes.length} user, ebből átjutott ${approved} (${rate}%). Kattints egy sorra a lista szűréséhez.</div>
     <div class="table-wrap"><table class="gantt-list-table">
