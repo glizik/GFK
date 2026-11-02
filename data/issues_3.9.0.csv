@@ -1,9 +1,9 @@
 rank,issue_name,nserror_domain,nserror_code,issue_id,variants_total,events_total,users_total,processed_events,analysed_events,last_scraped
-1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,8,2000,567,1929,0,2026-10-28T10:42:41.226Z
-2,FaceKom handleFlow (0),FaceKom handleFlow,0,,2,742,550,743,0,2026-10-28T10:42:41.226Z
-3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,0,86,67,87,0,2026-10-28T10:42:41.226Z
-4,FaceKomSDK.FaceKomError (3),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,3,,2,33,26,33,0,2026-10-28T10:42:41.226Z
-5,FaceKomSDK.FaceKomError (36),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,36,,0,30,26,31,0,2026-10-28T10:42:41.226Z
-6,FaceKomSDK.FaceKomError (46),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,46,,3,10,7,10,0,2026-10-28T10:42:41.226Z
-7,FaceKomSDK.FaceKomError (43),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,43,,0,8,4,8,0,2026-10-28T10:42:41.226Z
-8,hu.microsec.eszigno.mobile.SelfServiceInternalError (30703),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceInternalError,30703,,0,1,,1,0,2026-10-28T10:42:41.226Z
+1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,,8,2300,660,2225,0,2026-11-02T07:52:54.816Z
+2,FaceKom handleFlow (0),FaceKom handleFlow,0,,2,850,639,851,0,2026-11-02T07:52:54.816Z
+3,FaceKom stopAndClear (0),FaceKom stopAndClear,0,,0,102,81,103,0,2026-11-02T07:52:54.816Z
+4,FaceKomSDK.FaceKomError (36),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,36,,0,42,35,43,0,2026-11-02T07:52:54.816Z
+5,FaceKomSDK.FaceKomError (3),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,3,,2,39,30,39,0,2026-11-02T07:52:54.816Z
+6,FaceKomSDK.FaceKomError (43),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,43,,0,11,4,11,0,2026-11-02T07:52:54.816Z
+7,FaceKomSDK.FaceKomError (46),hu.microsec.eszigno.mobile.FaceKomSDK.FaceKomError,46,,3,10,7,10,0,2026-11-02T07:52:54.816Z
+8,hu.microsec.eszigno.mobile.SelfServiceInternalError (30703),hu.microsec.eszigno.mobile.hu.microsec.eszigno.mobile.SelfServiceInternalError,30703,,0,1,,1,0,2026-11-02T07:52:54.816Z
