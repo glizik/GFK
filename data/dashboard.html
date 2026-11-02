@@ -1660,6 +1660,22 @@ const REPORT_SECTIONS = [
   { key: 'decline', label: 'Server decline', title: 'a szerver end(status:"failed", reason = …) válasszal lezárta' },
 ];
 const PERM_MISSING_RE = /\b(mic|video)(?: status)?:\s*(denied|restricted|notDetermined)\b/;
+// Readable top frame of a crash: the collector stores `[Module] <mangled Swift symbol> — <signal>`.
+// A Swift symbol is length-prefixed names (`$s10FaceKomSDK13FKSelfServiceC21uploadLivenessV2Photo…`):
+// read the first three (module, type, member) and keep type.member.
+function crashFrameName(domain) {
+  const m = (domain || '').match(/\$s([0-9A-Za-z_]+)/);
+  if (!m) return (domain || '?').split(' — ')[0].replace(/^\[[^\]]+\]\s*/, '') || '?';
+  const names = [];
+  let s = m[1];
+  while (s && names.length < 3) {
+    const d = s.match(/^(\d+)/);
+    if (!d) { s = s.slice(1); continue; }
+    names.push(s.substr(d[1].length, +d[1]));
+    s = s.slice(d[1].length + +d[1]);
+  }
+  return names.slice(1).join('.') || names[0] || '?';
+}
 function laneAbortCategory(u) {
   const c = laneAbortCategoryRaw(u);
   return { ...c, section: c.key.startsWith('crash:') ? 'crash' : c.key.startsWith('reject:') ? 'decline' : 'abort' };
@@ -1667,10 +1683,15 @@ function laneAbortCategory(u) {
 function laneAbortCategoryRaw(u) {
   const groups = u.tries.map(t => t.group);
   const failedTries = u.tries.filter(t => normalizeOutcome(t.outcome) !== 'approve');
+  // A crash is keyed by WHERE it crashed (the top frame), not by the flow step: the same SDK bug
+  // shows up at whatever step the user happened to be on. A socket error just before it is named,
+  // because it is what sets the crash off (the upload closure still runs after the SDK tore down).
   const crashTry = u.tries.find(t => t.group.some(ev => ev.crash_kind === 'CRASH'));
   if (crashTry) {
-    const s = deriveStuckStep({ logs: mergeGroupLogs(crashTry.group) }) || '?';
-    return { key: 'crash:' + s, label: 'Crash @ ' + s };
+    const dom = crashTry.group.find(ev => ev.crash_kind === 'CRASH').nserror_domain || '';
+    const frame = crashFrameName(dom), sig = dom.split(' — ')[1];
+    const sock = mergeGroupLogs(crashTry.group).map(l => (l.msg || '').match(/connect socket error: (\w+)/)).filter(Boolean).pop();
+    return { key: 'crash:' + frame, label: `Crash: ${frame}${sig ? ` — ${sig}` : ''}${sock ? ` · socket ${sock[1]} után` : ''}` };
   }
   if (groups.some(g => noVideoConsent(g) || g.some(ev => (ev.logs || []).some(l => PERM_MISSING_RE.test(l.msg || '')))))
     return { key: 'perm', label: 'Hiányzó engedély (mikrofon / kamera)', unexpected: true };
@@ -1685,18 +1706,23 @@ function laneAbortCategoryRaw(u) {
   if (u.tries.some(t => isPossiblyApproveSession(t.group, t.fk))) return { key: 'possibly', label: '≈ Possibly approve (telemetria-rés 2FA után)' };
   const last = failedTries[failedTries.length - 1];
   if (last && causes.some(c => c === 'user closed' || c.startsWith('backgrounded'))) {
-    const s = deriveStuckStep({ logs: mergeGroupLogs(last.group) }) || '?';
+    const logs = mergeGroupLogs(last.group);
+    const s = deriveStuckStep({ logs }) || '?';
+    // No step reached: the SDK stopped on an error of its own (e.g. `auth error: invalidToken`
+    // right after connecting) and the user only closed the error screen — name the error.
+    const sdkErr = s === '?' && logs.map(l => (l.msg || '').match(/FaceKom error: (\w+) happened/)).filter(Boolean).pop();
+    if (sdkErr) return { key: 'sdkerr:' + sdkErr[1], label: `Abort: ${sdkErr[1]} (FaceKom hiba, még egy lépés előtt)` };
     return { key: 'quit:' + s, label: 'Kilépés (nem video lépés) @ ' + s };
   }
-  if (causes.includes('unexpected error')) return { key: 'unexpected', label: 'Unexpected error' };
-  if (groups.every(g => g.every(ev => !(ev.logs || []).length))) {
-    const fkErr = groups.flat().find(ev => ev.nserror_domain === 'FaceKomSDK.FaceKomError' && ev.nserror_code);
-    if (fkErr) {
-      const name = FACEKOMCODES[fkErr.nserror_code] || 'FaceKomError';
-      return { key: 'fkerr:' + fkErr.nserror_code, label: `Abort: ${name} (FaceKomError ${fkErr.nserror_code})` };
-    }
-    return { key: 'nologs', label: 'Nincs breadcrumb (a Crashlytics nem adta át)' };
+  // Before "Unexpected error": that is only the SDK's generic text, a FaceKomError code says more.
+  const noLogs = groups.every(g => g.every(ev => !(ev.logs || []).length));
+  const fkErr = noLogs && groups.flat().find(ev => ev.nserror_domain === 'FaceKomSDK.FaceKomError' && ev.nserror_code);
+  if (fkErr) {
+    const name = FACEKOMCODES[fkErr.nserror_code] || 'FaceKomError';
+    return { key: 'fkerr:' + fkErr.nserror_code, label: `Abort: ${name} (FaceKomError ${fkErr.nserror_code})` };
   }
+  if (causes.includes('unexpected error')) return { key: 'unexpected', label: 'Unexpected error' };
+  if (noLogs) return { key: 'nologs', label: 'Nincs breadcrumb (a Crashlytics nem adta át)' };
   return { key: 'unknown', label: 'Ismeretlen (nincs jel)' };
 }
 
