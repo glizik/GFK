@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-02T08:03:09.846Z",
+  "generated": "2026-11-09T08:19:33.701Z",
   "note": "FaceKom FATAL Crashlytics issues of the active versions — built by build-data.js from the collector crash pass (COLLECT_CRASHES=1).",
   "issues": [
     {
@@ -10,12 +10,982 @@
       "exception": "EXC_BREAKPOINT",
       "fatal_message": "_Concurrency/CheckedContinuation.swift:172: Fatal error: SWIFT TASK CONTINUATION MISUSE: connectSocket(baseUrl:socketSettings:) tried to resume its continuation more than once, returning ()!",
       "diagnosis": "connectSocket() wraps the socket connect in a withCheckedContinuation and resumes it twice: the connect times out (continuation resumed with the error), then the late didConnect event resumes the same continuation again → Swift runtime trap, the whole app dies.",
-      "events_total": 5,
-      "users_total": 4,
+      "events_total": 6,
+      "users_total": 5,
       "version_range": "3.9.0",
       "app_version": "3.9.0 (2853)",
       "console_url": "https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/738711ca2cdf94375b7a5cc6aeff47b2?time=90d&versions=3.9.0+%282853%29&types=crash",
       "events": [
+        {
+          "event_id": "2282404786315100065",
+          "session_id_base": "fe6a55e3417346f69dec8ce5a4d2b808",
+          "facekom_session": "31e1bcea-9c0c-4c02-865a-b4844a263329",
+          "app_version": "3.9.0 (2853)",
+          "os_version": "iOS 26.5.2",
+          "model": "iPhone 16 Plus",
+          "date": "Nov 3, 2026, 3:56:15 PM",
+          "crashed_step": "customerPortrait",
+          "console_url": "https://console.firebase.google.com/project/webszigno-dev-1532086359290/crashlytics/app/ios:hu.microsec.eszigno.mobile/issues/738711ca2cdf94375b7a5cc6aeff47b2?time=90d&versions=3.9.0+%282853%29&types=crash&sessionEventKey=fe6a55e3417346f69dec8ce5a4d2b808_2282404786315100065",
+          "stack_trace": [
+            {
+              "i": 0,
+              "module": "libswiftCore.dylib",
+              "symbol": "_assertionFailure(_:_:file:line:flags:) + 168"
+            },
+            {
+              "i": 1,
+              "module": "libswift_Concurrency.dylib",
+              "symbol": "CheckedContinuation.resume(returning:) + 428"
+            },
+            {
+              "i": 2,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK13FKSelfServiceC21uploadLivenessV2Photo5imageySo7UIImageC_tYaKFyScCyyts5Error_pGXEfU_yycfU_TA + 60"
+            },
+            {
+              "i": 3,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerC07connectD07baseUrl14socketSettings11onCompleted0K5ErrorySS_AA18FKSocketIOSettingsCyyt_tcSgyAA0abM0OcSgtFyycfU0_ + 172"
+            },
+            {
+              "i": 4,
+              "module": "FaceKomSDK",
+              "symbol": "$s10FaceKomSDK15SocketIOManagerC21subscribeCommonEventsyyyycSgFySayypG_0D2IO0D10AckEmitterCtcfU_ + 504"
+            },
+            {
+              "i": 5,
+              "module": "SocketIO",
+              "symbol": "$s8SocketIO0A8IOClientC11handleEvent_4data17isInternalMessage7withAckySS_SayypGSbSitF + 736"
+            },
+            {
+              "i": 6,
+              "module": "SocketIO",
+              "symbol": "$s8SocketIO0A8IOClientC17handleClientEvent_4datayAA0aeF0O_SayypGtF + 344"
+            },
+            {
+              "i": 7,
+              "module": "SocketIO",
+              "symbol": "$s8SocketIO0A8IOClientC10didConnect11toNamespace7payloadySS_SDySSypGSgtF + 344"
+            },
+            {
+              "i": 8,
+              "module": "SocketIO",
+              "symbol": "$s8SocketIO0A8IOClientC12handlePacketyyAA0aE0VF + 644"
+            },
+            {
+              "i": 9,
+              "module": "SocketIO",
+              "symbol": "$s8SocketIO0A7ManagerC19_parseEngineMessage33_FEE990CFC310EDF111B3A4D77C509822LLyySSF + 356"
+            },
+            {
+              "i": 10,
+              "module": "SocketIO",
+              "symbol": "$s8SocketIO0A7ManagerC18parseEngineMessageyySSFyyYbcfU_TA + 28"
+            },
+            {
+              "i": 11,
+              "module": "SocketIO",
+              "symbol": "$sIegh_IeyBh_TR + 28"
+            },
+            {
+              "i": 12,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_call_block_and_release + 32"
+            },
+            {
+              "i": 13,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_client_callout + 16"
+            },
+            {
+              "i": 14,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_main_queue_drain.cold.6 + 832"
+            },
+            {
+              "i": 15,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_main_queue_drain + 176"
+            },
+            {
+              "i": 16,
+              "module": "libdispatch.dylib",
+              "symbol": "_dispatch_main_queue_callback_4CF + 44"
+            },
+            {
+              "i": 17,
+              "module": "CoreFoundation",
+              "symbol": "__CFRUNLOOP_IS_SERVICING_THE_MAIN_DISPATCH_QUEUE__ + 16"
+            },
+            {
+              "i": 18,
+              "module": "CoreFoundation",
+              "symbol": "__CFRunLoopRun + 1944"
+            },
+            {
+              "i": 19,
+              "module": "CoreFoundation",
+              "symbol": "_CFRunLoopRunSpecificWithOptions + 532"
+            },
+            {
+              "i": 20,
+              "module": "GraphicsServices",
+              "symbol": "GSEventRunModal + 120"
+            },
+            {
+              "i": 21,
+              "module": "UIKitCore",
+              "symbol": "-[UIApplication _run] + 796"
+            },
+            {
+              "i": 22,
+              "module": "UIKitCore",
+              "symbol": "UIApplicationMain + 332"
+            },
+            {
+              "i": 23,
+              "module": "eSzigno",
+              "symbol": "main + 9"
+            },
+            {
+              "i": 24,
+              "module": "",
+              "symbol": "? + 0"
+            }
+          ],
+          "breadcrumbs": [
+            {
+              "ts": "15:46:01",
+              "type": "screen",
+              "msg": "EULAScreen"
+            },
+            {
+              "ts": "15:46:05",
+              "type": "screen",
+              "msg": "LoginStartScreen"
+            },
+            {
+              "ts": "15:46:10",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:46:21",
+              "type": "screen",
+              "msg": "VideoUserAgreementsScreen"
+            },
+            {
+              "ts": "15:46:26",
+              "type": "screen",
+              "msg": "VideoAssistanceScreen"
+            },
+            {
+              "ts": "15:47:04",
+              "type": "log",
+              "msg": "FaceKom started from: videoId"
+            },
+            {
+              "ts": "15:47:04",
+              "type": "log",
+              "msg": "FaceKom started with assistance: false"
+            },
+            {
+              "ts": "15:47:04",
+              "type": "screen",
+              "msg": "VideoIntroScreen"
+            },
+            {
+              "ts": "15:47:30",
+              "type": "log-ok",
+              "msg": "FaceKom ID Verified, document type: id-card"
+            },
+            {
+              "ts": "15:47:31",
+              "type": "screen",
+              "msg": "IdVerificationScreen"
+            },
+            {
+              "ts": "15:47:37",
+              "type": "log",
+              "msg": "FaceKom SelfService started"
+            },
+            {
+              "ts": "15:47:38",
+              "type": "screen",
+              "msg": "SelfServiceViewController"
+            },
+            {
+              "ts": "15:47:38",
+              "type": "log-ok",
+              "msg": "FaceKom getSettings success"
+            },
+            {
+              "ts": "15:47:38",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:47:38",
+              "type": "log-ok",
+              "msg": "FaceKom connectSocket success"
+            },
+            {
+              "ts": "15:47:38",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:47:39",
+              "type": "log-ok",
+              "msg": "Facekom flow successfully started, Listening..."
+            },
+            {
+              "ts": "15:47:39",
+              "type": "log-ok",
+              "msg": "FaceKom auth success"
+            },
+            {
+              "ts": "15:47:39",
+              "type": "log",
+              "msg": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"voiceLivenessCheckNumber\": 4139, \"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:47:39",
+              "type": "log",
+              "msg": "FaceKom capture consent shown"
+            },
+            {
+              "ts": "15:47:54",
+              "type": "log",
+              "msg": "FaceKom capture consent accepted"
+            },
+            {
+              "ts": "15:47:54",
+              "type": "screen",
+              "msg": "SelfieViewController"
+            },
+            {
+              "ts": "15:47:54",
+              "type": "log",
+              "msg": "FaceKom WebRTC started"
+            },
+            {
+              "ts": "15:47:56",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check"
+            },
+            {
+              "ts": "15:47:56",
+              "type": "log",
+              "msg": "FaceKom consent voice: nil, face: Optional(eSzigno.MessageStep.faceDetection)"
+            },
+            {
+              "ts": "15:47:56",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:47:57",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check"
+            },
+            {
+              "ts": "15:47:57",
+              "type": "log",
+              "msg": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)"
+            },
+            {
+              "ts": "15:47:57",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:voice\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:48:06",
+              "type": "log",
+              "msg": "FaceKom nextStep: custom(type: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:48:07",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection"
+            },
+            {
+              "ts": "15:48:07",
+              "type": "log",
+              "msg": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil"
+            },
+            {
+              "ts": "15:48:07",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:49:05",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection"
+            },
+            {
+              "ts": "15:49:05",
+              "type": "log",
+              "msg": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)"
+            },
+            {
+              "ts": "15:49:05",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:card\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:49:06",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:49:55",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:49:55",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:49:57",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:49:57",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:49:58",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:49:58",
+              "type": "log",
+              "msg": "FaceKom retry Step: Optional(FaceKomSDK.FKSelfService.Step.customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))"
+            },
+            {
+              "ts": "15:50:41",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:50:41",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:50:44",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:50:44",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:50:47",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:50:47",
+              "type": "log",
+              "msg": "FaceKom retry Step: Optional(FaceKomSDK.FKSelfService.Step.customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))"
+            },
+            {
+              "ts": "15:51:22",
+              "type": "error",
+              "msg": "Facekom végzett failed(title: Optional(\"Sajnos ez most nem sikerült!\"), subtitle: Optional(\"FaceKomError: timeOut\"), message: nil) státusszal."
+            },
+            {
+              "ts": "15:51:22",
+              "type": "log",
+              "msg": "FaceKom stopStream"
+            },
+            {
+              "ts": "15:51:23",
+              "type": "screen",
+              "msg": "FinishViewController"
+            },
+            {
+              "ts": "15:51:26",
+              "type": "log",
+              "msg": "FaceKom finished with type: reject"
+            },
+            {
+              "ts": "15:51:26",
+              "type": "log",
+              "msg": "FaceKom user initiated closing from: customerPortrait, isAlreadyClosed: true"
+            },
+            {
+              "ts": "15:51:27",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:51:27",
+              "type": "screen",
+              "msg": "LoginStartScreen"
+            },
+            {
+              "ts": "15:51:32",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:51:32",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:51:33",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:51:33",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:51:33",
+              "type": "log",
+              "msg": "FaceKom ignore nextStep while closing: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:51:33",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:51:35",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:51:38",
+              "type": "screen",
+              "msg": "VideoUserAgreementsScreen"
+            },
+            {
+              "ts": "15:51:40",
+              "type": "screen",
+              "msg": "VideoAssistanceScreen"
+            },
+            {
+              "ts": "15:51:43",
+              "type": "log",
+              "msg": "FaceKom started from: videoId"
+            },
+            {
+              "ts": "15:51:43",
+              "type": "log",
+              "msg": "FaceKom started with assistance: false"
+            },
+            {
+              "ts": "15:51:44",
+              "type": "screen",
+              "msg": "VideoIntroScreen"
+            },
+            {
+              "ts": "15:52:02",
+              "type": "log-ok",
+              "msg": "FaceKom ID Verified, document type: id-card"
+            },
+            {
+              "ts": "15:52:02",
+              "type": "screen",
+              "msg": "IdVerificationScreen"
+            },
+            {
+              "ts": "15:52:10",
+              "type": "log",
+              "msg": "FaceKom SelfService started"
+            },
+            {
+              "ts": "15:52:10",
+              "type": "log-ok",
+              "msg": "FaceKom getSettings success"
+            },
+            {
+              "ts": "15:52:10",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:52:11",
+              "type": "screen",
+              "msg": "SelfServiceViewController"
+            },
+            {
+              "ts": "15:52:11",
+              "type": "log-ok",
+              "msg": "FaceKom connectSocket success"
+            },
+            {
+              "ts": "15:52:11",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "log-ok",
+              "msg": "Facekom flow successfully started, Listening..."
+            },
+            {
+              "ts": "15:52:16",
+              "type": "log-ok",
+              "msg": "FaceKom auth success"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "error",
+              "msg": "FaceKom az integritás sérült a customer-portrait lépésnél, aborted."
+            },
+            {
+              "ts": "15:52:16",
+              "type": "error",
+              "msg": "FaceKom aborted state: Optional([\"reason\": \"FaceKom az integritás sérült a customer-portrait lépésnél, aborted.\"])"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "error",
+              "msg": "Facekom végzett aborted(message: Optional(\"Ismeretlen hiba történt!\")) státusszal."
+            },
+            {
+              "ts": "15:52:16",
+              "type": "screen",
+              "msg": "FinishViewController"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "error",
+              "msg": "FaceKom aborted state: nil"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "log",
+              "msg": "FaceKom session ended, report early"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "error",
+              "msg": "FaceKom ignore nextStep while closing: end(status: \"aborted\", additionalData: nil)"
+            },
+            {
+              "ts": "15:52:16",
+              "type": "error",
+              "msg": "FaceKom nextStep: end(status: \"aborted\", additionalData: nil)"
+            },
+            {
+              "ts": "15:52:21",
+              "type": "log",
+              "msg": "FaceKom user initiated closing from: voiceLivenessCheck, isAlreadyClosed: false"
+            },
+            {
+              "ts": "15:52:21",
+              "type": "error",
+              "msg": "Facekom SelfService stopped and cleared with error: A művelet végrehajtása sikertelen volt. (FaceKomSDK.FaceKomError hiba 36.)"
+            },
+            {
+              "ts": "15:52:21",
+              "type": "log",
+              "msg": "FaceKom user initiated closing from: voiceLivenessCheck, isAlreadyClosed: true"
+            },
+            {
+              "ts": "15:52:21",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:52:22",
+              "type": "screen",
+              "msg": "LoginStartScreen"
+            },
+            {
+              "ts": "15:52:27",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:52:33",
+              "type": "screen",
+              "msg": "VideoUserAgreementsScreen"
+            },
+            {
+              "ts": "15:52:35",
+              "type": "screen",
+              "msg": "VideoAssistanceScreen"
+            },
+            {
+              "ts": "15:52:37",
+              "type": "log",
+              "msg": "FaceKom started from: videoId"
+            },
+            {
+              "ts": "15:52:37",
+              "type": "log",
+              "msg": "FaceKom started with assistance: false"
+            },
+            {
+              "ts": "15:52:37",
+              "type": "screen",
+              "msg": "VideoIntroScreen"
+            },
+            {
+              "ts": "15:52:52",
+              "type": "log-ok",
+              "msg": "FaceKom ID Verified, document type: id-card"
+            },
+            {
+              "ts": "15:52:52",
+              "type": "screen",
+              "msg": "IdVerificationScreen"
+            },
+            {
+              "ts": "15:52:54",
+              "type": "log",
+              "msg": "FaceKom SelfService started"
+            },
+            {
+              "ts": "15:52:54",
+              "type": "log-ok",
+              "msg": "FaceKom getSettings success"
+            },
+            {
+              "ts": "15:52:54",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:52:54",
+              "type": "log-ok",
+              "msg": "FaceKom connectSocket success"
+            },
+            {
+              "ts": "15:52:54",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:52:55",
+              "type": "screen",
+              "msg": "SelfServiceViewController"
+            },
+            {
+              "ts": "15:52:55",
+              "type": "log-ok",
+              "msg": "Facekom flow successfully started, Listening..."
+            },
+            {
+              "ts": "15:52:55",
+              "type": "log-ok",
+              "msg": "FaceKom auth success"
+            },
+            {
+              "ts": "15:52:55",
+              "type": "log",
+              "msg": "FaceKom nextStep: custom(type: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: Optional([\"voiceLivenessCheckNumber\": 6106, \"startVideo\": 1]), availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:52:55",
+              "type": "log",
+              "msg": "FaceKom capture consent shown"
+            },
+            {
+              "ts": "15:53:03",
+              "type": "log",
+              "msg": "FaceKom capture consent accepted"
+            },
+            {
+              "ts": "15:53:03",
+              "type": "screen",
+              "msg": "SelfieViewController"
+            },
+            {
+              "ts": "15:53:03",
+              "type": "log",
+              "msg": "FaceKom WebRTC started"
+            },
+            {
+              "ts": "15:53:05",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:face, currentStep: voice-liveness-check"
+            },
+            {
+              "ts": "15:53:05",
+              "type": "log",
+              "msg": "FaceKom consent voice: nil, face: Optional(eSzigno.MessageStep.faceDetection)"
+            },
+            {
+              "ts": "15:53:05",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:53:05",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:voice, currentStep: voice-liveness-check"
+            },
+            {
+              "ts": "15:53:05",
+              "type": "log",
+              "msg": "FaceKom consent voice: Optional(eSzigno.MessageStep.voiceDetection), face: Optional(eSzigno.MessageStep.faceDetection)"
+            },
+            {
+              "ts": "15:53:05",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"voice-liveness-check\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:voice\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:53:08",
+              "type": "log",
+              "msg": "FaceKom nextStep: custom(type: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:53:08",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:face, currentStep: deepfake-detection"
+            },
+            {
+              "ts": "15:53:08",
+              "type": "log",
+              "msg": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: nil"
+            },
+            {
+              "ts": "15:53:08",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:face\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:53:13",
+              "type": "log",
+              "msg": "FaceKom handleNewMessageStep: detection:status:card, currentStep: deepfake-detection"
+            },
+            {
+              "ts": "15:53:13",
+              "type": "log",
+              "msg": "FaceKom consent face: Optional(eSzigno.MessageStep.faceDetection), card: Optional(eSzigno.MessageStep.cardDetection)"
+            },
+            {
+              "ts": "15:53:13",
+              "type": "log-ok",
+              "msg": "FaceKom -> StepMessage: task(step: \"deepfake-detection\", data: FaceKomSDK.FKSelfService.StepMessageDataTask(instruction: \"detection:status:card\", message: Optional(\"success\")))"
+            },
+            {
+              "ts": "15:53:13",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:53:55",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:53:55",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:53:59",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:53:59",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:54:00",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:54:00",
+              "type": "log",
+              "msg": "FaceKom retry Step: Optional(FaceKomSDK.FKSelfService.Step.customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))"
+            },
+            {
+              "ts": "15:54:50",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:54:50",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:54:54",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:54:54",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:54:58",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:54:58",
+              "type": "log",
+              "msg": "FaceKom retry Step: Optional(FaceKomSDK.FKSelfService.Step.customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil)))"
+            },
+            {
+              "ts": "15:55:26",
+              "type": "error",
+              "msg": "Facekom végzett failed(title: Optional(\"Sajnos ez most nem sikerült!\"), subtitle: Optional(\"FaceKomError: timeOut\"), message: nil) státusszal."
+            },
+            {
+              "ts": "15:55:26",
+              "type": "log",
+              "msg": "FaceKom stopStream"
+            },
+            {
+              "ts": "15:55:27",
+              "type": "screen",
+              "msg": "FinishViewController"
+            },
+            {
+              "ts": "15:55:30",
+              "type": "log",
+              "msg": "FaceKom finished with type: reject"
+            },
+            {
+              "ts": "15:55:30",
+              "type": "log",
+              "msg": "FaceKom user initiated closing from: customerPortrait, isAlreadyClosed: true"
+            },
+            {
+              "ts": "15:55:31",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:55:31",
+              "type": "screen",
+              "msg": "LoginStartScreen"
+            },
+            {
+              "ts": "15:55:33",
+              "type": "screen",
+              "msg": "LoginQrReaderScreen"
+            },
+            {
+              "ts": "15:55:37",
+              "type": "screen",
+              "msg": "VideoUserAgreementsScreen"
+            },
+            {
+              "ts": "15:55:38",
+              "type": "screen",
+              "msg": "VideoAssistanceScreen"
+            },
+            {
+              "ts": "15:55:45",
+              "type": "log",
+              "msg": "FaceKom started from: videoId"
+            },
+            {
+              "ts": "15:55:45",
+              "type": "log",
+              "msg": "FaceKom started with assistance: false"
+            },
+            {
+              "ts": "15:55:46",
+              "type": "screen",
+              "msg": "VideoIntroScreen"
+            },
+            {
+              "ts": "15:55:48",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:55:48",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:55:52",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:55:52",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: connected"
+            },
+            {
+              "ts": "15:55:56",
+              "type": "log",
+              "msg": "FaceKom ignore nextStep while closing: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:55:56",
+              "type": "log",
+              "msg": "FaceKom nextStep: customerPortrait(data: FaceKomSDK.FKSelfService.Step.SData(retry: Optional(false), isRequired: true, additionalData: nil, availableStreamIDs: nil, maxRetryNumber: nil))"
+            },
+            {
+              "ts": "15:56:07",
+              "type": "log-ok",
+              "msg": "FaceKom ID Verified, document type: id-card"
+            },
+            {
+              "ts": "15:56:08",
+              "type": "screen",
+              "msg": "IdVerificationScreen"
+            },
+            {
+              "ts": "15:56:10",
+              "type": "log",
+              "msg": "FaceKom SelfService started"
+            },
+            {
+              "ts": "15:56:10",
+              "type": "screen",
+              "msg": "SelfServiceViewController"
+            },
+            {
+              "ts": "15:56:12",
+              "type": "log-ok",
+              "msg": "FaceKom getSettings success"
+            },
+            {
+              "ts": "15:56:12",
+              "type": "log",
+              "msg": "FaceKom status changed: connecting"
+            },
+            {
+              "ts": "15:56:15",
+              "type": "log-ok",
+              "msg": "FaceKom status changed: disconnected"
+            },
+            {
+              "ts": "15:56:15",
+              "type": "error",
+              "msg": "FaceKom connect socket error: timeOut"
+            }
+          ]
+        },
         {
           "event_id": "2280806602063670379",
           "session_id_base": "beff9b32c4ba4e54922a3870e063be48",
