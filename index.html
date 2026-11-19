@@ -3209,7 +3209,7 @@ let gDayKey = null;
 let gOutcomeFilter = 'all', gVersionFilter = '3.8.2', gFkFilter = '';
 let gVersionPinned = false;   // true once the user clicks a version → applyVersionConfig stops overriding it
 let gDocFilter = 'all';                 // 'all' | id-card | passport | driving-licence | unknown
-let gEnvFilter = 'prod';                // 'prod' | 'test' | 'dev' | 'all' — defaults to PROD (see envOfEvent)
+let gEnvFilter = 'prod';                // 'prod' | 'prod@<backend>' | 'test' | 'dev' | 'all' — defaults to PROD (see envOfEvent)
 let gView = 'timeline';                 // 'timeline' | 'list'
 let gSortCol = 'start', gSortDir = 1;   // list sort
 const GANTT_CANON = 8;                  // rough max FaceKom steps, for the "how far" strip
@@ -3327,6 +3327,12 @@ function recomputeEnvScope() {
     const bucket = (env === 'test' || env === 'dev') ? env : 'prod';
     gEnvCounts[bucket]++;
     if (gEnvBases && bucket === gEnvFilter) gEnvBases.add(k);
+    // 'prod@<v>' = a PROD sub-bucket: the sessions the new backend <v> served (backendOfGroup).
+    if (bucket === 'prod') {
+      const sub = 'prod@' + (backendOfGroup(evs)?.version || '');
+      gEnvCounts[sub] = (gEnvCounts[sub] || 0) + 1;
+      if (gEnvBases && sub === gEnvFilter) gEnvBases.add(k);
+    }
   }
 }
 function evEnvMatch(ev) {
@@ -4236,7 +4242,11 @@ function renderGlobalFilters() {
   // from the idFront step on older builds. Counts are over the current version scope.
   const dOpts = [['all', 'All'], ['id-card', 'ID card'], ['passport', 'Passport'], ['driving-licence', 'Driving licence'], ['unknown', 'Unknown']];
   const dCounts = gDocCounts;
-  const eOpts = [['prod', 'PROD'], ['test', 'TEST'], ['dev', 'DEV'], ['all', 'All']];
+  // One extra PROD button per numbered prod backend rollout (data/backend_versions.csv) → only
+  // the sessions after that switch.
+  const eOpts = [['prod', 'PROD'],
+    ...BACKEND_VERSIONS.filter(r => r.env === 'prod' && r.version !== 'initial').map(r => [`prod@${r.version}`, `PROD · BE ${r.version}`]),
+    ['test', 'TEST'], ['dev', 'DEV'], ['all', 'All']];
   // No "🗄 archív" toggle since 3.9.0: the pre-3.9.0 data moved to archive/pre-3.9.0/ and isn't
   // served from data/ any more, so only ACTIVE versions are offered.
   // "No data file" has two very different causes: an ARCHIVED version (data exists, just isn't
