@@ -1622,7 +1622,7 @@ function backendOfGroup(group) {
   let best = null;
   for (const r of BACKEND_VERSIONS) {
     if (r.env !== env) continue;
-    const since = new Date(r.since + 'T00:00:00').getTime();
+    const since = new Date(r.since.includes('T') ? r.since : r.since + 'T00:00:00').getTime();  // `since` = date or local date+time
     if (!(since <= t)) continue;
     if (!best || since >= best.since) best = { version: r.version, since, note: r.note || '' };
   }
@@ -3148,7 +3148,7 @@ function renderTimeline(_retry = 0) {
   const beRollouts = new Map();
   for (const r of BACKEND_VERSIONS) {
     if (!r.since || r.version === 'initial') continue;
-    const k = `${r.version}|${r.since.trim()}`;
+    const k = `${r.version}|${r.since.trim().slice(0, 10)}`;  // day key; `since` may carry a time
     if (!beRollouts.has(k)) beRollouts.set(k, []);
     beRollouts.get(k).push(r.env.toUpperCase());
   }
