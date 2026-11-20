@@ -32,3 +32,4 @@
 {"ts":"2026-11-19T10:09:36.492Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
 {"ts":"2026-11-19T10:10:07.730Z","versions":"3.9.0 (2853)","issue":"FaceKom handleFlow (0)","window":"90d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=1000 expected=1110"}
 {"ts":"2026-11-19T10:10:38.738Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
+{"ts":"2026-11-20T12:02:21.843Z","versions":"3.9.0 (2853)","issue":"FaceKom handleFlow (0)","window":"3d","tries":1,"url":"api:84aa5f3ba2ddf1319562d8c3251f336b keys=37 expected=38"}
