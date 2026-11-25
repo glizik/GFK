@@ -51,3 +51,9 @@
 {"ts":"2026-11-24T11:58:47.374Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
 {"ts":"2026-11-24T11:59:16.637Z","versions":"3.9.0 (2853)","issue":"FaceKom handleFlow (0)","window":"90d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=1000 expected=1110"}
 {"ts":"2026-11-24T11:59:47.849Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
+{"ts":"2026-11-25T07:49:09.354Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30802)","window":"90d","tries":1,"url":"api:375f541612241dfd5d28d6971006722b keys=143 expected=144"}
+{"ts":"2026-11-25T07:49:40.027Z","versions":"3.9.0 (2853)","issue":"FaceKom handleFlow (0)","window":"90d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=1000 expected=1110"}
+{"ts":"2026-11-25T07:50:11.277Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
+{"ts":"2026-11-25T07:50:40.487Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
+{"ts":"2026-11-25T07:51:12.010Z","versions":"3.9.0 (2853)","issue":"FaceKom handleFlow (0)","window":"90d","tries":1,"url":"api:66ab9689c1addf4cdac8881ddf52eff2 keys=1000 expected=1110"}
+{"ts":"2026-11-25T07:51:40.793Z","versions":"3.9.0 (2853)","issue":"hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803)","window":"90d","tries":1,"url":"api:1782c2128a0148281dace39bf8664159 keys=1000 expected=2945"}
