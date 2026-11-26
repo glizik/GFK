@@ -8,10 +8,13 @@
 #           NO_PUSH=1 ./collect-incremental.sh        (collect but don't commit/push)
 #
 # It reports to Telegram itself, so a cron job (or one manual run) does the whole
-# daily flow — discovery + collect + commit/push — with NO model tokens (no agent
-# in the loop). Order: for each version in VERSIONS (newest first) discovery (90d
-# refresh + login gate) → collect its issues small→large; only COLLECT uses the
-# narrow window. Sends a
+# daily flow — collect + commit/push — with NO model tokens (no agent in the loop).
+# Default (api mode, COLLECT_ALL=1): ONE collector run, one browser, no version filter — the
+# FaceKom issue list comes from the API and every event lands in events_<its version>.csv; a new
+# app version is added to version_releases.csv by the collector itself.
+# Fallback (COLLECT_ALL=0 or COLLECT_MODE=scrape): the old per-version walk — for each version in
+# VERSIONS (newest first) discovery (90d refresh + login gate) → collect its issues small→large;
+# only COLLECT uses the narrow window. Sends a
 # 10-min heartbeat while a long issue is collecting. Aborts cleanly (and pings
 # Telegram) if not logged in — never spins.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -83,7 +86,7 @@ ensure_server () {
 }
 
 echo "==== incremental collection  window=$WINDOW dry=$DRY ===="
-tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}, kicsitől nagyig). Self-reporting fut."
+tg "▶️ Gyűjtés indul — window=$WINDOW (${VERSIONS[*]}). Self-reporting fut."
 
 # Make sure the dashboard is reachable locally for the whole run (and after it).
 ensure_server
@@ -129,9 +132,79 @@ net_err () {
     | head -1
 }
 
+# Run one `npm run collect` in the background (env passed as args) and watch it: abort on a login
+# expiry or network error (Telegram + exit), heartbeat every HEARTBEAT s. $1 = label for messages.
+watch_collect () {
+  local label="$1"; shift
+  env "$@" npm run collect > /tmp/_gfk_collect.out 2>&1 &
+  local cpid=$! secs=0 u0; u0=$(all_users)
+  while kill -0 "$cpid" 2>/dev/null; do
+    # Session can expire mid-collect → Firebase redirects to Google's login page
+    # (GlifWebSignIn) and the collector hangs forever on "Event #1 sek=?". Detect it
+    # LIVE (checked before sleeping, so within ~30s), kill the hung tree, and abort —
+    # never spin out +0 heartbeats on a dead session.
+    if grep -q "BLOCKER\|GlifWebSignIn" /tmp/_gfk_collect.out; then
+      kill_tree "$cpid"; wait "$cpid" 2>/dev/null
+      tg "🔑 Nem vagy belépve / lejárt a session ($label) — leállítottam. Lépj be (npm run setup) és indítsd újra: collect."
+      echo "NOT LOGGED IN ($label) — aborting."
+      exit 3
+    fi
+    reason="$(net_err < /tmp/_gfk_collect.out)"
+    if [ -n "$reason" ]; then
+      kill_tree "$cpid"; wait "$cpid" 2>/dev/null
+      tg "⚠️ Hálózati hiba gyűjtés közben ($label) — NEM login:
+$reason
+Leállítottam. Ha újra van net, indítsd újra: collect."
+      echo "NETWORK ERROR ($label) — aborting: $reason"
+      exit 4
+    fi
+    sleep 5; secs=$((secs+5))
+    [ $((secs % HEARTBEAT)) -eq 0 ] && tg "⏳ $label: +$(( $(all_users) - u0 )) új user eddig (window=$WINDOW)…"
+  done
+  wait "$cpid" || true
+  if grep -q "BLOCKER\|GlifWebSignIn" /tmp/_gfk_collect.out; then
+    tg "🔑 Nem vagy belépve / lejárt a session ($label). Lépj be (npm run setup) és indítsd újra: collect."
+    exit 3
+  fi
+  reason="$(net_err < /tmp/_gfk_collect.out)"
+  if [ -n "$reason" ]; then
+    tg "⚠️ Hálózati hiba gyűjtés közben ($label) — NEM login:
+$reason
+Leállítottam. Ha újra van net, indítsd újra: collect."
+    echo "NETWORK ERROR ($label) — aborting: $reason"
+    exit 4
+  fi
+  return 0
+}
+all_users () { local n=0 f; for f in ./data/events_*.csv; do n=$((n + $(users_of "$f"))); done; echo $n; }
+
 AUTH_OK=0; SUMMARY=""; USUMMARY=""   # per collected version, "<ver> +<n>": SUMMARY counts new
                                      # EVENTS (commit message = data provenance), USUMMARY new USERS
                                      # (everything G is told). Version-agnostic.
+COLLECT_ALL="${COLLECT_ALL:-1}"; [ "$COLLECT_MODE" = "api" ] || COLLECT_ALL=0
+if [ "$COLLECT_ALL" = "1" ]; then
+  # Per-version "<version> <rows> <users>" before the run (a file, not an associative array: macOS'
+  # /bin/bash is 3.2, and cron runs that one).
+  BEFORE=/tmp/_gfk_collect_before.txt; : > "$BEFORE"
+  for v in "${VERSIONS[@]}"; do echo "$v $(rows_of "./data/events_${v}.csv") $(users_of "./data/events_${v}.csv")" >> "$BEFORE"; done
+  echo "## collect ALL versions (one pass, window=$WINDOW)"
+  if [ "$DRY" = "1" ]; then echo "   dry: would collect every version in one pass"; else
+    watch_collect "minden verzió" COLLECT_ALL=1 ISSUE_VERSIONS= ISSUE_TIME_DEFAULT="$WINDOW" \
+      EVENTS_CSV=./data/events_${VERSIONS[0]}.csv ISSUES_CSV=./data/issues_${VERSIONS[0]}.csv
+    grep -E "FaceKom issue\(s\) in the interval|Total new events|New app version|CAP1000" /tmp/_gfk_collect.out || true
+    # The 1000-key cap of the event list: G wants to hear about it every time it bites.
+    cap="$(grep -o '\[GFK:CAP1000\] [^:]*' /tmp/_gfk_collect.out | sed 's/\[GFK:CAP1000\] //' | sort -u | tr '\n' ';')"
+    [ -n "$cap" ] && tg "🚨 1000-es plafon: az eseménylista elérte az 1000-et → a régebbi események kimaradtak: $cap"
+  fi
+  VERSIONS=($(active_versions))   # the collector may have registered a brand-new version
+  for v in "${VERSIONS[@]}"; do
+    eb=$(awk -v v="$v" '$1==v {print $2}' "$BEFORE"); ub=$(awk -v v="$v" '$1==v {print $3}' "$BEFORE")
+    vnew=$(( $(rows_of "./data/events_${v}.csv") - ${eb:-0} ))
+    vusers=$(( $(users_of "./data/events_${v}.csv") - ${ub:-0} ))
+    SUMMARY="${SUMMARY:+$SUMMARY · }$v +$vnew"
+    USUMMARY="${USUMMARY:+$USUMMARY · }$v +$vusers"
+  done
+else
 for ver in "${VERSIONS[@]}"; do
   build="$(build_of "$ver")"; [ -z "$build" ] && { echo "no build for $ver"; continue; }
   icsv="./data/issues_${ver}.csv"; ecsv="./data/events_${ver}.csv"
@@ -226,6 +299,7 @@ Leállítottam. Ha újra van net, indítsd újra: collect."
   USUMMARY="${USUMMARY:+$USUMMARY · }$ver +$vusers"
   [ "$DRY" = "1" ] || tg "📦 $ver kész: +$vusers új user (összes: $(users_of "$ecsv"))"
 done
+fi
 
 # ── pre-process JSON for the dashboard (one fetch instead of per-event logs) ──
 echo "## build dashboard JSON"
@@ -237,7 +311,7 @@ if [ "$NO_PUSH" != "1" ]; then
   for v in "${VERSIONS[@]}"; do
     git add "data/events_${v}.csv" "data/issues_${v}.csv" "data/events_${v}.json" 2>/dev/null
   done
-  git add "$GAPS_FILE" data/crashes.json 2>/dev/null
+  git add "$GAPS_FILE" data/crashes.json data/version_releases.csv 2>/dev/null
   # data/logs/ is deliberately NOT committed any more (it is in .gitignore): 6k+ raw log files /
   # 121 MB that only build-data.js reads, locally. Everything the dashboard needs is already baked
   # into events_<v>.json — publishing the raw logs was what pushed the Pages deploy over its

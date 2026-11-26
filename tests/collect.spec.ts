@@ -42,6 +42,13 @@ const MAX_EMPTY_TRIES         = parseInt(process.env.MAX_EMPTY_TRIES ?? '3');
 const COLLECT_GAPS            = path.resolve(process.env.COLLECT_GAPS ?? './data/collect-gaps.jsonl');
 /** 1 = ignore ISSUE_TYPES_LIST and collect every CRASH (fatal) issue of the version instead (api mode only). */
 const COLLECT_CRASHES         = process.env.COLLECT_CRASHES === '1';
+/**
+ * 1 = ONE pass over EVERY app version (api mode only): no version filter, the FaceKom issue list
+ * (non-fatal + fatal) comes from the API instead of the UI discovery, and each event is routed to
+ * events_<its display version>.csv next to EVENTS_CSV. A version seen for the first time gets a row
+ * in version_releases.csv (active=1). One browser for the whole run instead of one per issue.
+ */
+const COLLECT_ALL             = process.env.COLLECT_ALL === '1';
 /** FaceKom session UUID to force-recollect (removes matching events from dedup before run). */
 const FORCE_RECOLLECT_FK      = (process.env.FORCE_RECOLLECT_FK_SESSION ?? '').trim();
 // One-shot: re-GET every CSV row that has no sdk_version yet and fill it in (rows collected before
@@ -794,11 +801,11 @@ async function apiCall<T>(page: Page, ctx: ApiCtx, endpoint: string, body?: unkn
   }
 }
 
-/** The issue list, matched by "<signalName> (<signalCode>)" — the same name the CSVs use. */
-async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise<{ id: string; eventsCount: number }> {
+/** Open issues of one event type matching the "FaceKom" search, in the interval, most events first. */
+async function listTopIssuesApi(page: Page, ctx: ApiCtx, eventType: 'NON_FATAL' | 'FATAL'): Promise<any[]> {
   const res = await apiCall<{ topIssues?: any[] }>(page, ctx, '/metrics:listFirebaseTopOpenIssues', {
     filters: {
-      categories: [], customKeys: [], eventType: ['NON_FATAL'], manufacturerModels: [],
+      categories: [], customKeys: [], eventType: [eventType], manufacturerModels: [],
       osVersions: [], rollouts: [], tagFilter: { tagTypes: ['TAG_UNSPECIFIED'] },
       versionFilters: apiVersionFilters(),
     },
@@ -807,8 +814,14 @@ async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise
     pageDetails: { pageSize: '100', pageToken: '' },
     searchTerm: { term: BASE_QUERY.issuesQuery },
   });
-  const found = (res.topIssues ?? []).find(i =>
-    `${i?.caption?.signalName} (${i?.caption?.signalCode})` === issueType);
+  return (res.topIssues ?? []).filter(i => i?.id);
+}
+const nonFatalName = (i: any) => `${i?.caption?.signalName} (${i?.caption?.signalCode})`;
+const crashName    = (i: any) => [i?.caption?.title, i?.caption?.subtitle].filter(Boolean).join(' — ') || `crash ${i.id}`;
+
+/** The issue list, matched by "<signalName> (<signalCode>)" — the same name the CSVs use. */
+async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise<{ id: string; eventsCount: number }> {
+  const found = (await listTopIssuesApi(page, ctx, 'NON_FATAL')).find(i => nonFatalName(i) === issueType);
   return { id: found?.id ?? '', eventsCount: +(found?.eventsCount ?? 0) };
 }
 
@@ -818,22 +831,7 @@ async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise
  * ("[FaceKomSDK] …"), which the UI discovery's title-highlight match would miss.
  */
 async function listCrashIssuesApi(page: Page, ctx: ApiCtx): Promise<Array<{ id: string; eventsCount: number; name: string }>> {
-  const res = await apiCall<{ topIssues?: any[] }>(page, ctx, '/metrics:listFirebaseTopOpenIssues', {
-    filters: {
-      categories: [], customKeys: [], eventType: ['FATAL'], manufacturerModels: [],
-      osVersions: [], rollouts: [], tagFilter: { tagTypes: ['TAG_UNSPECIFIED'] },
-      versionFilters: apiVersionFilters(),
-    },
-    interval: apiInterval(),
-    orderBy: 'ORDER_EVENTS',
-    pageDetails: { pageSize: '100', pageToken: '' },
-    searchTerm: { term: BASE_QUERY.issuesQuery },
-  });
-  return (res.topIssues ?? []).filter(i => i?.id).map(i => ({
-    id:          i.id,
-    eventsCount: +(i.eventsCount ?? 0),
-    name:        [i?.caption?.title, i?.caption?.subtitle].filter(Boolean).join(' — ') || `crash ${i.id}`,
-  }));
+  return (await listTopIssuesApi(page, ctx, 'FATAL')).map(i => ({ id: i.id, eventsCount: +(i.eventsCount ?? 0), name: crashName(i) }));
 }
 
 async function listEventKeysApi(page: Page, ctx: ApiCtx, issueId: string): Promise<EventKey[]> {
@@ -975,12 +973,15 @@ async function collectIssueTypeViaApi(page: Page, ctx: ApiCtx, issueType: string
 async function collectIssueEventsApi(
   page: Page, ctx: ApiCtx, issueId: string, eventsCount: number, issueType: string,
   existingKeys: Set<string>, isCrash: boolean,
+  store: (rec: EventRecord) => void = rec => appendEventCsv(EVENTS_CSV, rec),
 ): Promise<number> {
   const keys = await listEventKeysApi(page, ctx, issueId);
   console.log(`🔑 ${keys.length} event key(s) in the interval (issue list reports ${eventsCount})`);
   // The issue list and the event list are two different queries; if the second returns fewer than
   // the first promises, something was withheld or truncated — exactly the case worth recording.
   if (keys.length < eventsCount) recordCollectGap(issueType, `api:${issueId} keys=${keys.length} expected=${eventsCount}`, 1);
+  // The event list is capped at 1000 keys (the newest ones): the start of the window is cut off.
+  if (keys.length >= 1000) console.log(`🚨 [GFK:CAP1000] ${issueType}: the event list hit the 1000-key cap — older events in the window are missing`);
 
   let collected = 0;
   for (const k of keys) {
@@ -994,7 +995,7 @@ async function collectIssueEventsApi(
       continue;
     }
     const breadcrumbs = writeApiLogFile(ev, issueId);
-    appendEventCsv(EVENTS_CSV, recordFromApiEvent(ev, issueId, k.sessionId, issueType, breadcrumbs, isCrash));
+    store(recordFromApiEvent(ev, issueId, k.sessionId, issueType, breadcrumbs, isCrash));
     existingKeys.add(sek);
     collected++;
     console.log(`✅ ${sek}  (${breadcrumbs})`);
@@ -1002,6 +1003,80 @@ async function collectIssueEventsApi(
     if (COLLECT_LIMIT > 0 && collected >= COLLECT_LIMIT) { console.log(`🛑 Limit ${COLLECT_LIMIT} reached.`); break; }
   }
   return collected;
+}
+
+// ── COLLECT_ALL: every version in one pass ───────────────────────────────────
+const DATA_DIR      = path.dirname(EVENTS_CSV);
+const RELEASES_CSV  = path.join(DATA_DIR, 'version_releases.csv');
+const eventsCsvOf   = (v: string) => path.join(DATA_DIR, `events_${v}.csv`);
+const issuesCsvOf   = (v: string) => path.join(DATA_DIR, `issues_${v}.csv`);
+const ISSUE_HEADERS = ['rank', 'issue_name', 'nserror_domain', 'nserror_code', 'issue_id', 'variants_total',
+  'events_total', 'users_total', 'processed_events', 'analysed_events', 'last_scraped'];
+
+/** "3.9.0 (2853)" → "3.9.0"; the file key and the version_releases.csv key. */
+const versionOfRecord = (rec: EventRecord) => (rec.app_version || '').replace(/\s*\(.*\)\s*$/, '').trim() || 'unknown';
+
+/** A version not yet in version_releases.csv gets a row, active — so it is collected, built,
+ *  published and offered by the dashboard from now on without anyone touching the CSV. */
+function registerVersion(v: string, build: string) {
+  const text = fs.existsSync(RELEASES_CSV) ? fs.readFileSync(RELEASES_CSV, 'utf-8') : 'version,build,date,active\n';
+  if (text.split(/\r?\n/).some(l => l.split(',')[0] === v)) return;
+  const today = new Date().toISOString().slice(0, 10);
+  fs.writeFileSync(RELEASES_CSV, text.replace(/\n?$/, '\n') + `${v},${build},${today},1\n`, 'utf-8');
+  console.log(`🆕 New app version ${v} (${build}) → added to version_releases.csv (active)`);
+}
+
+/** Per-version issue table row: who the issue is and how many of its events we hold. The interval's
+ *  per-version event total is not known in this mode (one unfiltered query), so events_total stays empty. */
+function upsertIssueRow(v: string, issueName: string, issueId: string, code: string, delta: number) {
+  const p = issuesCsvOf(v);
+  const lines = fs.existsSync(p) ? fs.readFileSync(p, 'utf-8').trim().split(/\r?\n/) : [];
+  const head = lines.length ? parseCsvLine(lines[0]) : ISSUE_HEADERS;
+  const rows = lines.slice(1).filter(Boolean).map(l => {
+    const vals = parseCsvLine(l); const r: Record<string, string> = {};
+    head.forEach((h, i) => { r[h] = vals[i] ?? ''; }); return r;
+  });
+  let row = rows.find(r => r.issue_name === issueName);
+  if (!row) {
+    row = Object.fromEntries(ISSUE_HEADERS.map(h => [h, ''])) as Record<string, string>;
+    Object.assign(row, { rank: String(rows.length + 1), issue_name: issueName, issue_id: issueId, nserror_code: code, processed_events: '0' });
+    rows.push(row);
+  }
+  row.processed_events = String((parseInt(row.processed_events || '0') || 0) + delta);
+  row.last_scraped = new Date().toISOString();
+  fs.writeFileSync(p, [ISSUE_HEADERS.join(','), ...rows.map(r => ISSUE_HEADERS.map(h => escapeCsv(r[h] ?? '')).join(','))].join('\n') + '\n', 'utf-8');
+}
+
+async function collectAllVersionsApi(page: Page, ctx: ApiCtx): Promise<number> {
+  // Dedup across every version's file: an event is stored once, in its own version's CSV.
+  const existing = new Set<string>();
+  for (const f of fs.readdirSync(DATA_DIR).filter(f => /^events_.+\.csv$/.test(f))) {
+    migrateEventCsv(path.join(DATA_DIR, f));
+    for (const k of readExistingKeys(path.join(DATA_DIR, f))) existing.add(k);
+  }
+  console.log(`📋 Existing events (all versions): ${existing.size}`);
+  const work = [
+    ...(await listTopIssuesApi(page, ctx, 'NON_FATAL')).map(i => ({ i, name: nonFatalName(i), crash: false })),
+    ...(await listTopIssuesApi(page, ctx, 'FATAL')).map(i => ({ i, name: crashName(i), crash: true })),
+  ];
+  console.log(`🗂  ${work.length} FaceKom issue(s) in the interval (all versions)`);
+  let total = 0;
+  for (const w of work) {
+    console.log(`\n${'═'.repeat(60)}\n${w.crash ? '💥' : '🎯'} ${w.name}  (${w.i.eventsCount ?? '?'} events, all versions)`);
+    const perVersion = new Map<string, number>();
+    const store = (rec: EventRecord) => {
+      const v = versionOfRecord(rec);
+      const build = /\((.+?)\)/.exec(rec.app_version)?.[1] ?? '';
+      registerVersion(v, build);
+      appendEventCsv(eventsCsvOf(v), rec);
+      perVersion.set(v, (perVersion.get(v) ?? 0) + 1);
+    };
+    total += await collectIssueEventsApi(page, ctx, w.i.id, +(w.i.eventsCount ?? 0), w.name, existing, w.crash, store);
+    // Crashes are not in the issue tables (build-data.js assembles crashes.json from the events).
+    if (!w.crash) for (const [v, n] of perVersion) upsertIssueRow(v, w.name, w.i.id, String(w.i?.caption?.signalCode ?? ''), n);
+    if (perVersion.size) console.log(`📊 ${[...perVersion].map(([v, n]) => `${v} +${n}`).join(' · ')}`);
+  }
+  return total;
 }
 
 test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
@@ -1047,6 +1122,12 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
   }
 
   let totalCollected = 0;
+  if (COLLECT_ALL) {
+    if (!apiCtx) throw new Error('COLLECT_ALL needs COLLECT_MODE=api');
+    totalCollected = await collectAllVersionsApi(page, apiCtx);
+    console.log(`\n🎉 Done. Total new events (all versions): ${totalCollected}`);
+    return;
+  }
   if (COLLECT_CRASHES) {
     if (!apiCtx) throw new Error('COLLECT_CRASHES needs COLLECT_MODE=api');
     const crashes = await listCrashIssuesApi(page, apiCtx);

@@ -37,6 +37,13 @@ session id + timestamp the owner (no prod access) can hand to his boss to verify
   (default `1d`): discovery at 90d per active version, then collect within the window, then
   `build-data.js` + commit + push, self-reporting to Telegram. A full run of both active versions
   takes ~3 minutes.
+  - **One pass, all versions (default since 2026-11-26, `COLLECT_ALL=1`, api mode):** a single
+    `npm run collect` with NO version filter — issue list (non-fatal + fatal, `FaceKom` search)
+    straight from the API, no UI discovery; each event is routed to `events_<displayVersion>.csv`,
+    `issues_<v>.csv` rows are upserted (no per-version `events_total` in this mode), and an unseen
+    app version is appended to `version_releases.csv` (active=1). ~20 s for a quiet day vs ~30 min
+    for the old per-version × per-issue walk (one browser launch per issue). `COLLECT_ALL=0` brings
+    the old walk back. A hit on the 1000-key cap prints `[GFK:CAP1000]` → Telegram alert.
   - **`COLLECT_MODE` (default `api`)** — `api` calls the console's OWN JSON API
     (`crashlytics-pa.clients6.google.com`): `metrics:listFirebaseTopOpenIssues` → issue id,
     `issues/<id>/metrics:listSessionEventIds` → every `{sessionId,eventId}`,
