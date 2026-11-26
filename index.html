@@ -2941,7 +2941,7 @@ function renderSessionCard(group, idx) {
     <div class="event-card-header">
       <div style="flex:1;min-width:0">
         <h3>${esc(title)}${fkSess ? copyIcon(fkSess, 'Copy FaceKom session') : sek ? copyIcon(sek, 'Copy event key') : ''} <span class="badge ${outcomeBadgeClass(effOutcome)}">${esc(effOutcome)}${inv ? ' 🔎' : ''}</span>${possiblyTag(group, invFk)}${probablyTag(group)}${envTag(group)}${outcomeExtra} <span class="badge badge-gray">${group.length} report${group.length !== 1 ? 's' : ''}</span>${crashBadge}${taskBadgesHtml ? ' ' + taskBadgesHtml : ''}</h3>
-        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${sdkOfGroup(group) ? ' &nbsp;·&nbsp; <span class="sdk-chip" title="FaceKom SDK verzió (FACEKOM_SDK_VERSION)">SDK ' + esc(sdkOfGroup(group)) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
+        <div class="meta">${esc(startFull || primary.date)} &nbsp;·&nbsp; ${esc(primary.model)} &nbsp;·&nbsp; ${esc(primary.os_version)}${primary.app_version ? ' &nbsp;·&nbsp; <span style="color:var(--accent2)">' + esc(primary.app_version) + '</span>' : ''}${cardDocType ? ' &nbsp;·&nbsp; 🪪 ' + esc(cardDocType) : ''}</div>
       </div>
       ${attachBtnHtml}
     </div>
@@ -3878,14 +3878,14 @@ function renderTimeline2() {
              title="${escAttr(tip)}" onclick="event.stopPropagation();openGanttCard('${escAttr(t.sessId)}')"></div>
         <div class="tl2-bar-lbl${left + w > 62 ? ' left' : ''}" style="${left + w > 62 ? `right:${(100 - left).toFixed(2)}%` : `left:${(left + w).toFixed(2)}%`}">${esc(t.lastStep !== '—' ? t.lastStep : t.outcome)}</div>
       </div>
-      <div class="tl2-sdk" title="FaceKom SDK verzió">${esc(sdkOfGroup(t.group) || '—')}</div>
+      <div class="tl2-sdk" title="app verzió${sdkOfGroup(t.group) ? ' · FaceKom SDK ' + escAttr(sdkOfGroup(t.group)) : ''}">${esc((t.group.find(e => e.app_version)?.app_version || '—').replace(/\s*\(\d+\)$/, ''))}</div>
     </div>`;
   }).join('');
 
   chart.innerHTML = `<div class="tl2-wrap"><div class="tl2-grid">
     <div class="tl2-head">
       <div>#</div><div>Start · duration</div><div>FaceKom session</div><div>Reviewed</div><div>Insight</div>
-      <div class="tl2-axis">${tm.axis}</div><div>SDK</div>
+      <div class="tl2-axis">${tm.axis}</div><div>App</div>
     </div>
     ${body}
   </div></div>`;

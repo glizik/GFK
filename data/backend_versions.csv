@@ -3,3 +3,4 @@ prod,initial,2026-01-01,régi backend (verziószám ismeretlen)
 test,1.9.11.44,2026-09-28,új backend — reconnect javítás várható
 dev,1.9.11.44,2026-09-28,új backend — reconnect javítás várható
 prod,1.9.11.44,2026-11-18T17:00,új backend élesítve prodon ~17h (verziószám feltételezve = test)
+prod,1.9.11.44+cfg,2026-11-26T16:25,config beállítás prodon (verzió nem változott; a szakadásoknak javulni kellene)
