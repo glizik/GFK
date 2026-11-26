@@ -108,6 +108,11 @@ Analytics/Step-funnel → Events grid → Dev tasks.
 - **`archive/pre-3.9.0/`** — everything from 3.7.0–3.8.2 (events/issues/investigations/tasks+notes,
   old reports; logs+screenshots local-only/gitignored). Fresh start on 2026-09-28 with 3.9.0: the
   page offers active versions only, no archive toggle, no dev tasks. Read-only reference.
+  **2026-11-26: every app version is active again** (G: users on older apps count too). Their
+  events/issues CSV+JSON, logs and investigations were copied back from here into `data/`, and
+  collect now tops them up from Crashlytics (90-day retention ⇒ the archive copy is the only
+  source for anything older). Archive rows predate `sdk_version` → shown as `n/a`
+  (`sdkMissingWhy`); `perm` on a pre-3.9.0 app is `perm-old`, not a regression.
 
 ### Code map (functions in index.html)
 - **Load/render:** `loadData()` (reads `version_releases.csv` FIRST → `applyVersionConfig` fills

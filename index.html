@@ -1614,6 +1614,13 @@ let BACKEND_VERSIONS = [];
 // FaceKom SDK version: the app's FACEKOM_SDK_VERSION Crashlytics key (since 3.8.0). Any report of
 // the session will do — they all come from the same app build.
 function sdkOfGroup(group) { return (group || []).find(e => e.sdk_version)?.sdk_version || ''; }
+// Why a report has no SDK version: before 3.8.0 the app never sent the key; from 3.8.0 on it did,
+// we just hold an older copy of the report (collected before the column existed).
+function sdkMissingWhy(appVersion) {
+  return String(appVersion || '').localeCompare('3.8.0', undefined, { numeric: true }) < 0
+    ? 'ez az app verzió még nem küldi (FACEKOM_SDK_VERSION csak 3.8.0 óta)'
+    : 'a report régebbi gyűjtésből van, az SDK verzió akkor még nem került be';
+}
 
 function backendOfGroup(group) {
   const env = envOfGroup(group) || 'prod';
@@ -1641,7 +1648,8 @@ function backendTag(group) {
 // table is split (REPORT_SECTIONS). First match wins:
 //   crash:*   — the app itself crashed (a FATAL report, crash_kind CRASH); keyed by the last step.
 //   perm      — the SDK logged a missing mic/camera permission (or noVideoConsent). 3.9.0 is meant
-//               to have fixed this: any hit is a REGRESSION, flagged red.
+//               to have fixed this: any hit on 3.9.0+ is a REGRESSION, flagged red; on an older
+//               app it is the known, unfixed problem → its own unflagged row (perm-old).
 //   reject:*  — the server ended it with a reason (end(status:"failed", reason = "X")).
 //   abort:*   — left a VIDEO step (deriveAbortExits); keyed by the step of the LAST abort — the
 //               one the user gave up on (or, if they later passed, the one they recovered from).
@@ -1694,7 +1702,9 @@ function laneAbortCategoryRaw(u) {
     return { key: 'crash:' + frame, label: `Crash: ${frame}${sig ? ` — ${sig}` : ''}${sock ? ` · socket ${sock[1]} után` : ''}` };
   }
   if (groups.some(g => noVideoConsent(g) || g.some(ev => (ev.logs || []).some(l => PERM_MISSING_RE.test(l.msg || '')))))
-    return { key: 'perm', label: 'Hiányzó engedély (mikrofon / kamera)', unexpected: true };
+    return groups.some(g => g.some(ev => String(ev.app_version || '').localeCompare('3.9.0', undefined, { numeric: true }) >= 0))
+      ? { key: 'perm', label: 'Hiányzó engedély (mikrofon / kamera)', unexpected: true }
+      : { key: 'perm-old', label: 'Hiányzó engedély (mikrofon / kamera) — 3.9.0 előtti app, ott még ismert hiba' };
   for (const t of failedTries) {
     const r = getEndReason(t.group);
     if (r) return { key: 'reject:' + r, label: 'Szerver elutasítás: ' + r };
@@ -2827,7 +2837,7 @@ function renderKeysContent(ev) {
     <span class="kv-key">configuration</span><span class="kv-val">${esc(ev.configuration || '—')}</span>
     <span class="kv-key" title="${escAttr(ENV_FILTER_TITLE)}">environment</span>${envCellHtml(ev)}
     <span class="kv-key">app_version</span><span class="kv-val">${esc(ev.app_version || '—')}</span>
-    <span class="kv-key">facekom_sdk_version</span><span class="kv-val sdk-chip">${esc(ev.sdk_version || '—')}</span>
+    <span class="kv-key">facekom_sdk_version</span><span class="kv-val sdk-chip"${ev.sdk_version ? '' : ` title="${escAttr(sdkMissingWhy(ev.app_version))}"`}>${esc(ev.sdk_version || 'n/a')}</span>
     <span class="kv-key">issue_id</span><span class="kv-val" style="font-size:10px">${esc(ev.issue_id || '—')}</span>
   </div>`;
 }
@@ -3878,7 +3888,7 @@ function renderTimeline2() {
              title="${escAttr(tip)}" onclick="event.stopPropagation();openGanttCard('${escAttr(t.sessId)}')"></div>
         <div class="tl2-bar-lbl${left + w > 62 ? ' left' : ''}" style="${left + w > 62 ? `right:${(100 - left).toFixed(2)}%` : `left:${(left + w).toFixed(2)}%`}">${esc(t.lastStep !== '—' ? t.lastStep : t.outcome)}</div>
       </div>
-      <div class="tl2-sdk" title="app verzió${sdkOfGroup(t.group) ? ' · FaceKom SDK ' + escAttr(sdkOfGroup(t.group)) : ''}">${esc((t.group.find(e => e.app_version)?.app_version || '—').replace(/\s*\(\d+\)$/, ''))}</div>
+      <div class="tl2-sdk" title="app verzió · FaceKom SDK ${sdkOfGroup(t.group) ? escAttr(sdkOfGroup(t.group)) : 'n/a — ' + escAttr(sdkMissingWhy(t.group.find(e => e.app_version)?.app_version))}">${esc((t.group.find(e => e.app_version)?.app_version || '—').replace(/\s*\(\d+\)$/, ''))}</div>
     </div>`;
   }).join('');
 
