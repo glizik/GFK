@@ -111,7 +111,7 @@ function buildVersion(v) {
 // with crash_kind=CRASH and their stack trace / fatal message into the log file's `crash` block.
 // Built across ALL active versions (not just the ones on the command line), because the section
 // ignores the version filter. A hand-written `title` / `diagnosis` survives rebuilds: carried over by
-// issue_id from the current file, else from the pre-3.9.0 archive.
+// issue_id from the current file, else from the archives (newest first).
 function readJson(p) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }
 
 function crashedStep(logs) {
@@ -130,7 +130,8 @@ function buildCrashes() {
     : VERSIONS;
   const outPath = path.join(DATA, 'crashes.json');
   const prev = readJson(outPath)?.issues || [];
-  const archived = readJson(path.join(ROOT, 'archive/pre-3.9.0/data/crashes.json'))?.issues || [];
+  const archived = ['archive/pre-cfg-2026-11-26', 'archive/pre-3.9.0']
+    .flatMap(a => readJson(path.join(ROOT, a, 'data/crashes.json'))?.issues || []);
   // Hand-kept fields: `title` (the raw one is a mangled Swift symbol) and `diagnosis`.
   const keptOf = (id, k) => prev.find(i => i.issue_id === id)?.[k] || archived.find(i => i.issue_id === id)?.[k] || '';
   // Fresh clone without data/logs: keep the previously built event entry instead of blanking it.

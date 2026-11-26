@@ -113,6 +113,15 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   collect now tops them up from Crashlytics (90-day retention ⇒ the archive copy is the only
   source for anything older). Archive rows predate `sdk_version` → shown as `n/a`
   (`sdkMissingWhy`); `perm` on a pre-3.9.0 app is `perm-old`, not a regression.
+- **`archive/pre-cfg-2026-11-26/`** — ALL versions' data up to the prod backend config change
+  (2026-11-26 16:25): events/issues CSV+JSON, crashes, investigations, collect-gaps. G's call: the
+  data before it is unreliable, only what comes after the config matters, so `data/` restarted
+  EMPTY (header-only CSVs, `[]` JSONs) with every version still active. **`COLLECT_SINCE`**
+  (set in `collect-incremental.sh`) clamps the API collector's interval start, so no window size
+  brings pre-epoch events back. Keep analysis of the archive light — the data is known-bad.
+- **Event-list cap:** `listSessionEventIds` returns at most **1000** keys per query (the NEWEST
+  ones — the start of the window is what gets cut). The collector logs it to `collect-gaps.jsonl`
+  as `keys=1000 expected=N`; **tell G whenever an issue hits 1000** (fix then: split the interval).
 
 ### Code map (functions in index.html)
 - **Load/render:** `loadData()` (reads `version_releases.csv` FIRST → `applyVersionConfig` fills

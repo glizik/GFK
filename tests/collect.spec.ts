@@ -695,8 +695,15 @@ async function collectIssueType(
 type ApiCtx = { base: string; key: string; headers: Record<string, string> };
 type EventKey = { sessionId: string; eventId: string };
 
-/** ISSUE_TIME_DEFAULT ("90d", "3d" or "<startMs>:<endMs>") → the interval the API expects. */
+/** ISSUE_TIME_DEFAULT ("90d", "3d" or "<startMs>:<endMs>") → the interval the API expects,
+ *  never starting before COLLECT_SINCE (ISO time: the data epoch — everything older is archived). */
 function apiInterval(): { startTime: string; endTime: string } {
+  const iv = apiIntervalRaw();
+  const since = process.env.COLLECT_SINCE ? new Date(process.env.COLLECT_SINCE) : null;
+  if (since && !isNaN(+since) && since > new Date(iv.startTime)) iv.startTime = since.toISOString();
+  return iv;
+}
+function apiIntervalRaw(): { startTime: string; endTime: string } {
   const now = Date.now();
   const days = /^(\d+)d$/.exec(ISSUE_TIME_DEFAULT);
   if (days) return { startTime: new Date(now - +days[1] * 86_400_000).toISOString(), endTime: new Date(now).toISOString() };
