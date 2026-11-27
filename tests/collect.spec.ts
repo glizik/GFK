@@ -802,14 +802,17 @@ async function apiCall<T>(page: Page, ctx: ApiCtx, endpoint: string, body?: unkn
 }
 
 /** Open issues of one event type matching the "FaceKom" search, in the interval, most events first. */
-async function listTopIssuesApi(page: Page, ctx: ApiCtx, eventType: 'NON_FATAL' | 'FATAL'): Promise<any[]> {
+async function listTopIssuesApi(
+  page: Page, ctx: ApiCtx, eventType: 'NON_FATAL' | 'FATAL',
+  versionFilters = apiVersionFilters(), interval = apiInterval(),
+): Promise<any[]> {
   const res = await apiCall<{ topIssues?: any[] }>(page, ctx, '/metrics:listFirebaseTopOpenIssues', {
     filters: {
       categories: [], customKeys: [], eventType: [eventType], manufacturerModels: [],
       osVersions: [], rollouts: [], tagFilter: { tagTypes: ['TAG_UNSPECIFIED'] },
-      versionFilters: apiVersionFilters(),
+      versionFilters,
     },
-    interval: apiInterval(),
+    interval,
     orderBy: 'ORDER_EVENTS',
     pageDetails: { pageSize: '100', pageToken: '' },
     searchTerm: { term: BASE_QUERY.issuesQuery },
@@ -1026,25 +1029,51 @@ function registerVersion(v: string, build: string) {
   console.log(`🆕 New app version ${v} (${build}) → added to version_releases.csv (active)`);
 }
 
-/** Per-version issue table row: who the issue is and how many of its events we hold. The interval's
- *  per-version event total is not known in this mode (one unfiltered query), so events_total stays empty. */
-function upsertIssueRow(v: string, issueName: string, issueId: string, code: string, delta: number) {
-  const p = issuesCsvOf(v);
-  const lines = fs.existsSync(p) ? fs.readFileSync(p, 'utf-8').trim().split(/\r?\n/) : [];
-  const head = lines.length ? parseCsvLine(lines[0]) : ISSUE_HEADERS;
-  const rows = lines.slice(1).filter(Boolean).map(l => {
-    const vals = parseCsvLine(l); const r: Record<string, string> = {};
-    head.forEach((h, i) => { r[h] = vals[i] ?? ''; }); return r;
-  });
-  let row = rows.find(r => r.issue_name === issueName);
-  if (!row) {
-    row = Object.fromEntries(ISSUE_HEADERS.map(h => [h, ''])) as Record<string, string>;
-    Object.assign(row, { rank: String(rows.length + 1), issue_name: issueName, issue_id: issueId, nserror_code: code, processed_events: '0' });
-    rows.push(row);
+/** Rewrite a version's issue table from scratch: what Crashlytics counts per issue since the data
+ *  epoch (events/users) next to how many of those events we hold (processed_events, counted from
+ *  events_<v>.csv by issue id). One row per issue NAME — Crashlytics splits one signal into
+ *  several issue ids, the dashboard matches rows to events by code + domain anyway. */
+function writeIssueTable(v: string, rows: Array<{ name: string; domain: string; code: string; ids: string[]; events: number; users: number }>) {
+  const held = new Map<string, number>();
+  for (const r of readAllEvents(eventsCsvOf(v))) held.set(r.issue_id, (held.get(r.issue_id) ?? 0) + 1);
+  const now = new Date().toISOString();
+  const out = rows.sort((a, b) => b.events - a.events).map((r, i) => ({
+    rank: String(i + 1), issue_name: r.name, nserror_domain: r.domain, nserror_code: r.code, issue_id: r.ids[0] ?? '',
+    variants_total: '', events_total: String(r.events), users_total: String(r.users),
+    processed_events: String(r.ids.reduce((s, id) => s + (held.get(id) ?? 0), 0)), analysed_events: '', last_scraped: now,
+  } as Record<string, string>));
+  fs.writeFileSync(issuesCsvOf(v), [ISSUE_HEADERS.join(','), ...out.map(r => ISSUE_HEADERS.map(h => escapeCsv(r[h] ?? '')).join(','))].join('\n') + '\n', 'utf-8');
+}
+
+/** Active versions with their build, from version_releases.csv ("3.8.1,2809,…,1" → ["3.8.1","2809"]). */
+function activeVersionBuilds(): Array<[string, string]> {
+  if (!fs.existsSync(RELEASES_CSV)) return [];
+  return fs.readFileSync(RELEASES_CSV, 'utf-8').trim().split(/\r?\n/).slice(1)
+    .map(l => l.split(',')).filter(c => c[0] && c[1] && (c[3] ?? '1').trim() !== '0').map(c => [c[0].trim(), c[1].trim()]);
+}
+
+/**
+ * The unfiltered pass cannot tell how many events an issue has PER VERSION, so ask once more per
+ * version, in the same browser (one call each). Counted since the data epoch (COLLECT_SINCE, else
+ * 90 days) — not over the collect window — so it compares with the held count in the issue table.
+ * Issues sharing a name (Crashlytics splits one signal into several issue ids) are summed.
+ */
+async function refreshIssueTotalsApi(page: Page, ctx: ApiCtx): Promise<void> {
+  const now = Date.now(), since = process.env.COLLECT_SINCE ? new Date(process.env.COLLECT_SINCE).getTime() : NaN;
+  const start = !isNaN(since) && since > now - 90 * 86_400_000 ? since : now - 90 * 86_400_000;
+  const interval = { startTime: new Date(start).toISOString(), endTime: new Date(now).toISOString() };
+  for (const [v, build] of activeVersionBuilds()) {
+    const issues = await listTopIssuesApi(page, ctx, 'NON_FATAL', [{ buildVersions: [build], displayVersion: v }], interval);
+    const byName = new Map<string, { name: string; domain: string; code: string; ids: string[]; events: number; users: number }>();
+    for (const i of issues) {
+      const name = nonFatalName(i);
+      const t = byName.get(name) ?? { name, domain: String(i?.caption?.signalName ?? ''), code: String(i?.caption?.signalCode ?? ''), ids: [], events: 0, users: 0 };
+      t.ids.push(i.id); t.events += +(i.eventsCount ?? 0); t.users += +(i.impactedDevicesCount ?? 0);
+      byName.set(name, t);
+    }
+    writeIssueTable(v, [...byName.values()]);
+    console.log(`🔢 ${v} (${build}): ${byName.size} issue(s), ${[...byName.values()].reduce((s, t) => s + t.events, 0)} event(s) since ${interval.startTime.slice(0, 16)}`);
   }
-  row.processed_events = String((parseInt(row.processed_events || '0') || 0) + delta);
-  row.last_scraped = new Date().toISOString();
-  fs.writeFileSync(p, [ISSUE_HEADERS.join(','), ...rows.map(r => ISSUE_HEADERS.map(h => escapeCsv(r[h] ?? '')).join(','))].join('\n') + '\n', 'utf-8');
 }
 
 async function collectAllVersionsApi(page: Page, ctx: ApiCtx): Promise<number> {
@@ -1072,8 +1101,8 @@ async function collectAllVersionsApi(page: Page, ctx: ApiCtx): Promise<number> {
       perVersion.set(v, (perVersion.get(v) ?? 0) + 1);
     };
     total += await collectIssueEventsApi(page, ctx, w.i.id, +(w.i.eventsCount ?? 0), w.name, existing, w.crash, store);
-    // Crashes are not in the issue tables (build-data.js assembles crashes.json from the events).
-    if (!w.crash) for (const [v, n] of perVersion) upsertIssueRow(v, w.name, w.i.id, String(w.i?.caption?.signalCode ?? ''), n);
+    // The issue tables are rewritten afterwards (refreshIssueTotalsApi); crashes are not in them
+    // at all (build-data.js assembles crashes.json from the events).
     if (perVersion.size) console.log(`📊 ${[...perVersion].map(([v, n]) => `${v} +${n}`).join(' · ')}`);
   }
   return total;
@@ -1125,6 +1154,7 @@ test('Collect 3.7.0 Crashlytics events', async ({ page }) => {
   if (COLLECT_ALL) {
     if (!apiCtx) throw new Error('COLLECT_ALL needs COLLECT_MODE=api');
     totalCollected = await collectAllVersionsApi(page, apiCtx);
+    await refreshIssueTotalsApi(page, apiCtx);
     console.log(`\n🎉 Done. Total new events (all versions): ${totalCollected}`);
     return;
   }

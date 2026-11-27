@@ -2283,13 +2283,13 @@ function renderAnalytics() {
 let gIssueHeld = new Map();   // issue.rank → held event count (version-scoped)
 function computeIssueHeld() {
   gIssueHeld = new Map();
-  const byId = new Map();     // Crashlytics issue_id → held count (version-scoped)
-  for (const e of events) { if (!evVersionMatch(e)) continue; const id = e.issue_id || ''; byId.set(id, (byId.get(id) || 0) + 1); }
   for (const iss of issues) {
     // The issue CSV has no issue_id, so resolve it from a held event matching this
     // issue's code + domain (issue domain may carry a doubled bundle prefix → endsWith).
     const ev = events.find(e => evVersionMatch(e) && e.nserror_domain && e.nserror_code === iss.nserror_code && (iss.nserror_domain || '').endsWith(e.nserror_domain));
-    gIssueHeld.set(iss.rank, ev ? (byId.get(ev.issue_id || '') || 0) : 0);
+    // Crashlytics splits one signal into several issue ids: count every held event of the SAME
+    // code + domain, not just the issue id of the first one found.
+    gIssueHeld.set(iss.rank, ev ? events.filter(e => evVersionMatch(e) && e.nserror_code === ev.nserror_code && e.nserror_domain === ev.nserror_domain).length : 0);
   }
 }
 function issueStat(iss) {

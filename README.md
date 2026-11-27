@@ -1,5 +1,46 @@
 # GFK
 
+FaceKom iOS identity-verification dashboard built from Firebase Crashlytics data.
+Dashboard: `node server.js` → http://localhost:3737 · deployed to GitHub Pages on every push to
+`development`. Architecture, data model and conventions: **`CLAUDE.md`** (and `ai.md`).
+
+## Collecting data (current)
+
+```bash
+./collect-incremental.sh            # last 1 day (default)
+./collect-incremental.sh 3d         # 1d | 3d | 7d | 90d
+```
+
+Collects, rebuilds `data/events_<v>.json`, commits + pushes, and reports to Telegram by itself.
+Nothing older than the data epoch (`COLLECT_SINCE`, set in the script: 2026-11-26 16:25, the prod
+backend config change) is ever requested — older data lives in `archive/`.
+
+### Two collection paths
+
+| | **One pass, all versions** (default) | **Per version** (old path) |
+|---|---|---|
+| Switch | `COLLECT_ALL=1` (default) | `COLLECT_ALL=0 ./collect-incremental.sh 1d` |
+| How | ONE collector run, ONE browser, no version filter. FaceKom issue list straight from the Crashlytics API, every event routed to `events_<its version>.csv`, then one more API call per version for the per-version issue totals. | For every active version: UI discovery (90d) → one collector run (and browser) per issue. |
+| New app version | added to `data/version_releases.csv` automatically (active) | must be added to `data/version_releases.csv` by hand |
+| Speed (quiet day) | ~20–30 s | ~30 min |
+
+Keep the old path working: the API endpoints are internal and undocumented. If the one-pass run
+breaks, `COLLECT_ALL=0` is the first fallback, `COLLECT_MODE=scrape` (UI walk instead of the API)
+the second.
+
+**1000-event cap:** Crashlytics returns at most 1000 events per issue per query (the newest ones).
+When an issue hits it, the run sends a 🚨 Telegram message and logs it in `data/collect-gaps.jsonl`.
+
+### First-time login / expired session
+```bash
+npm run setup
+```
+
+---
+
+*Everything below is the original (2026-05) README of the first, UI-scraping collector — kept for
+reference, partly outdated.*
+
 added helper method to ~/.zshrc
 
 # GFK – Crashlytics collector
