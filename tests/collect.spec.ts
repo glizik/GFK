@@ -822,10 +822,12 @@ async function listTopIssuesApi(
 const nonFatalName = (i: any) => `${i?.caption?.signalName} (${i?.caption?.signalCode})`;
 const crashName    = (i: any) => [i?.caption?.title, i?.caption?.subtitle].filter(Boolean).join(' — ') || `crash ${i.id}`;
 
-/** The issue list, matched by "<signalName> (<signalCode>)" — the same name the CSVs use. */
-async function findIssueApi(page: Page, ctx: ApiCtx, issueType: string): Promise<{ id: string; eventsCount: number }> {
-  const found = (await listTopIssuesApi(page, ctx, 'NON_FATAL')).find(i => nonFatalName(i) === issueType);
-  return { id: found?.id ?? '', eventsCount: +(found?.eventsCount ?? 0) };
+/** The issue list, matched by "<signalName> (<signalCode>)" — the same name the CSVs use. Crashlytics
+ *  splits one signal into SEVERAL issue ids (e.g. a new id from 2026-11-10 on): return every one of
+ *  them — taking only the first is what silently lost ~3/4 of the events in Nov 2026. */
+async function findIssuesApi(page: Page, ctx: ApiCtx, issueType: string): Promise<Array<{ id: string; eventsCount: number }>> {
+  return (await listTopIssuesApi(page, ctx, 'NON_FATAL')).filter(i => nonFatalName(i) === issueType)
+    .map(i => ({ id: i.id, eventsCount: +(i.eventsCount ?? 0) }));
 }
 
 /**
@@ -968,9 +970,11 @@ async function backfillSdkVersion(page: Page, ctx: ApiCtx): Promise<void> {
 
 async function collectIssueTypeViaApi(page: Page, ctx: ApiCtx, issueType: string, existingKeys: Set<string>): Promise<number> {
   console.log(`\n${'═'.repeat(60)}\n🎯 Collecting via API: "${issueType}"`);
-  const { id: issueId, eventsCount } = await findIssueApi(page, ctx, issueType);
-  if (!issueId) { console.log(`⚠️  Not found in the issue list for this interval. Skipping.`); return 0; }
-  return collectIssueEventsApi(page, ctx, issueId, eventsCount, issueType, existingKeys, false);
+  const found = await findIssuesApi(page, ctx, issueType);
+  if (!found.length) { console.log(`⚠️  Not found in the issue list for this interval. Skipping.`); return 0; }
+  let n = 0;
+  for (const f of found) n += await collectIssueEventsApi(page, ctx, f.id, f.eventsCount, issueType, existingKeys, false);
+  return n;
 }
 
 async function collectIssueEventsApi(
