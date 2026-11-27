@@ -1,5 +1,5 @@
 rank,issue_name,nserror_domain,nserror_code,issue_id,variants_total,events_total,users_total,processed_events,analysed_events,last_scraped
-1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,186ba2b717e3ff33ce17c92019f1321f,,9,9,242,,2026-11-27T20:48:00.190Z
-2,FaceKom handleFlow (0),FaceKom handleFlow,0,84aa5f3ba2ddf1319562d8c3251f336b,,4,4,100,,2026-11-27T20:48:00.190Z
-3,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30802),hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30802,375f541612241dfd5d28d6971006722b,,3,2,56,,2026-11-27T20:48:00.190Z
-4,FaceKom stopAndClear (0),FaceKom stopAndClear,0,1a18a78cdd74412d791e86041df037b2,,2,2,34,,2026-11-27T20:48:00.190Z
+1,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30803),hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30803,186ba2b717e3ff33ce17c92019f1321f,,9,9,242,,2026-11-27T21:00:12.323Z
+2,FaceKom handleFlow (0),FaceKom handleFlow,0,84aa5f3ba2ddf1319562d8c3251f336b,,4,4,100,,2026-11-27T21:00:12.323Z
+3,hu.microsec.eszigno.mobile.SelfServiceRuntimeError (30802),hu.microsec.eszigno.mobile.SelfServiceRuntimeError,30802,375f541612241dfd5d28d6971006722b,,3,2,56,,2026-11-27T21:00:12.323Z
+4,FaceKom stopAndClear (0),FaceKom stopAndClear,0,1a18a78cdd74412d791e86041df037b2,,2,2,34,,2026-11-27T21:00:12.323Z
