@@ -122,7 +122,7 @@ Analytics/Step-funnel → Events grid → Dev tasks.
   source for anything older). Archive rows predate `sdk_version` → shown as `n/a`
   (`sdkMissingWhy`); `perm` on a pre-3.9.0 app is `perm-old`, not a regression.
 - **`archive/pre-cfg-2026-11-26/`** — ALL versions' data up to the prod backend config change
-  (2026-11-26 16:25): events/issues CSV+JSON, crashes, investigations, collect-gaps. G's call: the
+  (2026-11-26 16:57 — first logged as 16:25, moved past session d8ca106b… that ran 16:50–16:56 on the old config): events/issues CSV+JSON, crashes, investigations, collect-gaps. G's call: the
   data before it is unreliable, only what comes after the config matters, so `data/` restarted
   EMPTY (header-only CSVs, `[]` JSONs) with every version still active. **`COLLECT_SINCE`**
   (set in `collect-incremental.sh`) clamps the API collector's interval start, so no window size

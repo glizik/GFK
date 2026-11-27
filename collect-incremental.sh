@@ -29,9 +29,9 @@ active_versions () {
     | sort -Vr | tr '\n' ' '
 }
 VERSIONS=(${COLLECT_VERSIONS:-$(active_versions)})
-# Data epoch: the prod backend config change (2026-11-26 16:25). Everything before it is archived
+# Data epoch: the prod backend config change (2026-11-26 16:57; first set to 16:25, moved after session d8ca106b… which ended 16:56:07). Everything before it is archived
 # in archive/pre-cfg-2026-11-26/; the API collector never asks for older events, whatever WINDOW is.
-export COLLECT_SINCE="${COLLECT_SINCE:-2026-11-26T16:25:00+01:00}"
+export COLLECT_SINCE="${COLLECT_SINCE:-2026-11-26T16:57:00+01:00}"
 HEARTBEAT=600                        # seconds between progress pings during a long issue
 
 # ── window arg ──────────────────────────────────────────────────────────────
