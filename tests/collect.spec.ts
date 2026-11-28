@@ -1023,14 +1023,16 @@ const ISSUE_HEADERS = ['rank', 'issue_name', 'nserror_domain', 'nserror_code', '
 /** "3.9.0 (2853)" → "3.9.0"; the file key and the version_releases.csv key. */
 const versionOfRecord = (rec: EventRecord) => (rec.app_version || '').replace(/\s*\(.*\)\s*$/, '').trim() || 'unknown';
 
-/** A version not yet in version_releases.csv gets a row, active — so it is collected, built,
- *  published and offered by the dashboard from now on without anyone touching the CSV. */
+/** A version not yet in version_releases.csv gets a row, INACTIVE (active=0): its events are still
+ *  stored in events_<v>.csv, but it is not built, published or shown until G flips it to 1 by hand
+ *  (G 2026-11-27: a tester build, 3.10.0, became the dashboard's default view). An existing row is
+ *  never touched, so a version switched off stays off. */
 function registerVersion(v: string, build: string) {
   const text = fs.existsSync(RELEASES_CSV) ? fs.readFileSync(RELEASES_CSV, 'utf-8') : 'version,build,date,active\n';
   if (text.split(/\r?\n/).some(l => l.split(',')[0] === v)) return;
   const today = new Date().toISOString().slice(0, 10);
-  fs.writeFileSync(RELEASES_CSV, text.replace(/\n?$/, '\n') + `${v},${build},${today},1\n`, 'utf-8');
-  console.log(`🆕 New app version ${v} (${build}) → added to version_releases.csv (active)`);
+  fs.writeFileSync(RELEASES_CSV, text.replace(/\n?$/, '\n') + `${v},${build},${today},0\n`, 'utf-8');
+  console.log(`🆕 New app version ${v} (${build}) → added to version_releases.csv INACTIVE — set active=1 to show it`);
 }
 
 /** Rewrite a version's issue table from scratch: what Crashlytics counts per issue since the data
